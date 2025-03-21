@@ -1,0 +1,17 @@
+version: "3.9"
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app # 코드 변경 시 바로 반영 (개발 환경에 유용)
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app # 코드 변경 시 바로 반영
+    environment:
+      - CHOKIDAR_USEPOLLING=true # Docker 환경에서 파일 변경 감지를 위한 설정
