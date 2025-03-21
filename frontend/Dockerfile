@@ -1,5 +1,5 @@
 # Node.js 베이스 이미지 선택 (필요한 Node 버전에 맞게 조정)
-FROM node:16-alpine
+FROM node:23-alpine
 
 # 작업 디렉토리 생성
 WORKDIR /app
