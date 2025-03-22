@@ -13,5 +13,6 @@ services:
       - "3000:3000"
     volumes:
       - ./frontend:/app # 코드 변경 시 바로 반영
+      - /app/node_modules  # node_modules는 로컬과 분리
     environment:
       - CHOKIDAR_USEPOLLING=true # Docker 환경에서 파일 변경 감지를 위한 설정
