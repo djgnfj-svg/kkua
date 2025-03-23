@@ -24,11 +24,11 @@ function Lobby() {
     aType: "", bType: "", cType: "", dType: "", fType: ""
   }
   const slides = [
-    { color: 'bg-red-400' },
-    { color: 'bg-blue-400' },
-    { color: 'bg-green-400' },
-    { color: 'bg-yellow-400' },
-    { color: 'bg-purple-400' },
+    { image: `/images/slide1.jpg` }, // 로컬 이미지 사용 시 경로 예시
+    { image: '/images/slide2.jpg' },
+    { image: '/images/slide3.jpg' },
+    { image: '/images/slide4.jpg' },
+    { image: '/images/slide5.jpg' },
   ];
 
   useEffect(() => {
@@ -44,8 +44,13 @@ function Lobby() {
 
       {/* 상단 슬라이더 */}
       <div
-        className={`w-full h-40 mt-20 flex items-center justify-center transition-all duration-500 ${slides[activeIndex].color}`}
+        className={`w-full h-40 mt-20 flex items-center justify-center transition-all duration-500`}
         id="lobby__SlideBox"
+        style={{
+          backgroundImage: `url(${slides[activeIndex].image})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
       >
         <div className="flex space-x-2 mt-40">
           {slides.map((_, index) => (
@@ -55,6 +60,7 @@ function Lobby() {
             ></div>
           ))}
         </div>
+
       </div>
 
       {/* 방 목록 */}
