@@ -117,9 +117,7 @@ function Lobby() {
           </div>
         ))}
          {/* 빈 박스 추가 */}
-         {rooms.length < 4 && (
-            <div className="bg-white p-8 border-b h-10vh shadow-md mb-3" id='lobby__list'></div>
-          )}
+            <div className="bg-white p-8 border-b h-10vh shadow-md mb-3" id='lobby__list__empty'></div>
       </div>
 
      {/* 새로고침 & 위로가기 버튼 */}
