@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 function InGame() {
-  const [items, setItems] = useState(['넘뛰기', '터널', '햄스터']);
+  const [items, setItems] = useState(['햄스터', '터널', '널뛰기']);
   const [players, setPlayers] = useState(['하우두유', '부러', '김밥', '후러']);
   const specialPlayer = '부러';
 
@@ -12,11 +12,13 @@ function InGame() {
         콤보콤보콤보
       </div>
 
-      <div className="w-[80vw] max-w-sm space-y-2">
+      <div className="w-[80vw] max-w-sm space-y-4 tracking-wide">
         {items.slice(-3).map((item, index) => (
-          <div key={index} className="p-2 rounded-lg border shadow flex items-center space-x-2">
-            <div className={`w-4 h-4 ${item === '넘뛰기' ? 'bg-red-400' : item === '터널' ? 'bg-orange-400' : 'bg-yellow-400'} rounded-full`}></div>
-            <span className={`${item === '넘뛰기' ? 'text-red-500' : item === '터널' ? 'text-orange-500' : 'text-yellow-500'} font-bold`}>{item}</span>
+          <div key={index} className="p-3 rounded-full border shadow-lg flex items-center space-x-2 bg-white border-gray-300 drop-shadow-md">
+            <div className={`w-6 h-6 ${index === 0 ? 'bg-blue-400' : index === 1 ? 'bg-green-400' : 'bg-purple-400'} rounded-full`}></div>
+            <span className="font-bold text-black">
+              {item.slice(0, -1)}<span className="text-red-500">{item.slice(-1)}</span>
+            </span>
           </div>
         ))}
       </div>
@@ -41,12 +43,12 @@ function InGame() {
         ))}
       </div>
 
-      <div className="w-full max-w-sm flex items-center space-x-2 border-t pt-2 absolute bottom-5">
+      <div className="w-full max-w-sm flex items-center space-x-2 border-t pt-2 absolute bottom-4">
         <span className="font-bold">화살표</span>
         <input
           type="text"
           className="flex-1 p-2 border rounded-lg focus:outline-none"
-          placeholder="기미"
+          placeholder="즐거운 끄아와"
         />
       </div>
     </div>
