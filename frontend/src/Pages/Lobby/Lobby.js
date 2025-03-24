@@ -100,7 +100,7 @@ function Lobby() {
      {/* 방 생성하기 버튼 */}
      <div className="fixed bottom-5 w-full bg-white flex justify-center text-center">
         <button className="w-full flex items-center justify-center gap-2 text-red-400 border-2 border-[#4178ED] rounded-full px-4 py-2 shadow-lg">
-        <img src={`${process.env.PUBLIC_URL || ''}/imgs/icon/image1.png`} alt="고양이" className="w-8 h-8" />
+        <img src={`${process.env.PUBLIC_URL || ''}/imgs/icon/AddIcon.png`} alt="고양이" className="w-8 h-8" />
         방 생성하기
         </button>
       </div>
