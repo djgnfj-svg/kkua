@@ -47,7 +47,9 @@ function InGame() {
         ))}
       </div>
 
-      <div className="w-full max-w-sm flex items-center space-x-2 border-t pt-2 absolute bottom-4">
+    
+      <div className=" w-full max-w-sm flex items-center space-x-2 px-4 py-4 fixed bottom-0 bg-gray-200 z-50">
+
         <span className="font-bold">화살표</span>
         <input
           type="text"
