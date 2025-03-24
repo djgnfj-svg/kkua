@@ -1,5 +1,7 @@
 import { useState } from 'react';
 
+const time_gauge = 40; // 값이 올라가면 빨리 달림 70 되면 
+
 function InGame() {
   const [items, setItems] = useState(['햄스터', '터널', '널뛰기']);
   const [players, setPlayers] = useState(['하우두유', '부러', '김밥', '후러']);
@@ -8,7 +10,7 @@ function InGame() {
   return (
     <div className="min-h-screen bg-white p-4 flex flex-col items-center space-y-4 relative">
       <h1 className="text-2xl font-bold">120초</h1>
-      <div className="w-full max-w-sm p-4 border-4 border-orange-400 rounded-lg text-center font-bold">
+      <div className="w-full max-w-sm p-4 border-4 border-orange-400 rounded-full text-center font-bold ">
         콤보콤보콤보
       </div>
 
@@ -23,15 +25,17 @@ function InGame() {
         ))}
       </div>
 
-      <div className="w-full max-w-sm h-4 bg-gray-200 rounded-lg overflow-hidden">
-        <div className="h-full bg-orange-400 w-1/4 relative">
-          <div className="absolute top-0 -right-2 w-6 h-6 bg-white border border-orange-400 rounded-full">
-            🐾
-          </div>
+      <div className="w-full max-w-sm h-4 bg-gray-200 rounded-lg">
+        <div className="h-full bg-orange-400 w-1/4 relative z-10 rounded-lg">
+            
+            
+            <img src={time_gauge <= 70 ? '/imgs/cat_walking.gif' : '/imgs/cat_running.gif'} className="absolute z-20 -top-2 -right-2 w-8 h-8 scale-x-[-1]" alt='cat_walking'></img>
+
+        
         </div>
       </div>
 
-      <div className="grid grid-cols-2 h-auto gap-4 w-full max-w-md px-4">
+      <div className="grid grid-cols-2 h-auto gap-4 w-[350px] max-w-md px-4">
         {players.map((player, index) => (
           <div
             key={index}
