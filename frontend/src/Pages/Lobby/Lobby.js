@@ -16,6 +16,12 @@ function Lobby() {
     { title: "뉴비 환영 놀아줘", type: "4인 일반전", players: "[ 2 / 4 ]", status: "입장", color: "bg-blue-500" },
     { title: "뉴비 환영 놀아줘", type: "4인 일반전", players: "[ 2 / 4 ]", status: "입장", color: "bg-blue-500" },
   ];
+//   {/* 배너 이미지 */}
+//   // const slides = [
+//   //   { image: `/images/slide1.jpg` },
+//   //   { image: '/images/slide2.jpg' },
+//   //   { image: '/images/slide3.jpg' },
+//   // ];
 
   {/* 배너 이미지 */}
   const slides = [
