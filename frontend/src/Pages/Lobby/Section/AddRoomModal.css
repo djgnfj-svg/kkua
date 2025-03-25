@@ -8,7 +8,8 @@
     align-items: center;
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
     position: relative;
-    margin-top: 60px; /* 모달 중간 배치 */
+    top: 20%; /* 모달 중간 배치 */
+    margin: 0 auto;
 }
 
 .modal-ears {
@@ -20,10 +21,10 @@
 }
 
 .ear {
-    width: 50px; /* 귀 크기 조정 */
-    height: 90px; /* 귀 높이 조정 */
-    background-color: #FFF8F3; /* 귀 외부 색상 변경 */
-    border: 8px solid #FFD9B3; /* 안쪽 색상 변경 및 테두리 추가 */
+    width: 40px; /* 귀 크기 조정 */
+    height: 100px; /* 귀 높이 조정 */
+    background-color: #FFD9B3; /* 귀 외부 색상 변경 */
+    border: 8px solid #FFF8F3; /* 안쪽 색상 변경 및 테두리 추가 */
     border-radius: 50px;
     margin: 0 35px;
 }
