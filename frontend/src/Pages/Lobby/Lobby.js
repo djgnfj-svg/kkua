@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Lobby.css';
+import { gameUrl } from '../../Component/urls';
 
 function Lobby() {
   const [activeIndex, setActiveIndex] = useState(0);
@@ -35,7 +36,7 @@ function Lobby() {
   ];
 
   const handleClickEnterGame = () =>{
-    
+    navigate(gameUrl)
   }
 
   {/* 슬라이드 인터벌 초기화 함수 */}
