@@ -1,0 +1,76 @@
+.modal-container {
+    background-color: #FFF8F3;
+    border-radius: 30px;
+    width: 340px;
+    height: 320px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    position: relative;
+    margin-top: 60px; /* 모달 중간 배치 */
+}
+
+.modal-ears {
+    display: flex;
+    position: absolute;
+    top: -75px; /* 귀가 박스 바깥으로 더 높이 */
+    width: 100%;
+    justify-content: center;
+}
+
+.ear {
+    width: 50px; /* 귀 크기 조정 */
+    height: 90px; /* 귀 높이 조정 */
+    background-color: #FFF8F3; /* 귀 외부 색상 변경 */
+    border: 8px solid #FFD9B3; /* 안쪽 색상 변경 및 테두리 추가 */
+    border-radius: 50px;
+    margin: 0 35px;
+}
+
+.modal-content {
+    padding: 40px 20px;
+    text-align: center;
+}
+
+.modal-title {
+    color: #FF8A8A;
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 20px;
+}
+
+.room-title-input {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #FFDAC1;
+    border-radius: 12px;
+    outline: none;
+    background-color: #FFF;
+    margin-bottom: 20px;
+}
+
+.create-btn {
+    background-color: #D3D3D3;
+    color: #7E7E7E;
+    border: none;
+    border-radius: 20px;
+    width: 100%;
+    padding: 12px 0;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+.create-btn:hover {
+    background-color: #C0C0C0;
+}
+
+.close-btn {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+}

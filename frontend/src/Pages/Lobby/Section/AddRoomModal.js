@@ -1,33 +1,44 @@
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react';
 import Modal from 'react-modal';
+import './AddRoomModal.css';
 
 Modal.setAppElement('#root');
 
-function AddRoomModal( {isOpen , isClose} ) {
-    
+function AddRoomModal({ isOpen, isClose }) {
+    const [roomTitle, setRoomTitle] = useState('');
+
     return (
-        <div className="Modal_App">
+        <div className="modal-app">
             <Modal
-                isOpen={isOpen}            // 모달 상태
-                onRequestClose={() => isClose(false)}  // 닫기 설정 (ESC 키나 배경 클릭 시 닫힘)
-                contentLabel="Example Modal"    // 접근성 향상을 위한 레이블
+                isOpen={isOpen}
+                onRequestClose={() => isClose(false)}
+                contentLabel="Add Room Modal"
                 style={{
-                    overlay: { backgroundColor: 'rgba(0, 0, 0, 0.5)' }, // 모달 배경
-                    content: {
-                         width: '300px', height: '300px', margin: 'auto'
-                        } // 모달 본문 스타일
+                    overlay: { backgroundColor: 'rgba(0, 0, 0, 0.5)' },
+                    content: { border: 'none', background: 'none', padding: 0 }
                 }}
             >
-                <h2></h2>
-                <p>이곳은 모달 내용입니다.</p>
-                <button onClick={() => isClose(false)}>
-                    닫기
-                </button>
+                <div className="modal-container">
+                    <div className="modal-ears">
+                        <div className="ear left"></div>
+                        <div className="ear right"></div>
+                    </div>
+                    <div className="modal-content">
+                        <button className="close-btn" onClick={() => isClose(false)}>×</button>
+                        <h2 className="modal-title">끄아 방 만들기</h2>
+                        <input 
+                            type="text" 
+                            placeholder="방 제목" 
+                            value={roomTitle} 
+                            onChange={(e) => setRoomTitle(e.target.value)}
+                            className="room-title-input"
+                        />
+                        <button className="create-btn">생성하기</button>
+                    </div>
+                </div>
             </Modal>
         </div>
-    )
+    );
 }
 
-export default AddRoomModal
-
-
+export default AddRoomModal;
