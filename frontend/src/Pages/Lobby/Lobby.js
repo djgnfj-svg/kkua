@@ -107,7 +107,6 @@ function Lobby() {
           </div>
         ))}
           <div className="bg-white p-4 min-h-[10vh] border-b shadow-md flex items-center justify-between">
-            
           </div>
       </div>
      {/* 방 생성하기 버튼 */}
