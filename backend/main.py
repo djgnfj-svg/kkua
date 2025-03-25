@@ -161,6 +161,11 @@ def start_game(room_id: int):
         db.close()
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="방을 찾을 수 없습니다")
     
+    # 이미 플레이 중인지 확인
+    if db_room.playing:
+        db.close()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="이미 게임이 시작되었습니다")
+    
     # 플레이 중 상태로 변경
     db_room.playing = True
     db.commit()
@@ -177,6 +182,11 @@ def end_game(room_id: int):
     if not db_room:
         db.close()
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="방을 찾을 수 없습니다")
+    
+    # 이미 게임이 종료되었는지 확인
+    if not db_room.playing:
+        db.close()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="이미 게임이 종료되었습니다")
     
     # 플레이 종료 상태로 변경
     db_room.playing = False
