@@ -1,9 +1,11 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './Lobby.css';
 
 function Lobby() {
   const [activeIndex, setActiveIndex] = useState(0);
   const intervalRef = useRef(null); // 인터벌 참조 생성
+  const navigate = useNavigate()
 
   {/* 방 제목 / 게임 타입 / 진행중인 인원 */}
   const rooms = [
@@ -31,6 +33,10 @@ function Lobby() {
     { color: `rgb(46, 45, 213)` },
     { color: `rgb(213, 128, 45)` },
   ];
+
+  const handleClickEnterGame = () =>{
+    
+  }
 
   {/* 슬라이드 인터벌 초기화 함수 */}
   const resetInterval = () => {
@@ -96,7 +102,7 @@ function Lobby() {
               <h3 className="font-bold mb-0.5 tracking-widest">{room.title}</h3>
               <p className="text-sm font-bold">{room.type} {room.players}</p>
             </div>
-            <button className={`text-white px-3 py-1 rounded ${room.color}`}>{room.status}</button>
+            <button className={`text-white px-3 py-1 rounded ${room.color}`} onClick={(e) => handleClickEnterGame()} >{room.status}</button>
           </div>
         ))}
           <div className="bg-white p-4 min-h-[10vh] border-b shadow-md flex items-center justify-between">
