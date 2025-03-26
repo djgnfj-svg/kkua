@@ -8,7 +8,6 @@ function Lobby() {
   const [activeIndex, setActiveIndex] = useState(0);
   const intervalRef = useRef(null); // 인터벌 참조 생성
   const navigate = useNavigate()
-  const [modalIsOpen , setModalIsOpen] = useState(false);
 
   {/* 방 제목 / 게임 타입 / 진행중인 인원 */}
   const rooms = [
@@ -21,7 +20,6 @@ function Lobby() {
     { title: "뉴비 환영 놀아줘", type: "4인 일반전", players: "[ 2 / 4 ]", status: "입장", color: "bg-blue-500" },
     { title: "뉴비 환영 놀아줘", type: "4인 일반전", players: "[ 2 / 4 ]", status: "입장", color: "bg-blue-500" },
   ];
-
 //   {/* 배너 이미지 */}
 //   // const slides = [
 //   //   { image: `/images/slide1.jpg` },
@@ -37,9 +35,9 @@ function Lobby() {
     { color: `rgb(46, 45, 213)` },
     { color: `rgb(213, 128, 45)` },
   ];
-  // url 이동
+
   const handleClickEnterGame = () =>{
-    navigate(gameUrl)
+    
   }
 
   {/* 슬라이드 인터벌 초기화 함수 */}
@@ -114,19 +112,16 @@ function Lobby() {
           </div>
         ))}
           <div className="bg-white p-4 min-h-[10vh] border-b shadow-md flex items-center justify-between">
+            
           </div>
       </div>
      {/* 방 생성하기 버튼 */}
-     <div className="fixed bottom-10 w-full bg-white flex justify-center text-center" onClick={(e) => handleClickOpenModal(e)} >
+     <div className="fixed bottom-5 w-full bg-white flex justify-center text-center">
         <button className="w-full flex items-center justify-center gap-2 text-red-400 border-2 border-[#4178ED] rounded-full px-4 py-2 shadow-lg">
         <img src={`${process.env.PUBLIC_URL || ''}/imgs/icon/AddIcon.png`} alt="고양이" className="w-8 h-8" />
         방 생성하기
         </button>
       </div>
-      {modalIsOpen && 
-      <>
-        <AddRoomModal isOpen={modalIsOpen} isClose={setModalIsOpen} />
-      </>}
     </div>
   );
 }
