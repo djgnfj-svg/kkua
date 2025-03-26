@@ -1,11 +1,14 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Lobby.css';
+import { gameUrl } from '../../Component/urls';
+import AddRoomModal from './Section/AddRoomModal';
 
 function Lobby() {
   const [activeIndex, setActiveIndex] = useState(0);
   const intervalRef = useRef(null); // 인터벌 참조 생성
   const navigate = useNavigate()
+  const [modalIsOpen , setModalIsOpen] = useState(false);
 
   {/* 방 제목 / 게임 타입 / 진행중인 인원 */}
   const rooms = [
@@ -25,6 +28,13 @@ function Lobby() {
 //   //   { image: '/images/slide3.jpg' },
 //   // ];
 
+//   {/* 배너 이미지 */}
+//   // const slides = [
+//   //   { image: `/images/slide1.jpg` },
+//   //   { image: '/images/slide2.jpg' },
+//   //   { image: '/images/slide3.jpg' },
+//   // ];
+
   {/* 배너 이미지 */}
   const slides = [
     { color: `rgb(175, 142, 235)` },
@@ -33,9 +43,9 @@ function Lobby() {
     { color: `rgb(46, 45, 213)` },
     { color: `rgb(213, 128, 45)` },
   ];
-
+  // url 이동
   const handleClickEnterGame = () =>{
-    
+    navigate(gameUrl)
   }
 
   {/* 슬라이드 인터벌 초기화 함수 */}
@@ -57,18 +67,22 @@ function Lobby() {
   const handlePrevSlide = () => {
     setActiveIndex((prevIndex) => (prevIndex === 0 ? slides.length - 1 : prevIndex - 1));
     resetInterval(); // 버튼 클릭 시 인터벌 초기화
-  };
+  }
 
   const handleNextSlide = () => {
     setActiveIndex((prevIndex) => (prevIndex + 1) % slides.length);
     resetInterval(); // 버튼 클릭 시 인터벌 초기화
-  };
+  }
 
   {/* 점 클릭 시 슬라이드 이동 */}
   const handleDotClick = (index) => {
     setActiveIndex(index);
     resetInterval(); // 클릭 시 인터벌 초기화
-  };
+  }
+  //모달 열기
+  const handleClickOpenModal =() => {
+      setModalIsOpen(true)
+  }
 
   return (
     <div className="h-screen bg-gray-100 flex flex-col" style={{fontFamily:"Apple SD Gothic Neo"}}>
@@ -106,16 +120,19 @@ function Lobby() {
           </div>
         ))}
           <div className="bg-white p-4 min-h-[10vh] border-b shadow-md flex items-center justify-between">
-            
           </div>
       </div>
      {/* 방 생성하기 버튼 */}
-     <div className="fixed bottom-5 w-full bg-white flex justify-center text-center">
+     <div className="fixed bottom-10 w-full bg-white flex justify-center text-center" onClick={(e) => handleClickOpenModal(e)} >
         <button className="w-full flex items-center justify-center gap-2 text-red-400 border-2 border-[#4178ED] rounded-full px-4 py-2 shadow-lg">
         <img src={`${process.env.PUBLIC_URL || ''}/imgs/icon/AddIcon.png`} alt="고양이" className="w-8 h-8" />
         방 생성하기
         </button>
       </div>
+      {modalIsOpen && 
+      <>
+        <AddRoomModal isOpen={modalIsOpen} isClose={setModalIsOpen} />
+      </>}
     </div>
   );
 }
