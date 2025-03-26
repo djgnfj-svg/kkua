@@ -1,4 +1,6 @@
 시작합니다.
+테스트 명령어 : docker build -t backend-test ./backend
+
 
 ## 1. 프로젝트 개요
 
