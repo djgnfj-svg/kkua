@@ -8,6 +8,7 @@ function Lobby() {
   const [activeIndex, setActiveIndex] = useState(0);
   const intervalRef = useRef(null); // 인터벌 참조 생성
   const navigate = useNavigate()
+  const [modalIsOpen , setModalIsOpen] = useState(false)
 
   {/* 방 제목 / 게임 타입 / 진행중인 인원 */}
   const rooms = [
