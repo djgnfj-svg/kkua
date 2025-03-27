@@ -12,4 +12,4 @@ RUN pip install --upgrade pip && pip install -r requirements.txt
 COPY . .
 
 # 컨테이너 실행 시 uvicorn을 모듈 방식으로 실행
-CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
