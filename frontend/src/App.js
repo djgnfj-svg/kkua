@@ -9,6 +9,13 @@ import GameLobbyPage from './Pages/GameLobbyPage/GameLobbyPage';
 // Url별 화면 표시
 
 function App() {
+  
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    setNavigator(navigate);
+  }, [navigate]);
+
   return (
     <div className="App">
       <Router>
