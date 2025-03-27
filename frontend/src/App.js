@@ -10,12 +10,6 @@ import { useEffect } from 'react';
 
 function App() {
   
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    setNavigator(navigate);
-  }, [navigate]);
-
   return (
     <div className="App">
       <Router>
