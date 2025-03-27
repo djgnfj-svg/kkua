@@ -9,18 +9,25 @@ Modal.setAppElement('#root');
 
 function AddRoomModal({ isOpen, isClose }) {
     const navigate = useNavigate();
-    const [roomTitle, setRoomTitle] = useState('');
-    const [mode, setMode] = useState('arcade');
-    const [people, setPeople] = useState('2');
+  
+    const [makeRoom, setMakeRoom] = useState({
+        roomTitle: "",
+        mode: "",
+        people: ""
+    });
 
     const handleSubmitBtn = async () => {
         try {
-            const res = await axiosInstance.post(ROOM_API.CREATE_ROOMS);
+            const res = await axiosInstance.post(ROOM_API.CREATE_ROOMS,{
+                roomTitle:makeRoom.roomTitle,
+                mode : makeRoom.mode,
+                people : makeRoom.people
+            })
             console.log(res.data);
             navigate("/kea");
         }
         catch (error) {
-            console.log(error)
+            console.log(error);
         }
     }
 
@@ -34,7 +41,7 @@ function AddRoomModal({ isOpen, isClose }) {
                     overlay: { backgroundColor: 'rgba(0, 0, 0, 0.5)' },
                     content: { border: 'none', background: 'none', padding: 0 }
                 }}>
-                <div className="modal-container" >
+                <div className="modal-container">
                     <div className="modal-ears">
                         <div className="ear left"></div>
                         <div className="ear right"></div>
@@ -47,8 +54,10 @@ function AddRoomModal({ isOpen, isClose }) {
                         <input
                             type="text"
                             placeholder="방 제목"
-                            value={roomTitle}
-                            onChange={(e) => setRoomTitle(e.target.value)}
+                            value={makeRoom.roomTitle}
+                            onChange={(e) =>
+                                setMakeRoom({ ...makeRoom, roomTitle: e.target.value })
+                            }
                             className="room-title-input"
                         />
 
@@ -58,14 +67,14 @@ function AddRoomModal({ isOpen, isClose }) {
                                 <div className="label">게임 모드</div>
                                 <div className="mode-buttons">
                                     <button
-                                        className={`mode-btn ${mode === 'arcade' ? 'active' : ''}`}
-                                        onClick={() => setMode('arcade')}
+                                        className={`mode-btn ${makeRoom.mode === 'arcade' ? 'active' : ''}`}
+                                        onClick={() => setMakeRoom({ ...makeRoom, mode: 'arcade' })}
                                     >
                                         아케이드
                                     </button>
                                     <button
-                                        className={`mode-btn ${mode === 'boss' ? 'active' : ''}`}
-                                        onClick={() => setMode('boss')}
+                                        className={`mode-btn ${makeRoom.mode === 'boss' ? 'active' : ''}`}
+                                        onClick={() => setMakeRoom({ ...makeRoom, mode: 'boss' })}
                                     >
                                         보스전
                                     </button>
@@ -81,8 +90,8 @@ function AddRoomModal({ isOpen, isClose }) {
                                                 type="radio"
                                                 name="size"
                                                 value={num}
-                                                checked={people === num}
-                                                onChange={() => setPeople(num)}
+                                                checked={makeRoom.people === num}
+                                                onChange={() => setMakeRoom({ ...makeRoom, people: num })}
                                             />{' '}
                                             {num}인
                                         </label>
@@ -92,7 +101,12 @@ function AddRoomModal({ isOpen, isClose }) {
                         </div>
 
                         {/* 생성 버튼 */}
-                        <button className={roomTitle.length >= 2 ?"create-btn" : "create-btn-fasle"} onClick={handleSubmitBtn}>생성하기</button>
+                        <button
+                            className={makeRoom.roomTitle.length >= 2 ? 'create-btn' : 'create-btn-fasle'}
+                            onClick={handleSubmitBtn}
+                        >
+                            생성하기
+                        </button>
                     </div>
                 </div>
             </Modal>
