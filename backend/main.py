@@ -4,44 +4,47 @@ from typing import List, Union
 from sqlalchemy import create_engine, Column, Integer, String, Boolean
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-# DB 연결: Docker에서 실행한 PostgreSQL (DB 컨테이너가 localhost:5432에 매핑되어 있다고 가정)
+# PostgreSQL DB 연결 설정
 DATABASE_URL = "postgresql://postgres:mysecretpassword@db:5432/mydb"
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 Base = declarative_base()
 
-# SQLAlchemy 모델
+# 방 정보 모델
 class Room(Base):
     __tablename__ = "rooms"
     id = Column(Integer, primary_key=True, index=True)
-    title = Column(String, nullable=False)
-    people = Column(Integer, nullable=False)
-    level = Column(String, nullable=False)
-    playing = Column(Boolean, nullable=False, default=False)  # 플레이 중 여부
+    title = Column(String, nullable=False)  # 방 제목
+    people = Column(Integer, nullable=False)  # 현재 인원
+    room_type = Column(String, nullable=False)  # 방 타입 (일반/스피드)
+    max_people = Column(Integer, nullable=False, default=4)  # 최대 수용 인원
+    playing = Column(Boolean, nullable=False, default=False)  # 게임 진행 상태
 
-# 테이블이 없으면 생성
+# DB 테이블 생성
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
-# 응답 모델
+# API 응답 모델
 class RoomOut(BaseModel):
     id: int
     title: str
     people: int
-    level: str
+    room_type: str
+    max_people: int
     playing: bool
 
-# 요청 모델 수정 - 제목만 변경 가능하도록
+# API 요청 모델
 class RoomCreate(BaseModel):
     title: str
-    level: str
+    room_type: str
+    max_people: int = 4
 
 class RoomUpdate(BaseModel):
     title: str = None
-    # level, people, playing 필드는 직접 수정할 수 없음
 
+# 방 목록 조회
 @app.get("/rooms", response_model=List[RoomOut], status_code=status.HTTP_200_OK)
 def read_rooms():
     db = SessionLocal()
@@ -49,18 +52,18 @@ def read_rooms():
     db.close()
     return rooms
 
-# 생성(Create) 기능 수정 - 생성자가 자동으로 참여하도록 people=1로 설정
+# 방 생성 
 @app.post("/rooms", response_model=RoomOut, status_code=status.HTTP_201_CREATED)
 def create_room(room: RoomCreate):
     db = SessionLocal()
-    db_room = Room(**room.dict(), people=1, playing=False)  # people을 1로 초기화 (생성자 자동 참여)
+    db_room = Room(**room.dict(), people=1, playing=False)
     db.add(db_room)
     db.commit()
     db.refresh(db_room)
     db.close()
     return db_room
 
-# 단일 방 조회 기능
+# 단일 방 조회
 @app.get("/rooms/{room_id}", response_model=RoomOut, status_code=status.HTTP_200_OK)
 def read_room(room_id: int):
     db = SessionLocal()
@@ -70,7 +73,7 @@ def read_room(room_id: int):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="방을 찾을 수 없습니다")
     return room
 
-# 업데이트(Update) 기능 - 제목만 수정 가능하도록 제한
+# 방 정보 수정 (제목만)
 @app.put("/rooms/{room_id}", response_model=RoomOut, status_code=status.HTTP_200_OK)
 def update_room(room_id: int, room: RoomUpdate):
     db = SessionLocal()
@@ -80,7 +83,6 @@ def update_room(room_id: int, room: RoomUpdate):
         db.close()
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="방을 찾을 수 없습니다")
     
-    # 제목만 업데이트
     if room.title is not None:
         db_room.title = room.title
     
@@ -89,8 +91,8 @@ def update_room(room_id: int, room: RoomUpdate):
     db.close()
     return db_room
 
-# 삭제(Delete) 기능 추가
-@app.delete("/rooms/{room_id}", response_model=dict, status_code=status.HTTP_200_OK)
+# 방 삭제
+@app.delete("/rooms/{room_id}", response_model=dict, status_code=status.HTTP_204_NO_CONTENT)
 def delete_room(room_id: int):
     db = SessionLocal()
     room = db.query(Room).filter(Room.id == room_id).first()
@@ -104,7 +106,7 @@ def delete_room(room_id: int):
     db.close()
     return {"message": "방이 성공적으로 삭제되었습니다"}
 
-# 참여(Join) 기능 추가
+# 방 참여
 @app.post("/rooms/{room_id}/join", response_model=RoomOut, status_code=status.HTTP_200_OK)
 def join_room(room_id: int):
     db = SessionLocal()
@@ -114,18 +116,17 @@ def join_room(room_id: int):
         db.close()
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="방을 찾을 수 없습니다")
         
-    # 최대 인원(4명) 체크
-    if db_room.people >= 4:
+    if db_room.people >= db_room.max_people:
         db.close()
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="방이 이미 가득 찼습니다 (최대 4명)")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"방이 이미 가득 찼습니다 (최대 {db_room.max_people}명)")
         
-    db_room.people += 1  # 참여자 수 1 증가
+    db_room.people += 1
     db.commit()
     db.refresh(db_room)
     db.close()
     return db_room
 
-# 참여 취소(Leave) 기능 수정 - 0명이 되면 방 자동 삭제
+# 방 나가기
 @app.post("/rooms/{room_id}/leave", response_model=Union[RoomOut, dict], status_code=status.HTTP_200_OK)
 def leave_room(room_id: int):
     db = SessionLocal()
@@ -138,7 +139,6 @@ def leave_room(room_id: int):
     if db_room.people > 0:
         db_room.people -= 1
         
-        # 참여자가 0명이 되면 방 자동 삭제
         if db_room.people == 0:
             db.delete(db_room)
             db.commit()
@@ -151,7 +151,7 @@ def leave_room(room_id: int):
     db.close()
     return db_room
 
-# 게임 시작 API - URL 변경 (/start -> /play)
+# 게임 시작
 @app.post("/rooms/{room_id}/play", response_model=RoomOut, status_code=status.HTTP_200_OK)
 def start_game(room_id: int):
     db = SessionLocal()
@@ -161,19 +161,17 @@ def start_game(room_id: int):
         db.close()
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="방을 찾을 수 없습니다")
     
-    # 이미 플레이 중인지 확인
     if db_room.playing:
         db.close()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="이미 게임이 시작되었습니다")
     
-    # 플레이 중 상태로 변경
     db_room.playing = True
     db.commit()
     db.refresh(db_room)
     db.close()
     return db_room
 
-# 게임 종료 API 추가
+# 게임 종료
 @app.post("/rooms/{room_id}/end", response_model=RoomOut, status_code=status.HTTP_200_OK)
 def end_game(room_id: int):
     db = SessionLocal()
@@ -183,12 +181,10 @@ def end_game(room_id: int):
         db.close()
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="방을 찾을 수 없습니다")
     
-    # 이미 게임이 종료되었는지 확인
     if not db_room.playing:
         db.close()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="이미 게임이 종료되었습니다")
     
-    # 플레이 종료 상태로 변경
     db_room.playing = False
     db.commit()
     db.refresh(db_room)
