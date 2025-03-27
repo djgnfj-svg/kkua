@@ -1,4 +1,4 @@
-# 베이스 이미지 선택 (최신 Python 3.14-slim 사용)
+# 베이스 이미지 선택 (최신 Python 3.13-slim 사용)
 FROM python:3.13-slim
 
 # 작업 디렉토리 생성
