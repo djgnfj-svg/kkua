@@ -7,7 +7,7 @@ from schemas.room import RoomOut, RoomCreate, RoomUpdate
 from db.postgres import get_db
 
 router = APIRouter(
-    prefix="/postgres/rooms",
+    prefix="/rooms",
     tags=["postgres-rooms"],
 )
 
