@@ -92,7 +92,7 @@ def update_room(room_id: int, room: RoomUpdate):
     return db_room
 
 # 방 삭제
-@app.delete("/rooms/{room_id}", response_model=dict, status_code=status.HTTP_204_NO_CONTENT)
+@app.delete("/rooms/{room_id}", response_model=dict, status_code=status.HTTP_200_OK)
 def delete_room(room_id: int):
     db = SessionLocal()
     room = db.query(Room).filter(Room.id == room_id).first()
