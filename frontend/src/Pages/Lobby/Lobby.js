@@ -3,37 +3,51 @@ import { useNavigate } from 'react-router-dom';
 import './Lobby.css';
 import { gameUrl } from '../../Component/urls';
 import AddRoomModal from './Section/AddRoomModal';
+import axiosInstance from '../../Api/axiosInstance';
+import { ROOM_API } from '../../Api/roomApi';
 
 function Lobby() {
+  const navigate = useNavigate();
   const [activeIndex, setActiveIndex] = useState(0);
   const intervalRef = useRef(null); // 인터벌 참조 생성
-  const navigate = useNavigate()
   const [modalIsOpen , setModalIsOpen] = useState(false);
+
+  
+  //   {/* 배너 이미지 */}
+  //   // const slides = [
+    //   //   { image: `/images/slide1.jpg` },
+    //   //   { image: '/images/slide2.jpg' },
+    //   //   { image: '/images/slide3.jpg' },
+    //   // ];
+
+    /*
+  // api 를 통해 방정보 받아오기
+  useEffect(() => {
+    const fetchRoom = async () => {
+      try{
+        const res= await axiosInstance.get(ROOM_API.get_ROOMS);
+        console.log(res.data)
+      }catch(error){
+        console.log("방 요총 실패 " + error);
+      }
+    }
+    fetchRoom();
+  },[])
+  */
+
+
 
   {/* 방 제목 / 게임 타입 / 진행중인 인원 */}
   const rooms = [
-    { title: "앵무새 덕후쉑 모여라 ㅋ 귀여워", type: "4인 일반전", players: "[ 2 / 4 ]", status: "입장", color: "bg-blue-500" },
-    { title: "뉴비 환영 놀아줘", type: "4인 일반전", players: "[ 2 / 4 ]", status: "입장", color: "bg-blue-500" },
-    { title: "뉴비 환영 놀아줘", type: "4인 일반전", players: "[ 2 / 4 ]", status: "입장", color: "bg-blue-500" },
-    { title: "뉴비 환영 놀아줘", type: "4인 일반전", players: "[ 2 / 4 ]", status: "입장 불가", color: "bg-gray-400" },
-    { title: "뉴비 환영 놀아줘", type: "4인 일반전", players: "[ 2 / 4 ]", status: "입장", color: "bg-blue-500" },
-    { title: "뉴비 환영 놀아줘", type: "4인 일반전", players: "[ 2 / 4 ]", status: "입장", color: "bg-blue-500" },
-    { title: "뉴비 환영 놀아줘", type: "4인 일반전", players: "[ 2 / 4 ]", status: "입장", color: "bg-blue-500" },
-    { title: "뉴비 환영 놀아줘", type: "4인 일반전", players: "[ 2 / 4 ]", status: "입장", color: "bg-blue-500" },
+      { title: "앵무새 덕후쉑 모여라 ㅋ 귀여워", type: "4인 일반전", players: "[ 2 / 4 ]", status: "입장", color: "bg-blue-500" },
+      { title: "뉴비 환영 놀아줘", type: "4인 일반전", players: "[ 2 / 4 ]", status: "입장", color: "bg-blue-500" },
+      { title: "뉴비 환영 놀아줘", type: "4인 일반전", players: "[ 2 / 4 ]", status: "입장", color: "bg-blue-500" },
+      { title: "뉴비 환영 놀아줘", type: "4인 일반전", players: "[ 2 / 4 ]", status: "입장 불가", color: "bg-gray-400" },
+      { title: "뉴비 환영 놀아줘", type: "4인 일반전", players: "[ 2 / 4 ]", status: "입장", color: "bg-blue-500" },
+      { title: "뉴비 환영 놀아줘", type: "4인 일반전", players: "[ 2 / 4 ]", status: "입장", color: "bg-blue-500" },
+      { title: "뉴비 환영 놀아줘", type: "4인 일반전", players: "[ 2 / 4 ]", status: "입장", color: "bg-blue-500" },
+      { title: "뉴비 환영 놀아줘", type: "4인 일반전", players: "[ 2 / 4 ]", status: "입장", color: "bg-blue-500" },
   ];
-//   {/* 배너 이미지 */}
-//   // const slides = [
-//   //   { image: `/images/slide1.jpg` },
-//   //   { image: '/images/slide2.jpg' },
-//   //   { image: '/images/slide3.jpg' },
-//   // ];
-
-//   {/* 배너 이미지 */}
-//   // const slides = [
-//   //   { image: `/images/slide1.jpg` },
-//   //   { image: '/images/slide2.jpg' },
-//   //   { image: '/images/slide3.jpg' },
-//   // ];
 
   {/* 배너 이미지 */}
   const slides = [
@@ -84,13 +98,13 @@ function Lobby() {
       setModalIsOpen(true)
   }
 
+
   return (
     <div className="h-screen bg-gray-100 flex flex-col" style={{fontFamily:"Apple SD Gothic Neo"}}>
       {/* 상단 슬라이더 */}
       <div
         className="relative w-full h-56 mt-5 flex items-center justify-center transition-all duration-500"
-        style={{ backgroundColor: slides[activeIndex].color }}
-      >
+        style={{ backgroundColor: slides[activeIndex].color }} >
         <button onClick={handlePrevSlide} className="absolute left-2 bg-gray-300 text-black w-8 h-8 rounded-full shadow-md"></button>
         <button onClick={handleNextSlide} className="absolute right-2 bg-gray-300 text-black w-8 h-8 rounded-full shadow-md"></button>
 
