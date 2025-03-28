@@ -1,78 +1,191 @@
+.modal-content {
+  background-color: #fff8f3;
+  padding: 2rem;
+  padding-bottom: 2.5rem;
+  border-radius: 1.5rem;
+  text-align: center;
+  font-family: "Apple SD Gothic Neo";
+}
+
 .modal-container {
-    background-color: #FFF8F3;
-    border-radius: 30px;
-    width: 340px;
-    height: 320px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-    position: relative;
-    top: 20%; /* 모달 중간 배치 */
-    margin: 0 auto;
+  position: relative;
+  margin-top: 80px;
 }
 
 .modal-ears {
-    display: flex;
-    position: absolute;
-    top: -75px; /* 귀가 박스 바깥으로 더 높이 */
-    width: 100%;
-    justify-content: center;
+  position: absolute;
+  top: -65px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 60px;
+  z-index: 5;
 }
 
 .ear {
-    width: 40px; /* 귀 크기 조정 */
-    height: 100px; /* 귀 높이 조정 */
-    background-color: #FFD9B3; /* 귀 외부 색상 변경 */
-    border: 8px solid #FFF8F3; /* 안쪽 색상 변경 및 테두리 추가 */
-    border-radius: 50px;
-    margin: 0 35px;
+  width: 36px;
+  height: 80px;
+  background: #fff;
+  border-radius: 999px;
+  position: relative;
 }
 
-.modal-content {
-    padding: 40px 20px;
-    text-align: center;
+.ear::before {
+  content: '';
+  position: absolute;
+  top: 10px;
+  left: 8px;
+  width: 20px;
+  height: 60px;
+  background: #ffc298;
+  border-radius: 999px;
 }
 
-.modal-title {
-    color: #FF8A8A;
-    font-size: 24px;
-    font-weight: bold;
-    margin-bottom: 20px;
+.section {
+  margin-top: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+}
+
+.section-title {
+  font-weight: bold;
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.mode-options {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 2rem;
+  margin-bottom: 2.5rem;
+  width: 100%;
+}
+
+.person-options {
+  margin-top: 2.5rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1.5rem;
+  width: 100%;
+  padding: 0 1rem;
+}
+
+.mode-btn {
+  width: 45%;
+  padding: 0.5rem 1.5rem;
+  font-size: 0.8rem;
+  border-radius: 12px;
+  border: none;
+  background-color: #eee;
+  font-weight: bold;
+  cursor: pointer;
+  transition: 0.2s;
+  text-align: center;
+  margin-right: 5px;
+  margin-left: 5px;
+  margin-bottom: 15px;
+}
+
+.mode-btn.active {
+  background-color: #ffcba4;
+  color: #fff;
 }
 
 .room-title-input {
-    width: 100%;
-    padding: 12px;
-    border: 2px solid #FFDAC1;
-    border-radius: 12px;
-    outline: none;
-    background-color: #FFF;
-    margin-bottom: 20px;
+  width: 100%;
+  max-width: 320px;
+  padding: 0.8rem 1rem;
+  border-radius: 1rem;
+  border: 2px solid #ffd9b3;
+  font-size: 1rem;
+  margin-top: 1.5rem;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.game-settings {
+  margin-top: 1.5rem;
+  background-color: white;
+  border: 3px solid #ffd9b3;
+  border-radius: 1rem;
+  padding: 2rem 1rem;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .create-btn {
-    background-color: #D3D3D3;
-    color: #7E7E7E;
-    border: none;
-    border-radius: 20px;
-    width: 100%;
-    padding: 12px 0;
-    cursor: pointer;
-    margin-top: 30px;
-    transition: background 0.3s ease;
+  background-color: #adf998;
+  color: #888;
+  font-weight: bold;
+  border: none;
+  padding: 0.9rem 2rem;
+  border-radius: 1.5rem;
+  margin-top: 2.5rem;
+  cursor: pointer;
 }
 
-.create-btn:hover {
-    background-color: #C0C0C0;
+.create-btn-fasle {
+  background-color: #ddd;
+  color: #888;
+  font-weight: bold;
+  border: none;
+  padding: 0.9rem 2rem;
+  border-radius: 1.5rem;
+  margin-top: 2.5rem;
+  cursor: pointer;
 }
 
-.close-btn {
-    position: absolute;
-    top: 15px;
-    right: 15px;
-    background: none;
-    border: none;
-    font-size: 20px;
-    cursor: pointer;
+.section + .section {
+}
+
+.person-options label {
+  display: flex;
+  align-items: center;
+  flex-direction: row;
+  gap: 0.6rem;
+  font-size: 1rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 8px;
+}
+
+.game-mode-section .label {
+  margin-bottom: 15px;
+}
+
+.game-size-section .label {
+  margin-bottom: 5px;
+}
+
+.size-buttons > label {
+  margin-right: 15px;
+}
+
+input[type="radio"] {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #999;
+  border-radius: 50%;
+  outline: none;
+  background-color: #fff;
+  cursor: pointer;
+  position: relative;
+}
+
+input[type="radio"]:checked::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: red;
 }
