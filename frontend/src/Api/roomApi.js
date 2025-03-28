@@ -9,9 +9,9 @@ export const ROOM_API = {
     get_ROOMS:'/api/rooms',
     CREATE_ROOMS:'/api/rooms',
     //rooms id값
-    get_ROOMSID: (id) => `./rooms/${id}`,
-    JOIN_ROOMS : (id) => `/api/${id}/join`,
-    LEAVE_ROOMS : (id) => `/api/${id}/leave`,
-    PLAY_ROOMS : (id) => `/api/${id}/play`,
-    END_ROOMS : (id) => `/api/${id}/end`
+    get_ROOMSID: (id) => `.api/rooms/${id}`,
+    JOIN_ROOMS : (id) => `api/rooms/${id}/join`,
+    LEAVE_ROOMS : (id) => `api/rooms/${id}/leave`,
+    PLAY_ROOMS : (id) => `api/rooms/${id}/play`,
+    END_ROOMS : (id) => `api/rooms/${id}/end`
 }
