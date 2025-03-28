@@ -1,10 +1,16 @@
 from fastapi import FastAPI
-from routers import postgres_rooms
+from routers import postgres_rooms, word_game
+from db.postgres import Base, engine
+import redis
 
-app = FastAPI(title="게임방 관리 API", description="PostgreSQL을 사용한 게임방 관리 API")
+app = FastAPI(title="게임방 관리 API", description="PostgreSQL과 Redis를 사용한 게임방 및 끝말잇기 게임 API")
+
+# DB 테이블 생성
+Base.metadata.create_all(bind=engine)
 
 # 라우터 등록
 app.include_router(postgres_rooms.router)
+app.include_router(word_game.router)
 
 @app.get("/")
 async def root():
@@ -12,4 +18,4 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True) 
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True) 
