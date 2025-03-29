@@ -1,9 +1,19 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from routers import postgres_rooms, word_game
 from db.postgres import Base, engine
 import redis
 
 app = FastAPI(title="게임방 관리 API", description="PostgreSQL과 Redis를 사용한 게임방 및 끝말잇기 게임 API")
+
+# CORS 미들웨어 설정
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # 프로덕션에서는 실제 프론트엔드 도메인으로 제한하세요
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # DB 테이블 생성
 Base.metadata.create_all(bind=engine)
