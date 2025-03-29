@@ -35,7 +35,6 @@ function Lobby() {
     try{
       const res= await axiosInstance.get(ROOM_API.get_ROOMS);
       setRoomsData(res.data)
-      console.log(res.data)
     }catch(error){
       console.log("방 요총 실패 " + error);
     }

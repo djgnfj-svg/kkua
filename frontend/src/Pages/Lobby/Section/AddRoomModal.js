@@ -18,12 +18,11 @@ function AddRoomModal({ isOpen, isClose }) {
 
     const handleSubmitBtn = async () => {
         try {
-            const res = await axiosInstance.post(ROOM_API.CREATE_ROOMS,{
+            await axiosInstance.post(ROOM_API.CREATE_ROOMS,{
                 title:makeRoom.title,
                 room_type : "string",
                 max_people : makeRoom.people
             })
-            console.log(res.data);
             navigate("/kea");
         }
         catch (error) {
