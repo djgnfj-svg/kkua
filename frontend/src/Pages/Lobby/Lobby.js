@@ -97,57 +97,61 @@ function Lobby() {
 
 
   return (
-    <div className="h-screen bg-gray-100 flex flex-col" style={{fontFamily:"Apple SD Gothic Neo"}}>
-      {/* 상단 슬라이더 */}
-      <div
-        className="relative w-full h-56 mt-5 flex items-center justify-center transition-all duration-500"
-        style={{ backgroundColor: slides[activeIndex].color }} >
-        <button onClick={handlePrevSlide} className="absolute left-2 bg-gray-300 text-black w-8 h-8 rounded-full shadow-md"></button>
-        <button onClick={handleNextSlide} className="absolute right-2 bg-gray-300 text-black w-8 h-8 rounded-full shadow-md"></button>
+    <div className="w-full h-screen flex justify-center bg-gray-100">
+      <div className="hidden md:flex w-[12%] h-[70%] bg-red-500 mr-12 self-center"></div>
+      <div className="flex flex-col w-full max-w-4xl bg-gray-200 shadow-lg overflow-hidden">
+        {/* 상단 슬라이더 */}
+        <div
+          className="relative w-full h-[30vh] md:h-[40vh] mt-5 flex items-center justify-center transition-all duration-500 md:hidden" 
+          style={{ backgroundColor: slides[activeIndex].color }} >
+          <button onClick={handlePrevSlide} className="absolute left-2 bg-gray-300 text-black w-8 h-8 rounded-full shadow-md"></button>
+          <button onClick={handleNextSlide} className="absolute right-2 bg-gray-300 text-black w-8 h-8 rounded-full shadow-md"></button>
 
-        <div className="absolute bottom-2 flex space-x-2">
-          {slides.map((_, index) => (
-            <div
-              key={index}
-              onClick={() => handleDotClick(index)}
-              className={`w-2 h-2 rounded-full cursor-pointer ${activeIndex === index ? 'bg-white' : 'bg-gray-400'}`}
-            ></div>
-          ))}
+          <div className="absolute bottom-2 flex space-x-2">
+            {slides.map((_, index) => (
+              <div
+                key={index}
+                onClick={() => handleDotClick(index)}
+                className={`w-2 h-2 rounded-full cursor-pointer ${activeIndex === index ? 'bg-white' : 'bg-gray-400'}`}
+              ></div>
+            ))}
+          </div>
         </div>
-      </div>
 
-      {/* 새로고침 안내 */}
-      <div className="text-center text-sm text-gray-500 py-2">위에서 아래로 스와이프 시 새로고침</div>
+        {/* 새로고침 안내 */}
+        <div className="text-center text-sm text-gray-500 py-2">위에서 아래로 스와이프 시 새로고침</div>
 
-      {/* 방 목록 */}
-      <div className="flex-1 overflow-y-auto text-left space-y-4">
-        {roomsData.map((room, index) => (
-          <div key={index} className="bg-white p-4 min-h-[12vh] border-b shadow-md flex items-center justify-between">
-            <div>
-              <h3 className="font-bold mb-0.5 tracking-widest">{room.title}</h3>
-              <p className="text-sm font-bold">{room.room_type} [ {room.people} / {room.max_people} ]</p>
+        {/* 방 목록 */}
+        <div className="flex-1 overflow-y-auto text-left space-y-4 px-2 md:px-10 md:pt-16 pb-24">
+          {roomsData.map((room, index) => (
+            <div key={index} className="bg-white p-4 md:p-8 min-h-[12vh] md:min-h-[16vh] border-b shadow-md md:shadow-lg flex items-center justify-between">
+              <div>
+                <h3 className="font-bold mb-0.5 tracking-widest text-lg md:text-xl">{room.title}</h3>
+                <p className="text-sm md:text-lg font-bold">{room.room_type} [ {room.people} / {room.max_people} ]</p>
+              </div>
+              {room.playing === false ? 
+              <button className={`text-white px-3 py-1 rounded bg-red-500 `} onClick={(e) => handleClickEnterGame()} > 입장하기 </button>
+              :
+              <button className={`text-white px-3 py-1 rounded bg-gray-500 `} onClick={(e) => handleClickEnterGame()} > 끄아 중 </button>
+            }
             </div>
-            {room.playing === false ? 
-            <button className={`text-white px-3 py-1 rounded bg-red-500 `} onClick={(e) => handleClickEnterGame()} > 입장하기 </button>
-            :
-            <button className={`text-white px-3 py-1 rounded bg-gray-500 `} onClick={(e) => handleClickEnterGame()} > 끄아 중 </button>
-          }
-          </div>
-        ))}
-          <div className="bg-white p-4 min-h-[10vh] border-b shadow-md flex items-center justify-between">
-          </div>
+          ))}
+            <div className="bg-white p-4 min-h-[10vh] border-b shadow-md flex items-center justify-between">
+            </div>
+        </div>
+       {/* 방 생성하기 버튼 */}
+       <div className="w-full flex justify-center py-4 bg-gray-200  border-gray-300" onClick={(e) => handleClickOpenModal(e)} >
+          <button className="w-full md:w-[80%] flex items-center justify-center gap-2 text-red-400 border-2 border-[#4178ED] rounded-full px-4 py-2 shadow-lg bg-white">
+          <img src={`${process.env.PUBLIC_URL || ''}/imgs/icon/AddIcon.png`}className="w-8 h-8" />
+          방 생성하기
+          </button>
+        </div>
+        {modalIsOpen && 
+        <>
+          <AddRoomModal isOpen={modalIsOpen} isClose={setModalIsOpen} />
+        </>}
       </div>
-     {/* 방 생성하기 버튼 */}
-     <div className="fixed bottom-10 w-full bg-white flex justify-center text-center" onClick={(e) => handleClickOpenModal(e)} >
-        <button className="w-full flex items-center justify-center gap-2 text-red-400 border-2 border-[#4178ED] rounded-full px-4 py-2 shadow-lg">
-        <img src={`${process.env.PUBLIC_URL || ''}/imgs/icon/AddIcon.png`}className="w-8 h-8" />
-        방 생성하기
-        </button>
-      </div>
-      {modalIsOpen && 
-      <>
-        <AddRoomModal isOpen={modalIsOpen} isClose={setModalIsOpen} />
-      </>}
+      <div className="hidden md:flex w-[12%] h-[70%] bg-red-500 ml-12 self-center"></div>
     </div>
   );
 }

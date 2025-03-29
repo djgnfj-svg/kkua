@@ -18,7 +18,7 @@ function AddRoomModal({ isOpen, isClose }) {
 
     const handleSubmitBtn = async () => {
         try {
-            await axiosInstance.post(ROOM_API.CREATE_ROOMS,{
+            const res = await axiosInstance.post(ROOM_API.CREATE_ROOMS,{
                 title:makeRoom.title,
                 room_type : "string",
                 max_people : makeRoom.people
