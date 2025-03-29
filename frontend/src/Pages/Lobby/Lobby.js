@@ -126,7 +126,7 @@ function Lobby() {
           <div key={index} className="bg-white p-4 min-h-[12vh] border-b shadow-md flex items-center justify-between">
             <div>
               <h3 className="font-bold mb-0.5 tracking-widest">{room.title}</h3>
-              <p className="text-sm font-bold">{room.type} [ {room.people} / {room.max_people} ]</p>
+              <p className="text-sm font-bold">{room.room_type} [ {room.people} / {room.max_people} ]</p>
             </div>
             {room.playing === false ? 
             <button className={`text-white px-3 py-1 rounded bg-red-500 `} onClick={(e) => handleClickEnterGame()} > 입장하기 </button>
