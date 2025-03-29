@@ -10,7 +10,11 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_started
     restart: on-failure
+    environment:
+      - REDIS_URL=redis://redis:6379/0
   frontend:
     build: ./frontend
     ports:
@@ -35,6 +39,19 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+  redis:
+    image: redis:6
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    volumes:
+      - redis_data:/data
 
 volumes:
   postgres_data:
+  redis_data:

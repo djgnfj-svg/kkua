@@ -7,7 +7,7 @@ from schemas.room import RoomOut, RoomCreate, RoomUpdate
 from db.postgres import get_db
 
 router = APIRouter(
-    prefix="/rooms",
+    prefix="/api/rooms",
     tags=["postgres-rooms"],
 )
 
@@ -20,7 +20,7 @@ def read_rooms(db: Session = Depends(get_db)):
 # 방 생성 
 @router.post("/", response_model=RoomOut, status_code=status.HTTP_201_CREATED)
 def create_room(room: RoomCreate, db: Session = Depends(get_db)):
-    db_room = Room(**room.dict(), people=1, playing=False)
+    db_room = Room(**room.model_dump(), people=1, playing=False)
     db.add(db_room)
     db.commit()
     db.refresh(db_room)
