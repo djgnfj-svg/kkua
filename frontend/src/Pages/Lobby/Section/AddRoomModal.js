@@ -11,7 +11,7 @@ function AddRoomModal({ isOpen, isClose }) {
     const navigate = useNavigate();
   
     const [makeRoom, setMakeRoom] = useState({
-        roomTitle: "",
+        title: "",
         mode: "",
         people: ""
     });
@@ -19,11 +19,10 @@ function AddRoomModal({ isOpen, isClose }) {
     const handleSubmitBtn = async () => {
         try {
             const res = await axiosInstance.post(ROOM_API.CREATE_ROOMS,{
-                roomTitle:makeRoom.roomTitle,
-                mode : makeRoom.mode,
-                people : makeRoom.people
+                title:makeRoom.title,
+                room_type : "string",
+                max_people : makeRoom.people
             })
-            console.log(res.data);
             navigate("/kea");
         }
         catch (error) {
@@ -54,9 +53,9 @@ function AddRoomModal({ isOpen, isClose }) {
                         <input
                             type="text"
                             placeholder="방 제목"
-                            value={makeRoom.roomTitle}
+                            value={makeRoom.title}
                             onChange={(e) =>
-                                setMakeRoom({ ...makeRoom, roomTitle: e.target.value })
+                                setMakeRoom({ ...makeRoom, title: e.target.value })
                             }
                             className="room-title-input"
                         />
@@ -102,8 +101,8 @@ function AddRoomModal({ isOpen, isClose }) {
 
                         {/* 생성 버튼 */}
                         <button
-                            className={makeRoom.roomTitle.length >= 2 ? 'create-btn' : 'create-btn-fasle'}
-                            onClick={handleSubmitBtn}
+                            className={makeRoom.title.length >= 2 && makeRoom.mode !== "" && makeRoom.people !== "" ? 'create-btn' : 'create-btn-fasle'}
+                            onClick={handleSubmitBtn} disabled={makeRoom.title.length >= 2 && makeRoom.mode !== "" && makeRoom.people !== "" ? false : true}
                         >
                             생성하기
                         </button>
