@@ -11,7 +11,15 @@ function Lobby() {
   const [activeIndex, setActiveIndex] = useState(0);
   const intervalRef = useRef(null); // 인터벌 참조 생성
   const [modalIsOpen , setModalIsOpen] = useState(false);
-
+  const [roomsData,setRoomsData] = useState([
+    {
+      title:"",
+      room_type:"",
+      people:"",
+      max_people:"",
+      playing:"",
+    }
+  ])
   
   //   {/* 배너 이미지 */}
   //   // const slides = [
@@ -20,34 +28,24 @@ function Lobby() {
     //   //   { image: '/images/slide3.jpg' },
     //   // ];
 
-    /*
+
   // api 를 통해 방정보 받아오기
   useEffect(() => {
-    const fetchRoom = async () => {
-      try{
-        const res= await axiosInstance.get(ROOM_API.get_ROOMS);
-        console.log(res.data)
-      }catch(error){
-        console.log("방 요총 실패 " + error);
-      }
+  const fetchRoom = async () => {
+    try{
+      const res= await axiosInstance.get(ROOM_API.get_ROOMS);
+      setRoomsData(res.data)
+      console.log(res.data)
+    }catch(error){
+      console.log("방 요총 실패 " + error);
     }
-    fetchRoom();
+  }
+  fetchRoom();
   },[])
-  */
 
 
 
   {/* 방 제목 / 게임 타입 / 진행중인 인원 */}
-  const rooms = [
-      { title: "앵무새 덕후쉑 모여라 ㅋ 귀여워", type: "4인 일반전", players: "[ 2 / 4 ]", status: "입장", color: "bg-blue-500" },
-      { title: "뉴비 환영 놀아줘", type: "4인 일반전", players: "[ 2 / 4 ]", status: "입장", color: "bg-blue-500" },
-      { title: "뉴비 환영 놀아줘", type: "4인 일반전", players: "[ 2 / 4 ]", status: "입장", color: "bg-blue-500" },
-      { title: "뉴비 환영 놀아줘", type: "4인 일반전", players: "[ 2 / 4 ]", status: "입장 불가", color: "bg-gray-400" },
-      { title: "뉴비 환영 놀아줘", type: "4인 일반전", players: "[ 2 / 4 ]", status: "입장", color: "bg-blue-500" },
-      { title: "뉴비 환영 놀아줘", type: "4인 일반전", players: "[ 2 / 4 ]", status: "입장", color: "bg-blue-500" },
-      { title: "뉴비 환영 놀아줘", type: "4인 일반전", players: "[ 2 / 4 ]", status: "입장", color: "bg-blue-500" },
-      { title: "뉴비 환영 놀아줘", type: "4인 일반전", players: "[ 2 / 4 ]", status: "입장", color: "bg-blue-500" },
-  ];
 
   {/* 배너 이미지 */}
   const slides = [
@@ -124,13 +122,17 @@ function Lobby() {
 
       {/* 방 목록 */}
       <div className="flex-1 overflow-y-auto text-left space-y-4">
-        {rooms.map((room, index) => (
+        {roomsData.map((room, index) => (
           <div key={index} className="bg-white p-4 min-h-[12vh] border-b shadow-md flex items-center justify-between">
             <div>
               <h3 className="font-bold mb-0.5 tracking-widest">{room.title}</h3>
-              <p className="text-sm font-bold">{room.type} {room.players}</p>
+              <p className="text-sm font-bold">{room.type} [ {room.people} / {room.max_people} ]</p>
             </div>
-            <button className={`text-white px-3 py-1 rounded ${room.color}`} onClick={(e) => handleClickEnterGame()} >{room.status}</button>
+            {room.playing === false ? 
+            <button className={`text-white px-3 py-1 rounded bg-red-500 `} onClick={(e) => handleClickEnterGame()} > 입장하기 </button>
+            :
+            <button className={`text-white px-3 py-1 rounded bg-gray-500 `} onClick={(e) => handleClickEnterGame()} > 끄아 중 </button>
+          }
           </div>
         ))}
           <div className="bg-white p-4 min-h-[10vh] border-b shadow-md flex items-center justify-between">
@@ -139,7 +141,7 @@ function Lobby() {
      {/* 방 생성하기 버튼 */}
      <div className="fixed bottom-10 w-full bg-white flex justify-center text-center" onClick={(e) => handleClickOpenModal(e)} >
         <button className="w-full flex items-center justify-center gap-2 text-red-400 border-2 border-[#4178ED] rounded-full px-4 py-2 shadow-lg">
-        <img src={`${process.env.PUBLIC_URL || ''}/imgs/icon/AddIcon.png`} alt="고양이" className="w-8 h-8" />
+        <img src={`${process.env.PUBLIC_URL || ''}/imgs/icon/AddIcon.png`}className="w-8 h-8" />
         방 생성하기
         </button>
       </div>
