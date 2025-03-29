@@ -54,3 +54,12 @@
 ### DevOps
 - AWS
 - Docker
+
+## 플로우차트
+###  - 로비 플로우차트
+<img width="599" alt="kkuaLobby_Flowe" src="https://github.com/user-attachments/assets/d41273e2-0fb1-4212-8744-287316c18211" />
+
+###  - 게임 플로우차트
+<img width="600" alt="kkua_gameFlowe" src="https://github.com/user-attachments/assets/ff0ed501-b735-4958-b6de-198d6946d6b1" />
+
+
