@@ -1,15 +1,20 @@
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 
-# PostgreSQL DB 연결 설정
+# 데이터베이스 URL
 DATABASE_URL = "postgresql://postgres:mysecretpassword@db:5432/mydb"
 
+# 엔진 생성
 engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+
+# 세션 생성
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# 베이스 클래스 생성
 Base = declarative_base()
 
-# 의존성 주입을 위한 함수
+# 데이터베이스 의존성
 def get_db():
     db = SessionLocal()
     try:
