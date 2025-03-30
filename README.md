@@ -34,9 +34,9 @@
   - 반응형 디자인 구현
 
 ## 문서
-### 기능정의서
+### [기능정의서](https://robust-dinghy-c4f.notion.site/1c49bd627a788024a946cd55773f2341?pvs=4)
 ### 플로우 차트
-### ERD
+### [ERD](https://robust-dinghy-c4f.notion.site/ERD-1c59bd627a7880969e38cea61681d68d)
 
 ## 🛠 기술 스택
 
