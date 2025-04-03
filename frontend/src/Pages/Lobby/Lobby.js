@@ -30,6 +30,7 @@ function Lobby() {
 
 
   // api 를 통해 방정보 받아오기
+  {/* 방 제목 / 게임 타입 / 진행중인 인원 */}
   useEffect(() => {
   const fetchRoom = async () => {
     try{
@@ -42,10 +43,7 @@ function Lobby() {
   fetchRoom();
   },[])
 
-
-
-  {/* 방 제목 / 게임 타입 / 진행중인 인원 */}
-
+  
   {/* 배너 이미지 */}
   const slides = [
     { color: `rgb(175, 142, 235)` },
@@ -54,6 +52,7 @@ function Lobby() {
     { color: `rgb(46, 45, 213)` },
     { color: `rgb(213, 128, 45)` },
   ];
+
   // url 이동
   const handleClickEnterGame = () =>{
     navigate(gameUrl)
@@ -90,11 +89,6 @@ function Lobby() {
     setActiveIndex(index);
     resetInterval(); // 클릭 시 인터벌 초기화
   }
-  //모달 열기
-  const handleClickOpenModal =() => {
-      setModalIsOpen(true)
-  }
-
 
   return (
     <div className="w-full h-screen flex justify-center bg-gray-100">
@@ -140,7 +134,7 @@ function Lobby() {
             </div>
         </div>
        {/* 방 생성하기 버튼 */}
-       <div className="w-full flex justify-center py-4 bg-gray-200  border-gray-300" onClick={(e) => handleClickOpenModal(e)} >
+       <div className="w-full flex justify-center py-4 bg-gray-200  border-gray-300" onClick={(e) => setModalIsOpen(true)} >
           <button className="w-full md:w-[80%] flex items-center justify-center gap-2 text-red-400 border-2 border-[#4178ED] rounded-full px-4 py-2 shadow-lg bg-white">
           <img src={`${process.env.PUBLIC_URL || ''}/imgs/icon/AddIcon.png`}className="w-8 h-8" />
           방 생성하기

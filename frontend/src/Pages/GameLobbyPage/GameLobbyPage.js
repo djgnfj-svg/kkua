@@ -4,12 +4,21 @@ import { useNavigate } from 'react-router-dom'
 function GameLobbyPage() {
 
     const navigate = useNavigate();
+
+    const handleClickExit = () => {
+      let res = window.confirm("로비로 나가시겠습니까?");
+      if(res){
+        navigate("/lobby");
+      }else{
+        
+      }
+    }
     
 
   return (
     <div className="w-full min-h-screen bg-white flex flex-col items-center pt-5 relative overflow-y-auto">
       {/* Close button */}
-      <div className="absolute top-5 right-5 text-2xl cursor-pointer">X</div>
+      <div className="absolute top-5 right-5 text-2xl cursor-pointer" onClick={() => handleClickExit()}>X</div>
 
       {/* Title */}
       <div className="text-center mb-5">
