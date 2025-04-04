@@ -1,7 +1,8 @@
 import axios from 'axios';
 
+
 const axiosInstance = axios.create({
-  baseURL: 'http://127.0.0.1:8000/', // 본인 백엔드 주소로 수정
+  baseURL: process.env.REACT_APP_API_URL, // localhost 배포시 변경
   headers: {
     'Content-Type': 'application/json',
   },
