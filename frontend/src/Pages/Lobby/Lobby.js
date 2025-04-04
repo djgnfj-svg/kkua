@@ -5,9 +5,13 @@ import { gameUrl } from '../../Component/urls';
 import AddRoomModal from './Section/AddRoomModal';
 import axiosInstance from '../../Api/axiosInstance';
 import { ROOM_API } from '../../Api/roomApi';
+import socket from '../../Component/socket';
 
 function Lobby() {
   const navigate = useNavigate();
+  
+
+
   const [activeIndex, setActiveIndex] = useState(0);
   const intervalRef = useRef(null); // 인터벌 참조 생성
   const [modalIsOpen , setModalIsOpen] = useState(false);
@@ -36,12 +40,26 @@ function Lobby() {
       const res= await axiosInstance.get(ROOM_API.get_ROOMS);
       setRoomsData(res.data)
     }catch(error){
-      console.log("방 요총 실패 " + error);
+      console.log("방 요청 실패 " + error);
     }
   }
   fetchRoom();
   },[])
 
+  // useEffect(() => {
+  //   socket.onopen = () => {
+  //     console.log("연결됨");
+  //     socket.send("Hello server");
+  //   };
+
+  //   socket.onmessage = (event) => {
+  //     console.log("받은 메시지" , event.data);
+  //   }
+
+  //   return () => {
+  //     socket.close()
+  //   }
+  // },[])
 
 
   {/* 방 제목 / 게임 타입 / 진행중인 인원 */}
