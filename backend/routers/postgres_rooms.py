@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from typing import List, Union
 from sqlalchemy.orm import Session
 from models.room import Room
+from models.guest import Guest
 from schemas.room import RoomOut, RoomCreate, RoomUpdate
 from db.postgres import get_db
 
@@ -20,7 +21,13 @@ def read_rooms(db: Session = Depends(get_db)):
 # 방 생성 
 @router.post("/", response_model=RoomOut, status_code=status.HTTP_201_CREATED)
 def create_room(room: RoomCreate, db: Session = Depends(get_db)):
-    db_room = Room(**room.model_dump(), people=1, playing=False)
+    # Guest 존재 여부 확인 (옵셔널)
+    if room.created_by:
+        guest = db.query(Guest).filter(Guest.guest_id == room.created_by).first()
+        if not guest:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="게스트를 찾을 수 없습니다")
+    
+    db_room = Room(**room.dict(), people=1, playing=False)
     db.add(db_room)
     db.commit()
     db.refresh(db_room)
@@ -42,8 +49,10 @@ def update_room(room_id: int, room: RoomUpdate, db: Session = Depends(get_db)):
     if not db_room:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="방을 찾을 수 없습니다")
     
-    if room.title is not None:
-        db_room.title = room.title
+    # 수정 가능한 필드 업데이트
+    update_data = room.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_room, key, value)
     
     db.commit()
     db.refresh(db_room)
