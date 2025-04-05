@@ -2,13 +2,11 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Lobby.css';
 import { gameUrl } from '../../Component/urls';
+
 import AddRoomModal from './Section/AddRoomModal';
-<<<<<<< HEAD
-=======
 import axiosInstance from '../../Api/axiosInstance';
 import { ROOM_API } from '../../Api/roomApi';
 import socket from '../../Component/socket';
->>>>>>> 398cbea51763d6c68cc2a501273f879b9fb37e9d
 
 function Lobby() {
   const navigate = useNavigate();
@@ -17,10 +15,6 @@ function Lobby() {
 
   const [activeIndex, setActiveIndex] = useState(0);
   const intervalRef = useRef(null); // 인터벌 참조 생성
-<<<<<<< HEAD
-  const navigate = useNavigate()
-  const [modalIsOpen , setModalIsOpen] = useState(false)
-=======
   const [modalIsOpen , setModalIsOpen] = useState(false);
   const [roomsData,setRoomsData] = useState([
     {
@@ -68,7 +62,6 @@ function Lobby() {
   //   }
   // },[])
 
->>>>>>> 398cbea51763d6c68cc2a501273f879b9fb37e9d
 
   {/* 방 제목 / 게임 타입 / 진행중인 인원 */}
 
@@ -120,10 +113,6 @@ function Lobby() {
   const handleClickOpenModal =() => {
       setModalIsOpen(true)
   }
-<<<<<<< HEAD
-=======
-
->>>>>>> 398cbea51763d6c68cc2a501273f879b9fb37e9d
 
   return (
     <div className="w-full h-screen flex justify-center bg-gray-100">

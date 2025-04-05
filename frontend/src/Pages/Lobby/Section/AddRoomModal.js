@@ -1,19 +1,13 @@
 import React, { useState } from 'react';
 import Modal from 'react-modal';
 import './AddRoomModal.css';
-<<<<<<< HEAD
-=======
 import axiosInstance from '../../../Api/axiosInstance';
 import { ROOM_API } from '../../../Api/roomApi';
 import { useNavigate } from 'react-router-dom';
->>>>>>> 398cbea51763d6c68cc2a501273f879b9fb37e9d
 
 Modal.setAppElement('#root');
 
 function AddRoomModal({ isOpen, isClose }) {
-<<<<<<< HEAD
-    const [roomTitle, setRoomTitle] = useState('');
-=======
     const navigate = useNavigate();
   
     const [makeRoom, setMakeRoom] = useState({
@@ -35,7 +29,6 @@ function AddRoomModal({ isOpen, isClose }) {
             console.log(error);
         }
     }
->>>>>>> 398cbea51763d6c68cc2a501273f879b9fb37e9d
 
     return (
         <div className="modal-app">
@@ -46,12 +39,7 @@ function AddRoomModal({ isOpen, isClose }) {
                 style={{
                     overlay: { backgroundColor: 'rgba(0, 0, 0, 0.5)' },
                     content: { border: 'none', background: 'none', padding: 0 }
-<<<<<<< HEAD
-                }}
-            >
-=======
                 }}>
->>>>>>> 398cbea51763d6c68cc2a501273f879b9fb37e9d
                 <div className="modal-container">
                     <div className="modal-ears">
                         <div className="ear left"></div>
@@ -60,16 +48,6 @@ function AddRoomModal({ isOpen, isClose }) {
                     <div className="modal-content">
                         <button className="close-btn" onClick={() => isClose(false)}>×</button>
                         <h2 className="modal-title">끄아 방 만들기</h2>
-<<<<<<< HEAD
-                        <input 
-                            type="text" 
-                            placeholder="방 제목" 
-                            value={roomTitle} 
-                            onChange={(e) => setRoomTitle(e.target.value)}
-                            className="room-title-input"
-                        />
-                        <button className="create-btn">생성하기</button>
-=======
 
                         {/* 방 제목 입력 */}
                         <input
@@ -128,7 +106,6 @@ function AddRoomModal({ isOpen, isClose }) {
                         >
                             생성하기
                         </button>
->>>>>>> 398cbea51763d6c68cc2a501273f879b9fb37e9d
                     </div>
                 </div>
             </Modal>
