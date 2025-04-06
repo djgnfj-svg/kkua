@@ -13,7 +13,5 @@ class Guest(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     last_login = Column(DateTime, nullable=True)
     
-    # 수정된 관계 설정
-    rooms = relationship("Room", foreign_keys="Room.created_by", back_populates="creator")
-    gamerounds = relationship("Gameround", back_populates="guest")
-    gameresults = relationship("Gameresult", back_populates="guest")
+    # Gameroom만 유지, Room 관계 제거
+    gamerooms = relationship("Gameroom", back_populates="creator")
