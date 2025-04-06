@@ -71,7 +71,7 @@ function InGame() {
       crashMessage={crashMessage}
       time_gauge={time_gauge}
     />
-   )
+  )
 }
 
 export default InGame;
