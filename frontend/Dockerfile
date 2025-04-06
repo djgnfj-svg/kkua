@@ -3,14 +3,13 @@ FROM node:22.9-alpine
 
 # 작업 디렉토리 생성
 WORKDIR /app
-
-# package.json과 package-lock.json을 먼저 복사하여 의존성 설치 캐시 활용
-COPY package.json package-lock.json ./
-RUN npm install
+# npm 버전 공유
+RUN npm install -g npm@11.2.0
 
 # 나머지 소스 코드 복사
 COPY . .
 
+RUN npm install
 # React 개발 서버 포트 노출
 EXPOSE 3000
 

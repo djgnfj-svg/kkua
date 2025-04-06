@@ -1,34 +1,71 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './Lobby.css';
+import { gameUrl } from '../../Component/urls';
+
+import AddRoomModal from './Section/AddRoomModal';
+import axiosInstance from '../../Api/axiosInstance';
+import { ROOM_API } from '../../Api/roomApi';
+import socket from '../../Component/socket';
 
 function Lobby() {
+  const navigate = useNavigate();
+  
+
+
   const [activeIndex, setActiveIndex] = useState(0);
   const intervalRef = useRef(null); // 인터벌 참조 생성
+  const [modalIsOpen , setModalIsOpen] = useState(false);
+  const [roomsData,setRoomsData] = useState([
+    {
+      title:"",
+      room_type:"",
+      people:"",
+      max_people:"",
+      playing:"",
+    }
+  ])
+  
+  //   {/* 배너 이미지 */}
+  //   // const slides = [
+    //   //   { image: `/images/slide1.jpg` },
+    //   //   { image: '/images/slide2.jpg' },
+    //   //   { image: '/images/slide3.jpg' },
+    //   // ];
+
+
+  // api 를 통해 방정보 받아오기
+  useEffect(() => {
+  const fetchRoom = async () => {
+    try{
+      const res= await axiosInstance.get(ROOM_API.get_ROOMS);
+      setRoomsData(res.data)
+    }catch(error){
+      console.log("방 요청 실패 " + error);
+    }
+  }
+  fetchRoom();
+  },[])
+
+  // useEffect(() => {
+  //   socket.onopen = () => {
+  //     console.log("연결됨");
+  //     socket.send("Hello server");
+  //   };
+
+  //   socket.onmessage = (event) => {
+  //     console.log("받은 메시지" , event.data);
+  //   }
+
+  //   return () => {
+  //     socket.close()
+  //   }
+  // },[])
+
 
   {/* 방 제목 / 게임 타입 / 진행중인 인원 */}
-  const a = "앵무새 덕후쉑 모여라 ㅋ 귀여워";
-  const b = "뉴비 환영 놀아줘";
-  const c = "게임 친구 구해요.";
-
-  const d = "4인 일반전";
-
-  const e = "[ " + 2 + " / " + 4 + " ]";
-
-  {/* 방 리스트 */}
-  const rooms = [
-    { title: a, type: d, players: e },
-    { title: b, type: d, players: e },
-    { title: c, type: d, players: e },
-  ];
 
   {/* 배너 이미지 */}
-  // const slides = [
-  //   { image: `/images/slide1.jpg` },
-  //   { image: '/images/slide2.jpg' },
-  //   { image: '/images/slide3.jpg' },
-  // ];
-
-    {/*  임시 컬러 배너 이미지 */}
   const slides = [
     { color: `rgb(175, 142, 235)` },
     { color: `rgb(241, 69, 79)` },
@@ -36,7 +73,10 @@ function Lobby() {
     { color: `rgb(46, 45, 213)` },
     { color: `rgb(213, 128, 45)` },
   ];
-  
+  // url 이동
+  const handleClickEnterGame = () =>{
+    navigate(gameUrl)
+  }
 
   {/* 슬라이드 인터벌 초기화 함수 */}
   const resetInterval = () => {
@@ -57,83 +97,81 @@ function Lobby() {
   const handlePrevSlide = () => {
     setActiveIndex((prevIndex) => (prevIndex === 0 ? slides.length - 1 : prevIndex - 1));
     resetInterval(); // 버튼 클릭 시 인터벌 초기화
-  };
+  }
 
   const handleNextSlide = () => {
     setActiveIndex((prevIndex) => (prevIndex + 1) % slides.length);
     resetInterval(); // 버튼 클릭 시 인터벌 초기화
-  };
+  }
 
   {/* 점 클릭 시 슬라이드 이동 */}
   const handleDotClick = (index) => {
     setActiveIndex(index);
     resetInterval(); // 클릭 시 인터벌 초기화
-  };
+  }
+  //모달 열기
+  const handleClickOpenModal =() => {
+      setModalIsOpen(true)
+  }
 
   return (
-    <div className="h-screen bg-gray-100 flex flex-col">
+    <div className="w-full h-screen flex justify-center bg-gray-100">
+      <div className="hidden md:flex w-[12%] h-[70%] bg-red-500 mr-12 self-center"></div>
+      <div className="flex flex-col w-full max-w-4xl bg-gray-200 shadow-lg overflow-hidden">
+        {/* 상단 슬라이더 */}
+        <div
+          className="relative w-full h-[30vh] md:h-[40vh] mt-5 flex items-center justify-center transition-all duration-500 md:hidden" 
+          style={{ backgroundColor: slides[activeIndex].color }} >
+          <button onClick={handlePrevSlide} className="absolute left-2 bg-gray-300 text-black w-8 h-8 rounded-full shadow-md"></button>
+          <button onClick={handleNextSlide} className="absolute right-2 bg-gray-300 text-black w-8 h-8 rounded-full shadow-md"></button>
 
-      {/* 상단 슬라이더 */}
-      <div
-        className={`relative w-full h-40 mt-20 flex items-center justify-center transition-all duration-500`}
-        id="lobby__SlideBox"
-        style={{
-           // backgroundImage: `url(${slides[activeIndex].image})`,
-          backgroundColor:slides[activeIndex].color,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        }}
-      >
-        <button 
-          onClick={handlePrevSlide} 
-          className="absolute left-2 bg-gray-300 text-black w-8 h-8 rounded-full flex items-center justify-center shadow-md">
-           {/* 좌측 화살표 추가 */}
-        </button>
-        <button 
-          onClick={handleNextSlide} 
-          className="absolute right-2 bg-gray-300 text-black w-8 h-8 rounded-full flex items-center justify-center shadow-md">
-           {/* 우측 화살표 추가 */}
-        </button>
-
-        <div className="flex space-x-2 mt-40">
-          {console.log(slides.length)}
-          {slides.map((_, index) => (
-            <div
-              key={index}
-              onClick={() => handleDotClick(index)}
-              className={`w-2 h-2 rounded-full cursor-pointer ${activeIndex === index ? 'bg-white' : 'bg-gray-400'}`}
-            ></div>
-          ))}
-         
-        </div>
-      </div>
-
-      {/* 방 목록 */}
-      <div className="flex-1 overflow-y-auto text-left mt-10">
-        {rooms.map((room, index) => (
-          <div key={index} className="bg-white p-8 border-b h-10vh shadow-md mb-3" id='lobby__list'>
-            <h3 className="font-bold mb-0.5 tracking-widest">{room.title}</h3>
-            <p className="text-sm h-393px font-bold">{room.type} {room.players}</p>
+          <div className="absolute bottom-2 flex space-x-2">
+            {slides.map((_, index) => (
+              <div
+                key={index}
+                onClick={() => handleDotClick(index)}
+                className={`w-2 h-2 rounded-full cursor-pointer ${activeIndex === index ? 'bg-white' : 'bg-gray-400'}`}
+              ></div>
+            ))}
           </div>
-        ))}
-         {/* 빈 박스 추가 */}
-            <div className="bg-white p-8 border-b h-10vh shadow-md mb-3" id='lobby__list__empty'></div>
-      </div>
+        </div>
 
-     {/* 새로고침 & 위로가기 버튼 */}
-      <div className="flex justify-center p-4 relative">
-         <button 
-           className="bg-blue-400 text-white w-12 h-12 rounded-full flex items-center justify-center shadow-md">
-          {/* 새로고침버튼 추가 */}
-         </button>
-         <button 
-           className="absolute right-4 bg-orange-400 text-white w-8 h-8 rounded-full flex items-center justify-center shadow-md">
-           {/* 위쪽 화살표 추가 */}
-         </button>
-       </div>
-     </div>
-   );
- }
+        {/* 새로고침 안내 */}
+        <div className="text-center text-sm text-gray-500 py-2">위에서 아래로 스와이프 시 새로고침</div>
+
+        {/* 방 목록 */}
+        <div className="flex-1 overflow-y-auto text-left space-y-4 px-2 md:px-10 md:pt-16 pb-24">
+          {roomsData.map((room, index) => (
+            <div key={index} className="bg-white p-4 md:p-8 min-h-[12vh] md:min-h-[16vh] border-b shadow-md md:shadow-lg flex items-center justify-between">
+              <div>
+                <h3 className="font-bold mb-0.5 tracking-widest text-lg md:text-xl">{room.title}</h3>
+                <p className="text-sm md:text-lg font-bold">{room.room_type} [ {room.people} / {room.max_people} ]</p>
+              </div>
+              {room.playing === false ? 
+              <button className={`text-white px-3 py-1 rounded bg-red-500 `} onClick={(e) => handleClickEnterGame()} > 입장하기 </button>
+              :
+              <button className={`text-white px-3 py-1 rounded bg-gray-500 `} onClick={(e) => handleClickEnterGame()} > 끄아 중 </button>
+            }
+            </div>
+          ))}
+            <div className="bg-white p-4 min-h-[10vh] border-b shadow-md flex items-center justify-between">
+            </div>
+        </div>
+       {/* 방 생성하기 버튼 */}
+       <div className="w-full flex justify-center py-4 bg-gray-200  border-gray-300" onClick={(e) => handleClickOpenModal(e)} >
+          <button className="w-full md:w-[80%] flex items-center justify-center gap-2 text-red-400 border-2 border-[#4178ED] rounded-full px-4 py-2 shadow-lg bg-white">
+          <img src={`${process.env.PUBLIC_URL || ''}/imgs/icon/AddIcon.png`}className="w-8 h-8" />
+          방 생성하기
+          </button>
+        </div>
+        {modalIsOpen && 
+        <>
+          <AddRoomModal isOpen={modalIsOpen} isClose={setModalIsOpen} />
+        </>}
+      </div>
+      <div className="hidden md:flex w-[12%] h-[70%] bg-red-500 ml-12 self-center"></div>
+    </div>
+  );
+}
 
 export default Lobby;
-
