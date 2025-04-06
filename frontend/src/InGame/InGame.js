@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import TopMsgAni from './TopMsg_Ani';
 import useTopMsg from './TopMsg';
 import Layout from './Layout';
+import Timer from './Timer';
 
 const time_gauge = 40;
 
@@ -13,6 +14,16 @@ function InGame() {
     { word: '널뛰기', desc: '사람이 올라갈 수 있는 크기의 시소 모양 기구이다. 사람이 점프하여 일어난 반동으로 반대편에 힘 응애 췡췡 보냄' }, 
     { word: '기분', desc: '심리적으로 느껴지는 뇌의 화학반응 활동' }  
   ]);
+
+  const [timeOver, setTimeOver] = useState(false);
+
+  const { timeLeft, resetTimer } = Timer(120, () => {
+    setMessage('⏰ 시간초과!');
+     // 3초 뒤 메시지 제거
+    setTimeout(() => {
+    setMessage('');
+  }, 3000);
+  });
 
   const [usedLog, setUsedLog] = useState([]);
   const [players, setPlayers] = useState(['하우두유', '부러', '김밥', '후러']);
@@ -66,7 +77,12 @@ function InGame() {
     <Layout
       typingText={typingText}
       handleTypingDone={handleTypingDone}
-      message={message}
+      //message={message}
+      message={timeOver ? '시간 초과!' : message}
+      timeLeft={timeLeft}
+      timeOver={timeOver}
+
+      
       itemList={itemList}
       showCount={showCount}
       players={players}

@@ -1,4 +1,5 @@
 import TopMsgAni from './TopMsg_Ani';
+import Timer from './Timer';
 
 function Layout({
   typingText,
@@ -12,7 +13,8 @@ function Layout({
   setInputValue,
   crashKeyDown,
   crashMessage,
-  time_gauge
+  time_gauge,
+  timeLeft
 }) {
   return (
     <div className="w-full flex justify-center bg-white lg:pb-[100px]">
@@ -26,12 +28,14 @@ function Layout({
 
         {/* 중앙 타이핑 영역 */}
         <div className="flex-1 max-w-[600px] flex flex-col items-center space-y-4">
-          <h1 className="text-3xl font-extrabold mt-4 mb-2">120초</h1>
+          {/* 타이머 */}
+          <h1 className="text-3xl font-extrabold mt-4 mb-2">{timeLeft}초</h1>
 
           <div className="w-full max-w-sm p-4 border-4 border-orange-400 rounded-full text-center font-bold shadow-lg bg-white text-xl leading-tight">
             {typingText && <TopMsgAni text={typingText} onDone={handleTypingDone} />}
             {message && <div className="text-red-500 text-sm font-normal mt-1">{message}</div>}
           </div>
+
 
           <div className="w-full max-w-sm relative h-8">
             <div className="h-6 bg-gray-200 rounded-full">
