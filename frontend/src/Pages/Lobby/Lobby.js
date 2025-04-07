@@ -113,7 +113,6 @@ function Lobby() {
       setModalIsOpen(true)
   }
 
-
   return (
     <div className="w-full h-screen flex justify-center bg-gray-100">
       <div className="hidden md:flex w-[12%] h-[70%] bg-red-500 mr-12 self-center"></div>

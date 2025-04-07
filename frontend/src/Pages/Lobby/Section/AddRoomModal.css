@@ -140,8 +140,7 @@
   cursor: pointer;
 }
 
-.section + .section {
-}
+.section+.section {}
 
 .person-options label {
   display: flex;
@@ -161,7 +160,7 @@
   margin-bottom: 5px;
 }
 
-.size-buttons > label {
+.size-buttons>label {
   margin-right: 15px;
 }
 
