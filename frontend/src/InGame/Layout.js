@@ -2,6 +2,7 @@ import TopMsgAni from './TopMsg_Ani';
 import Timer from './Timer';
 
 function Layout({
+  quizMsg, 
   typingText,
   handleTypingDone,
   message,
@@ -27,26 +28,23 @@ function Layout({
         </div>
 
         {/* 중앙 타이핑 영역 */}
-        <div className="flex-1 max-w-[600px] flex flex-col items-center space-y-4">
-          {/* 타이머 */}
-          <h1 className="text-3xl font-extrabold mt-4 mb-2">{timeLeft}초</h1>
+      <div className="flex-1 max-w-[600px] flex flex-col items-center space-y-4">
+        
+        {/* 남은 시간 */}
+        <h1 className="text-3xl font-extrabold mt-4 mb-2">{timeLeft}초</h1>
 
-          <div className="w-full max-w-sm p-4 border-4 border-orange-400 rounded-full text-center font-bold shadow-lg bg-white text-xl leading-tight">
-            {typingText && <TopMsgAni text={typingText} onDone={handleTypingDone} />}
-            {message && <div className="text-red-500 text-sm font-normal mt-1">{message}</div>}
-          </div>
+        <div className="w-full max-w-sm p-4 border-4 border-orange-400 rounded-full text-center font-bold shadow-lg bg-white text-xl leading-tight h-20 flex flex-col justify-center">
+          {/* 항상 보이는 제시어 */}
+          <div className="text-orange-500 text-lg">{quizMsg}</div>
+
+          {/* 애니메이션 메시지 */}
+          {typingText && <TopMsgAni text={typingText} onDone={handleTypingDone} />}
+
+          {/* 피드백 메시지 (중복 등) */}
+          {message && <div className="text-red-500 text-sm font-normal">{message}</div>}
+        </div>
 
 
-          <div className="w-full max-w-sm relative h-8">
-            <div className="h-6 bg-gray-200 rounded-full">
-              <div className="h-full bg-orange-400 w-1/4 relative z-10 rounded-full"></div>
-            </div>
-            <img
-              src={time_gauge <= 70 ? '/imgs/cat_walking.gif' : '/imgs/cat_running.gif'}
-              className="absolute z-20 -top-4 right-[10%] w-14 h-14 scale-x-[-1]"
-              alt="cat_walking"
-            />
-          </div>
 
           <div className="w-full md:w-[540px] px-2 md:px-4 space-y-4 tracking-wide">
             <div className="bg-gray-100 p-6 rounded-xl space-y-4 pb-10 mb-2">

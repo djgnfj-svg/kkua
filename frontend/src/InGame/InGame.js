@@ -1,3 +1,4 @@
+
 // src/InGame/InGame.js
 import { useEffect, useState } from 'react';
 import TopMsgAni from './TopMsg_Ani';
@@ -15,10 +16,21 @@ function InGame() {
     { word: '기분', desc: '심리적으로 느껴지는 뇌의 화학반응 활동' }  
   ]);
 
+  // 퀴즈 제시어 
+  const [quizMsg, setQuizMsg] = useState(''); // 초기값은 빈 문자열
+
+  useEffect(() => {
+    if (itemList.length > 0) {
+      const randomWord = itemList[Math.floor(Math.random() * itemList.length)].word;
+      setQuizMsg(randomWord);
+    }
+  }, []);
+
+  //
   const [timeOver, setTimeOver] = useState(false);
 
   const { timeLeft, resetTimer } = Timer(120, () => {
-    setMessage('⏰ 시간초과!');
+    setMessage('게임종료!');
      // 3초 뒤 메시지 제거
     setTimeout(() => {
     setMessage('');
@@ -46,7 +58,9 @@ function InGame() {
     setMessage,
     setInputValue,
     setTypingText,
-    setPendingItem
+    setPendingItem,
+    quizMsg,
+    setQuizMsg
   });
 
   const handleTypingDone = () => {
@@ -78,11 +92,10 @@ function InGame() {
       typingText={typingText}
       handleTypingDone={handleTypingDone}
       //message={message}
+       quizMsg={quizMsg}
       message={timeOver ? '시간 초과!' : message}
       timeLeft={timeLeft}
       timeOver={timeOver}
-
-      
       itemList={itemList}
       showCount={showCount}
       players={players}
