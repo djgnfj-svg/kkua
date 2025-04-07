@@ -6,12 +6,6 @@ import uuid
 class GuestBase(BaseModel):
     nickname: Optional[str] = None
 
-class GuestCreate(GuestBase):
-    pass
-
-class GuestUpdate(BaseModel):
-    nickname: Optional[str] = None
-
 class GuestResponse(GuestBase):
     guest_id: int
     uuid: uuid.UUID
