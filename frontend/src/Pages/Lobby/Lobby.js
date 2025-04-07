@@ -5,9 +5,13 @@ import { gameUrl } from '../../Component/urls';
 import AddRoomModal from './Section/AddRoomModal';
 import axiosInstance from '../../Api/axiosInstance';
 import { ROOM_API } from '../../Api/roomApi';
+import socket from '../../Component/socket';
 
 function Lobby() {
   const navigate = useNavigate();
+  
+
+
   const [activeIndex, setActiveIndex] = useState(0);
   const intervalRef = useRef(null); // 인터벌 참조 생성
   const [modalIsOpen , setModalIsOpen] = useState(false);
@@ -37,13 +41,30 @@ function Lobby() {
       const res= await axiosInstance.get(ROOM_API.get_ROOMS);
       setRoomsData(res.data)
     }catch(error){
-      console.log("방 요총 실패 " + error);
+      console.log("방 요청 실패 " + error);
     }
   }
   fetchRoom();
   },[])
 
-  
+  // useEffect(() => {
+  //   socket.onopen = () => {
+  //     console.log("연결됨");
+  //     socket.send("Hello server");
+  //   };
+
+  //   socket.onmessage = (event) => {
+  //     console.log("받은 메시지" , event.data);
+  //   }
+
+  //   return () => {
+  //     socket.close()
+  //   }
+  // },[])
+
+
+  {/* 방 제목 / 게임 타입 / 진행중인 인원 */}
+
   {/* 배너 이미지 */}
   const slides = [
     { color: `rgb(175, 142, 235)` },
@@ -89,6 +110,13 @@ function Lobby() {
     setActiveIndex(index);
     resetInterval(); // 클릭 시 인터벌 초기화
   }
+<<<<<<< HEAD
+=======
+  //모달 열기
+  const handleClickOpenModal =() => {
+      setModalIsOpen(true)
+  }
+>>>>>>> d4ac37ad1416c6fc29b281ff355e553b2e4523d2
 
   return (
     <div className="w-full h-screen flex justify-center bg-gray-100">
