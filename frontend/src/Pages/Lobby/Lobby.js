@@ -110,13 +110,10 @@ function Lobby() {
     setActiveIndex(index);
     resetInterval(); // 클릭 시 인터벌 초기화
   }
-<<<<<<< HEAD
-=======
   //모달 열기
   const handleClickOpenModal =() => {
       setModalIsOpen(true)
   }
->>>>>>> d4ac37ad1416c6fc29b281ff355e553b2e4523d2
 
   return (
     <div className="w-full h-screen flex justify-center bg-gray-100">
