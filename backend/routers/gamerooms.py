@@ -18,15 +18,9 @@ def list_gamerooms(db: Session = Depends(get_db)):
     rooms = db.query(Gameroom).all()
     return rooms
 
+
 @router.post("/", response_model=GameroomResponse, status_code=status.HTTP_201_CREATED)
-def create_gameroom(
-    request: Request,
-    title: str = None,
-    max_players: int = None,
-    game_mode: str = None,
-    time_limit: int = None,
-    db: Session = Depends(get_db)
-):
+def create_gameroom(request: Request, room: GameroomCreate, db: Session = Depends(get_db)):
     # 쿠키에서 게스트 UUID 가져오기
     guest_uuid_str = request.cookies.get("kkua_guest_uuid")
     
@@ -56,7 +50,7 @@ def create_gameroom(
     # 이미 생성한 방이 있는지 확인
     existing_room = db.query(Gameroom).filter(
         Gameroom.created_by == guest.guest_id,
-        Gameroom.status != GameStatus.FINISHED
+        Gameroom.status != GameStatus.FINISHED  # 문자열 대신 Enum 객체 사용
     ).first()
     
     if existing_room:
@@ -64,16 +58,13 @@ def create_gameroom(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="이미 생성한 방이 있습니다. 새로운 방을 만들기 전에 기존 방을 삭제해주세요."
         )
-
-    # 기본값 설정
-    room_data = {
-        "title": title if title is not None else "새로운 방",
-        "max_players": max_players if max_players is not None else 4,
-        "game_mode": game_mode if game_mode is not None else "normal",
-        "time_limit": time_limit if time_limit is not None else 60,
-        "created_by": guest.guest_id,
-        "status": GameStatus.WAITING
-    }
+    
+    # 게임룸 생성
+    room_data = room.dict(exclude={"uuid"})
+    # 게스트 ID 설정
+    room_data["created_by"] = guest.guest_id
+    # 초기 상태를 대기중으로 설정
+    room_data["status"] = GameStatus.WAITING
     
     db_room = Gameroom(**room_data)
     db.add(db_room)
