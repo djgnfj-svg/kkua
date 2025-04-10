@@ -6,12 +6,12 @@ export const POST_API = {
 };
 */
 export const ROOM_API = {
-    get_ROOMS:'/api/rooms',
-    CREATE_ROOMS:'/api/rooms',
+    get_ROOMS:'/gamerooms/',
+    CREATE_ROOMS:'/gamerooms/',
     //rooms id값
-    get_ROOMSID: (id) => `api/rooms/${id}`,
-    JOIN_ROOMS : (id) => `api/rooms/${id}/join`,
-    LEAVE_ROOMS : (id) => `api/rooms/${id}/leave`,
-    PLAY_ROOMS : (id) => `api/rooms/${id}/play`,
-    END_ROOMS : (id) => `api/rooms/${id}/end`
+    get_ROOMSID: (id) => `gamerooms/${id}`,
+    JOIN_ROOMS : (id) => `gamerooms/${id}/join`,
+    LEAVE_ROOMS : (id) => `gamerooms/${id}/leave`,
+    PLAY_ROOMS : (id) => `gamerooms/${id}/play`,
+    END_ROOMS : (id) => `gamerooms/${id}/end`
 }

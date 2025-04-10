@@ -5,6 +5,8 @@ import { gameUrl } from '../../Component/urls';
 import AddRoomModal from './Section/AddRoomModal';
 import axiosInstance from '../../Api/axiosInstance';
 import { ROOM_API } from '../../Api/roomApi';
+import guestStore from '../../store/guestStore';
+import Cookies from 'js-cookie';
 
 function Lobby() {
   const navigate = useNavigate();
@@ -22,6 +24,8 @@ function Lobby() {
     }
   ])
   
+  const { nickname } = guestStore.getState();
+
   // api 를 통해 방정보 받아오기
   useEffect(() => {
   const fetchRoom = async () => {
@@ -95,7 +99,7 @@ function Lobby() {
            
             className="w-[50px] h-[50px] bg-white rounded-full object-cover mb-2"
           />
-          <p className="text-lg font-semibold text-gray-700">Guest2382</p>
+          <p className="text-lg font-semibold text-gray-700">{nickname || '게스트'}</p>
         </div>
         {/* 상단 슬라이더 */}
         <div
