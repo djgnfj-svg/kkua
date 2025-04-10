@@ -4,6 +4,7 @@ import './AddRoomModal.css';
 import axiosInstance from '../../../Api/axiosInstance';
 import { ROOM_API } from '../../../Api/roomApi';
 import { useNavigate } from 'react-router-dom';
+import Cookies from 'js-cookie';
 
 Modal.setAppElement('#root');
 
@@ -21,7 +22,8 @@ function AddRoomModal({ isOpen, isClose }) {
             const res = await axiosInstance.post(ROOM_API.CREATE_ROOMS,{
                 title:makeRoom.title,
                 room_type : "string",
-                max_people : makeRoom.people
+                max_people : makeRoom.people,
+                time_limit : null
             })
             navigate("/kea");
         }
