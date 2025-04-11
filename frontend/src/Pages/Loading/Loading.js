@@ -7,6 +7,7 @@ import guestStore from '../../store/guestStore'
 import axiosInstance from '../../Api/axiosInstance';
 import { lobbyUrl } from '../../Component/urls';
 import { USER_API } from '../../Api/userApi';
+import Cookies from 'js-cookie';
 
 function Loading() {
 
@@ -34,16 +35,21 @@ function Loading() {
     }
 
     try {
-      const response = await axiosInstance.post(USER_API.GET_GUEST())
-      const data = response.data
+      const response = await axiosInstance.post(USER_API.GET_GUEST());
+      const data = response.data;
 
-      const current = guestStore.getState()
+      const current = guestStore.getState();
       if (!current.uuid) {
         guestStore.getState().setGuestInfo({
           uuid: data.uuid,
           nickname: data.nickname,
           guest_id: data.guest_id,
-        })
+        });
+
+        // 쿠키에 uuid 저장 (이미 없을 경우만)
+        if (!Cookies.get('kkua_guest_uuid')) {
+          Cookies.set('kkua_guest_uuid', data.uuid, { expires: 1 });
+        }
       }
 
       alert("들어가세요")

@@ -5,6 +5,11 @@ import { gameUrl } from '../../Component/urls';
 import AddRoomModal from './Section/AddRoomModal';
 import axiosInstance from '../../Api/axiosInstance';
 import { ROOM_API } from '../../Api/roomApi';
+<<<<<<< HEAD
+=======
+import guestStore from '../../store/guestStore';
+import Cookies from 'js-cookie';
+>>>>>>> feat_lobby_geust
 
 function Lobby() {
   const navigate = useNavigate();
@@ -22,6 +27,11 @@ function Lobby() {
     }
   ])
   
+<<<<<<< HEAD
+=======
+  const { nickname } = guestStore.getState();
+
+>>>>>>> feat_lobby_geust
   // api 를 통해 방정보 받아오기
   useEffect(() => {
   const fetchRoom = async () => {
@@ -95,7 +105,11 @@ function Lobby() {
            
             className="w-[50px] h-[50px] bg-white rounded-full object-cover mb-2"
           />
+<<<<<<< HEAD
           <p className="text-lg font-semibold text-gray-700">Guest2382</p>
+=======
+          <p className="text-lg font-semibold text-gray-700">{nickname || '게스트'}</p>
+>>>>>>> feat_lobby_geust
         </div>
         {/* 상단 슬라이더 */}
         <div
