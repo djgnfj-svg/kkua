@@ -25,7 +25,7 @@ function Loading() {
         console.log("서버 응답:", response.data)
 
         if (response.data && response.data.uuid) {
-          alert("어서오세요")
+          alert(`어서오세요 ${response.data.nickname}님!`)
           navigate(lobbyUrl)
           return
         }
@@ -52,7 +52,7 @@ function Loading() {
         }
       }
 
-      alert("들어가세요")
+      alert(`게스트 가입을 환영합니다 "${data.nickname}" 님!`);
       setShowModal(true)
     } catch (error) {
       console.error("게스트 생성 실패:", error)
