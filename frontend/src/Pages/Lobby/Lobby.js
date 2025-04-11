@@ -27,6 +27,7 @@ function Lobby() {
   const { nickname } = guestStore.getState();
 
   // api 를 통해 방정보 받아오기
+  {/* 방 제목 / 게임 타입 / 진행중인 인원 */}
   useEffect(() => {
   const fetchRoom = async () => {
     try{
@@ -49,6 +50,7 @@ function Lobby() {
     { color: `rgb(46, 45, 213)` },
     { color: `rgb(213, 128, 45)` },
   ];
+
   // url 이동
   const handleClickEnterGame = (room_id) =>{
     navigate(gameUrl)
