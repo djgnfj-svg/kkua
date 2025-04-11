@@ -1,10 +1,14 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import axiosInstance from '../../Api/axiosInstance';
 
 function GameLobbyPage() {
   const { roomId } = useParams();
   console.log(roomId)
+  const [roomsData,setRoomsData] = useState({
+    title:"",
+
+  })
   const navigate = useNavigate();
 
   const handleClickExit = () => {
@@ -20,6 +24,7 @@ function GameLobbyPage() {
     axiosInstance.patch(`/gamerooms/${roomId}`, null, {
     })
     .then(res => {
+      setRoomsData(res.data)
       console.log("PATCH 성공:", res.data);
     })
     .catch(err => {
@@ -35,7 +40,7 @@ function GameLobbyPage() {
 
       {/* Title */}
       <div className="text-center mb-5">
-        <div className="font-bold text-lg">XX 게임 대기실</div>
+        <div className="font-bold text-lg">{roomsData.title}</div>
         <div className="font-bold text-base">아케이드 [2 / 4]</div>
       </div>
 
