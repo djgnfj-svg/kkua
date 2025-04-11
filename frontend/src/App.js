@@ -17,7 +17,7 @@ function App() {
           <Route path="/" element={<Loading />} />
           <Route path="/keaing" element={<InGame />} />
           <Route path="/lobby" element={<Lobby />} />
-          <Route path="/lobby/kea" element={<GameLobbyPage />} />  
+          <Route path="/lobby/keaLobby/:lobbyid" element={<GameLobbyPage />} />  
         </Routes>
       </Router>
     </div>

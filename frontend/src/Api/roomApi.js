@@ -7,7 +7,7 @@ export const POST_API = {
 */
 export const ROOM_API = {
     get_ROOMS:'/gamerooms/',
-    CREATE_ROOMS:'/gamerooms/',
+    CREATE_ROOMS: (title,max_players,gamemode,time_limit) => `gamerooms/?title=${title}&max_players=${max_players}&game_mode=${gamemode}&time_limit=${time_limit}`,
     //rooms id값
     get_ROOMSID: (id) => `gamerooms/${id}`,
     JOIN_ROOMS : (id) => `gamerooms/${id}/join`,
