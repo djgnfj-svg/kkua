@@ -1,23 +1,32 @@
 import React, { useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
+import axiosInstance from '../../Api/axiosInstance';
 
 function GameLobbyPage() {
+  const { roomId } = useParams();
+  console.log(roomId)
+  const navigate = useNavigate();
 
-    const navigate = useNavigate();
-
-    const handleClickExit = () => {
-      let res = window.confirm("로비로 나가시겠습니까?");
-      if(res){
-        navigate("/lobby");
-      }else{
-        
-      }
-    }
-
-    useEffect(() => {
+  const handleClickExit = () => {
+    let res = window.confirm("로비로 나가시겠습니까?");
+    if(res){
+      navigate("/lobby");
+    }else{
       
-    },[])
-    
+    }
+  }
+
+  useEffect(() => {
+    axiosInstance.patch(`/gamerooms/${roomId}`, null, {
+    })
+    .then(res => {
+      console.log("PATCH 성공:", res.data);
+    })
+    .catch(err => {
+      console.error("PATCH 실패:", err.response?.data || err.message);
+    });
+  },[])
+  
 
   return (
     <div className="w-full min-h-screen bg-white flex flex-col items-center pt-5 relative overflow-y-auto">
