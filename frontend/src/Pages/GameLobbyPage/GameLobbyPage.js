@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 function GameLobbyPage() {
@@ -13,6 +13,10 @@ function GameLobbyPage() {
         
       }
     }
+
+    useEffect(() => {
+      
+    },[])
     
 
   return (
