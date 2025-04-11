@@ -41,7 +41,7 @@ function GameLobbyPage() {
       {/* Title */}
       <div className="text-center mb-5">
         <div className="font-bold text-lg">{roomsData.title}</div>
-        <div className="font-bold text-base">아케이드 [2 / 4]</div>
+        <div className="font-bold text-base">{roomsData.game_mode} [현재인원 / {roomsData.max_players}]</div>
       </div>
 
       {/* Players */}
