@@ -21,7 +21,14 @@ function AddRoomModal({ isOpen, isClose }) {
     const handleSubmitBtn = async () => {
         const {title , max_players , game_mode , time_limit} = makeRoom
         try {
-            const res = await axiosInstance.post(ROOM_API.CREATE_ROOMS(title,max_players,game_mode,time_limit))
+            const res = await axiosInstance.post(ROOM_API.CREATE_ROOMS, null, {
+                params: {
+                    title,
+                    max_players,
+                    game_mode,
+                    time_limit,
+                }
+            });
             navigate(`/keaLobby/${res.data.room_id}`);
         }
         catch (error) {
