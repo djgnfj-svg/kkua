@@ -1,14 +1,15 @@
 import './App.css';
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom'; //루트
+import { BrowserRouter as Router, Route, Routes, useNavigate } from 'react-router-dom'; //루트
 import Loading from './Pages/Loading/Loading';
 import InGame from './InGame/InGame';
 import Lobby from './Pages/Lobby/Lobby';
 import GameLobbyPage from './Pages/GameLobbyPage/GameLobbyPage';
+import { useEffect } from 'react';
 
 
-// Url별 화면 표시
 
 function App() {
+  
   return (
     <div className="App">
       <Router>
@@ -16,7 +17,7 @@ function App() {
           <Route path="/" element={<Loading />} />
           <Route path="/keaing" element={<InGame />} />
           <Route path="/lobby" element={<Lobby />} />
-          <Route path="/lobby/kea" element={<GameLobbyPage />} />  
+          <Route path="/kealobby/:roomId" element={<GameLobbyPage />} />  
         </Routes>
       </Router>
     </div>
