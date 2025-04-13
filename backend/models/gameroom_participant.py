@@ -6,9 +6,10 @@ import enum
 
 class ParticipantStatus(enum.Enum):
     WAITING = "waiting"
-    READY = "ready"  # 새로 추가: 참가자가 준비됨
+    READY = "ready"
     PLAYING = "playing"
-    FINISHED = "finished"
+    FINISHED = "finished" #1시간 이상 움직임이 없으면 죽여버린다.
+    LEFT = "left"  # 솔직히 있어야하는지 모르겠음... 음....
 
 class GameroomParticipant(Base):
     __tablename__ = "gameroom_participants"
