@@ -28,3 +28,4 @@ class Gameroom(Base):
 
     # 관계 설정
     creator = relationship("Guest", back_populates="gamerooms")
+    participants = relationship("GameroomParticipant", back_populates="gameroom", cascade="all, delete-orphan")
