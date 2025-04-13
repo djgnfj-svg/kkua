@@ -1,22 +1,29 @@
 from fastapi import APIRouter, HTTPException, status, Depends, Request
 from sqlalchemy.orm import Session
 from typing import List
-from models.gameroom import Gameroom
-from models.guest import Guest
-from schemas.gameroom import GameroomCreate, GameroomResponse, GameroomUpdate
-from db.postgres import get_db
 import uuid
-from models.gameroom import GameStatus
+
+# 기존 import
+from db.postgres import get_db
+from models.gameroom import Gameroom, GameStatus
+from models.guest import Guest
+
+# 새로 추가: GameroomParticipant, ParticipantStatus
+from models.gameroom_participant import GameroomParticipant, ParticipantStatus
+
+from schemas.gameroom import GameroomCreate, GameroomResponse, GameroomUpdate
 
 router = APIRouter(
     prefix="/gamerooms",
     tags=["gamerooms"],
 )
 
+
 @router.get("/", response_model=List[GameroomResponse], status_code=status.HTTP_200_OK)
 def list_gamerooms(db: Session = Depends(get_db)):
     rooms = db.query(Gameroom).all()
     return rooms
+
 
 @router.post("/", response_model=GameroomResponse, status_code=status.HTTP_201_CREATED)
 def create_gameroom(
@@ -29,7 +36,6 @@ def create_gameroom(
 ):
     # 쿠키에서 게스트 UUID 가져오기
     guest_uuid_str = request.cookies.get("kkua_guest_uuid")
-    
     if not guest_uuid_str:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -53,12 +59,11 @@ def create_gameroom(
             detail="유효하지 않은 게스트 UUID입니다."
         )
         
-    # 이미 생성한 방이 있는지 확인
+    # 이미 생성한 방이 있는지 확인 (게임이 끝나지 않은 방)
     existing_room = db.query(Gameroom).filter(
         Gameroom.created_by == guest.guest_id,
         Gameroom.status != GameStatus.FINISHED
     ).first()
-    
     if existing_room:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -94,7 +99,6 @@ def update_gameroom(
 ):
     # 쿠키에서 게스트 UUID 가져오기
     guest_uuid_str = request.cookies.get("kkua_guest_uuid")
-    
     if not guest_uuid_str:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -160,6 +164,99 @@ def delete_gameroom(room_id: int, db: Session = Depends(get_db)):
     room = db.query(Gameroom).filter(Gameroom.room_id == room_id).first()
     if not room:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="게임룸을 찾을 수 없습니다")
-    room.status = GameStatus.FINISHED  # 문자열 대신 Enum 객체 사용
+    room.status = GameStatus.FINISHED
     db.commit()
     return {"detail": "게임룸이 성공적으로 종료되었습니다"}
+
+
+@router.post("/{room_id}/join", status_code=status.HTTP_200_OK)
+def join_gameroom(room_id: int, request: Request, db: Session = Depends(get_db)):
+    # 1. 쿠키에서 게스트 UUID 가져오기
+    guest_uuid_str = request.cookies.get("kkua_guest_uuid")
+    if not guest_uuid_str:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="게스트 UUID가 필요합니다. 쿠키에 kkua_guest_uuid가 없습니다."
+        )
+
+    # 2. 문자열을 UUID로 변환
+    try:
+        guest_uuid = uuid.UUID(guest_uuid_str)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="유효하지 않은 UUID 형식입니다."
+        )
+
+    # 3. Guest 조회
+    guest = db.query(Guest).filter(Guest.uuid == guest_uuid).first()
+    if not guest:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="유효하지 않은 게스트 UUID입니다."
+        )
+    
+    # 4. 게임룸 조회
+    room = db.query(Gameroom).filter(Gameroom.room_id == room_id).first()
+    if not room:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="게임룸을 찾을 수 없습니다")
+    
+    # 이미 방 생성자인지 확인
+    if room.created_by == guest.guest_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="이미 해당 방의 생성자입니다."
+        )
+    
+    # 최대 인원 초과 확인
+    if room.people >= room.max_players:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="방이 가득 찼습니다."
+        )
+    
+    # 게임 진행중인지 확인
+    if room.status == GameStatus.PLAYING:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="게임이 이미 시작되었습니다."
+        )
+
+    # 게임이 종료되었는지 확인
+    if room.status == GameStatus.FINISHED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="종료된 게임입니다."
+        )
+
+    # ▶▶ 추가된 부분: 이미 참여중인지 + GameroomParticipant 생성 로직 ◀◀
+    existing_participation = db.query(GameroomParticipant).filter(
+        GameroomParticipant.guest_id == guest.guest_id,
+        GameroomParticipant.room_id == room.room_id,
+        GameroomParticipant.left_at.is_(None)  # 아직 나가지 않은 상태
+    ).first()
+    if existing_participation:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="이미 이 방에 참여중입니다."
+        )
+    
+    # (선택) 한 유저가 동시에 한 방만 허용하려면,
+    # 다른 방에 참여중인 레코드(left_at이 NULL)를 찾아서 막는 로직 추가
+
+    # 새로운 참가 레코드
+    new_participation = GameroomParticipant(
+        guest_id=guest.guest_id,
+        room_id=room.room_id,
+        status=ParticipantStatus.WAITING  # 기본 상태
+    )
+    db.add(new_participation)
+
+    # 인원수 증가
+    room.people += 1
+
+    db.commit()
+    db.refresh(room)
+    db.refresh(new_participation)
+
+    return {"detail": f"게임룸({room.room_id})에 성공적으로 참여하였습니다."}

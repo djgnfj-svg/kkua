@@ -20,6 +20,7 @@ class GameroomUpdate(BaseModel):
     status: Optional[str] = None
 
 class GameroomResponse(GameroomBase):
+    people: int
     room_id: int
     created_by: int
     created_at: datetime.datetime
