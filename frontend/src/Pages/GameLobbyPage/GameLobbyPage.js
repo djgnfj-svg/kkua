@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import axiosInstance from '../../Api/axiosInstance';
+import { gameLobbyUrl, lobbyUrl } from '../../Component/urls';
 
 function GameLobbyPage() {
   const { roomId } = useParams();
@@ -14,14 +15,14 @@ function GameLobbyPage() {
   const handleClickExit = () => {
     let res = window.confirm("로비로 나가시겠습니까?");
     if(res){
-      navigate("/lobby");
+      navigate(lobbyUrl);
     }else{
       
     }
   }
 
   useEffect(() => {
-    axiosInstance.patch(`/gamerooms/${roomId}`, null, {
+    axiosInstance.patch(`${gameLobbyUrl(roomId)}`, null, {
     })
     .then(res => {
       setRoomsData(res.data)
