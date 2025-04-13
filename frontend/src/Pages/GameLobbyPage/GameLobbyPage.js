@@ -22,14 +22,13 @@ function GameLobbyPage() {
   }
 
   useEffect(() => {
-    axiosInstance.patch(`${gameLobbyUrl(roomId)}`, null, {
-    })
+    axiosInstance.get(`${gameLobbyUrl(roomId)}`)
     .then(res => {
       setRoomsData(res.data)
-      console.log("PATCH 성공:", res.data);
+      console.log("GET 성공:", res.data);
     })
     .catch(err => {
-      console.error("PATCH 실패:", err.response?.data || err.message);
+      console.error("GET 실패:", err.response?.data || err.message);
     });
   },[])
   

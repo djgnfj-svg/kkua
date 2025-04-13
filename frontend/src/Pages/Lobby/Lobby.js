@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Lobby.css';
-import { gameUrl, lobbyUrl } from '../../Component/urls';
+import { gameLobbyUrl, gameUrl, lobbyUrl } from '../../Component/urls';
 import AddRoomModal from './Section/AddRoomModal';
 import axiosInstance from '../../Api/axiosInstance';
 import { ROOM_API } from '../../Api/roomApi';
@@ -53,7 +53,7 @@ function Lobby() {
 
   // url 이동
   const handleClickEnterGame = (room_id) =>{
-    navigate(lobbyUrl(room_id))
+    navigate(gameLobbyUrl(room_id))
   }
 
   {/* 슬라이드 인터벌 초기화 함수 */}
