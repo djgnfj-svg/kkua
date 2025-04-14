@@ -6,7 +6,7 @@ import AddRoomModal from './Section/AddRoomModal';
 import axiosInstance from '../../Api/axiosInstance';
 import { ROOM_API } from '../../Api/roomApi';
 import guestStore from '../../store/guestStore';
-import Cookies from 'js-cookie';
+import userIsTrue from '../../Component/userIsTrue';
 
 function Lobby() {
   const navigate = useNavigate();
@@ -24,7 +24,19 @@ function Lobby() {
     }
   ])
   
-  const { nickname } = guestStore.getState();
+  const { uuid, nickname } = guestStore.getState();
+
+  // Check guest validity
+  useEffect(() => {
+    const checkGuest = async () => {
+      const isValid = await userIsTrue();
+      if (!isValid) {
+        alert("어멋 어딜들어오세요 Cut !");
+        navigate('/');
+      }
+    };
+    checkGuest();
+  }, [uuid]);
 
   // api 를 통해 방정보 받아오기
   {/* 방 제목 / 게임 타입 / 진행중인 인원 */}
