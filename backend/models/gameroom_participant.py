@@ -26,3 +26,28 @@ class GameroomParticipant(Base):
     # relationship 설정
     gameroom = relationship("Gameroom", back_populates="participants")
     guest = relationship("Guest", back_populates="participations") 
+    
+    @classmethod
+    def get_active_game_for_user(cls, db, guest_id):
+        """유저가 현재 참여 중인 게임을 찾아 반환합니다."""
+        participant = db.query(cls).filter(
+            cls.guest_id == guest_id,
+            cls.status.in_([ParticipantStatus.PLAYING, ParticipantStatus.WAITING]),
+            cls.left_at.is_(None)
+        ).first()
+        return participant
+    @classmethod
+    def should_redirect_to_game(cls, db, guest_id):
+        """
+        유저가 게임 중인지 확인하고 게임방으로 리다이렉트해야 하는지 여부를 반환합니다.
+        게임 중이라면 해당 방 ID를 함께 반환합니다.
+        """
+        active_game = cls.get_active_game_for_user(db, guest_id)
+        if active_game:
+            return True, active_game.room_id
+        return False, None
+    
+    def mark_as_left(self):
+        """유저가 방을 나갔을 때 상태를 업데이트합니다."""
+        self.status = ParticipantStatus.LEFT
+        self.left_at = datetime.datetime.utcnow() 
