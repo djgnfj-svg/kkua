@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import userIsTrue from '../Component/userIsTrue';
+import { useNavigate } from 'react-router-dom';
 
 const time_gauge = 40; // 값이 올라가면 빨리 달림 70 되면 
 
@@ -7,6 +9,18 @@ function InGame() {
   const [subItems, subSetItems] = useState(['쥐과 동물이다', '지나갈 수 있는 커다란 구멍을 뜻한다. 특히 도로 위 자동차', '사람이 올라갈 수 있는 크기의 시소 모양 기구이다. 사람이 점프하여 일어난 반동으로 반대편에 힘 응애 췡췡 보냄']);
   const [players, setPlayers] = useState(['하우두유', '부러', '김밥', '후러']);
   const specialPlayer = '부러';
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    const checkGuest = async () => {
+      const result = await userIsTrue();
+      if (!result) {
+        alert("어멋 어딜들어오세요 Cut !");
+        navigate("/")
+      }
+    };
+    checkGuest();
+  }, []);
 
   return (
   <div className="w-full flex justify-center bg-white">

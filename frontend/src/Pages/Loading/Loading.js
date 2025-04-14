@@ -8,32 +8,25 @@ import axiosInstance from '../../Api/axiosInstance';
 import { lobbyUrl } from '../../Component/urls';
 import { USER_API } from '../../Api/userApi';
 import Cookies from 'js-cookie';
+import userIsTrue from '../../Component/userIsTrue';
 
 function Loading() {
 
   const [showModal, setShowModal] = useState(false);
   const navigate = useNavigate();
-  
+
+  useEffect(() => {
+    const checkGuest = async () => {
+      const result = await userIsTrue();
+      if (result) {
+        alert("어허 로그인하셧으면 시작페이지 오지마세요 !");
+        navigate(lobbyUrl)
+      }
+    };
+    checkGuest();
+  }, []);
 
   const startButtonOn = async () => {
-    const { uuid } = guestStore.getState();
-    console.log("uuid = " + uuid)
-    if (uuid) {
-      try {
-        const response = await axiosInstance.post(USER_API.GET_GUEST(uuid))
-        console.log("클라이언트 uuid:", uuid)
-        console.log("서버 응답:", response.data)
-
-        if (response.data && response.data.uuid) {
-          alert(`어서오세요 ${response.data.nickname}님!`)
-          navigate(lobbyUrl)
-          return
-        }
-      } catch (error) {
-        console.warn("유효하지 않은 uuid, 새 게스트 생성합니다.")
-      }
-    }
-
     try {
       const response = await axiosInstance.post(USER_API.GET_GUEST());
       const data = response.data;

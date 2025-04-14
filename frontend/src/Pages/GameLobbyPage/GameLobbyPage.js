@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import axiosInstance from '../../Api/axiosInstance';
 import { gameLobbyUrl, lobbyUrl } from '../../Component/urls';
+import userIsTrue from '../../Component/userIsTrue';
 
 function GameLobbyPage() {
   const { roomId } = useParams();
@@ -11,6 +12,17 @@ function GameLobbyPage() {
 
   })
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const checkGuest = async () => {
+      const result = await userIsTrue();
+      if (!result) {
+        alert("어멋 어딜들어오세요 Cut !");
+        navigate("/")
+      }
+    };
+    checkGuest();
+  }, []);
 
   const handleClickExit = () => {
     let res = window.confirm("로비로 나가시겠습니까?");

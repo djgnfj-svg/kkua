@@ -23,9 +23,4 @@ const guestStore = create(
   )
 )
 
-const startButtonOn = async () => {
-  const { uuid } = guestStore.getState();
-  console.log("uuid = " + uuid);
-}
-
 export default guestStore
