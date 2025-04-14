@@ -6,5 +6,6 @@ export const USER_API = {
 };
 */
 export const USER_API ={
-  GET_GUEST : (guest_uuid) => `/guests/login?guest_uuid=${guest_uuid}`
+  GET_GUEST : (guest_uuid) => `/guests/login?guest_uuid=${guest_uuid}` ,
+  GET_GUEST_STATUS : `/gamerooms/check-active-game`
 }

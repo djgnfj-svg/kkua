@@ -9,8 +9,6 @@ async function userIsTrue() {
     }else if (uuid) {
       try {
         const response = await axiosInstance.post(USER_API.GET_GUEST(uuid))
-        console.log("클라이언트 uuid:", uuid)
-        console.log("서버 응답:", response.data)
 
         if (response.data && response.data.uuid) {
           return true;
