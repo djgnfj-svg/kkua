@@ -533,15 +533,16 @@ def get_gameroom_participants(room_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/check-active-game", status_code=status.HTTP_200_OK)
-def check_active_game(request: Request, db: Session = Depends(get_db)):
+def check_active_game(request: Request, guest_uuid_str: str = None, db: Session = Depends(get_db)):
     """
     유저가 현재 게임 중인지 확인하고, 게임 중이라면 해당 게임방 ID를 반환합니다.
     로비 페이지에 접근하기 전에 호출하여 필요시 게임방으로 리다이렉트합니다.
     """
-    # 쿠키에서 게스트 UUID 가져오기
-    guest_uuid_str = request.cookies.get("kkua_guest_uuid")
+    # 쿼리 파라미터에서 게스트 UUID 가져오기
     if not guest_uuid_str:
-        return {"redirect": False}
+        guest_uuid_str = request.cookies.get("kkua_guest_uuid")
+        if not guest_uuid_str:
+            return {"redirect": False}
     
     # 문자열을 UUID 객체로 변환
     try:
