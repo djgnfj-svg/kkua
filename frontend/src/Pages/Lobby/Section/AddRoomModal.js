@@ -5,6 +5,7 @@ import axiosInstance from '../../../Api/axiosInstance';
 import { ROOM_API } from '../../../Api/roomApi';
 import { useNavigate } from 'react-router-dom';
 import Cookies from 'js-cookie';
+import { gameLobbyUrl, gameUrl } from '../../../Component/urls';
 
 Modal.setAppElement('#root');
 
@@ -21,15 +22,13 @@ function AddRoomModal({ isOpen, isClose }) {
     const handleSubmitBtn = async () => {
         const {title , max_players , game_mode , time_limit} = makeRoom
         try {
-            const res = await axiosInstance.post(ROOM_API.CREATE_ROOMS, null, {
-                params: {
-                    title,
-                    max_players,
-                    game_mode,
-                    time_limit,
-                }
+            const res = await axiosInstance.post(ROOM_API.CREATE_ROOMS, {
+                title,
+                max_players,
+                game_mode,
+                time_limit
             });
-            navigate(`/keaLobby/${res.data.room_id}`);
+            navigate(`${gameLobbyUrl(res.data.room_id)}`);
         }
         catch (error) {
             console.log(error);
