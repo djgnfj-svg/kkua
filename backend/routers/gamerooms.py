@@ -22,7 +22,7 @@ router = APIRouter(
 
 @router.get("/", response_model=List[GameroomResponse], status_code=status.HTTP_200_OK)
 def list_gamerooms(db: Session = Depends(get_db)):
-    rooms = db.query(Gameroom).all()
+    rooms = db.query(Gameroom).filter(Gameroom.status != GameStatus.FINISHED).all()
     return rooms
 
 
