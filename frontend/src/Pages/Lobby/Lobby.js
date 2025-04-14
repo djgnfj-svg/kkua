@@ -7,6 +7,7 @@ import axiosInstance from '../../Api/axiosInstance';
 import { ROOM_API } from '../../Api/roomApi';
 import guestStore from '../../store/guestStore';
 import userIsTrue from '../../Component/userIsTrue';
+import { USER_API } from '../../Api/userApi';
 
 function Lobby() {
   const navigate = useNavigate();
@@ -37,6 +38,7 @@ function Lobby() {
     };
     checkGuest();
   }, [uuid]);
+ 
 
   // api 를 통해 방정보 받아오기
   {/* 방 제목 / 게임 타입 / 진행중인 인원 */}
@@ -53,6 +55,23 @@ function Lobby() {
   fetchRoom();
   },[])
 
+  useEffect(() => {
+    const fetchGuestStatus = async () => {
+      try {
+        const res = await axiosInstance.get(USER_API.GET_GUEST_STATUS);
+        const roomId = res?.data?.room_id;
+
+        if (roomId) {
+          alert("기존 방에 재입장합니다.");
+          navigate(gameLobbyUrl(roomId));
+        }
+      } catch (err) {
+        console.error("게스트 상태 확인 실패:", err);
+      }
+    };
+
+    fetchGuestStatus();
+  }, []);
 
   {/* 배너 이미지 */}
   const slides = [

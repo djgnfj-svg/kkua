@@ -22,12 +22,9 @@ function AddRoomModal({ isOpen, isClose }) {
     const handleSubmitBtn = async () => {
         const {title , max_players , game_mode , time_limit} = makeRoom
         try {
-            const res = await axiosInstance.post(ROOM_API.CREATE_ROOMS, {
-                title,
-                max_players,
-                game_mode,
-                time_limit
-            });
+            const res = await axiosInstance.post(
+                `${ROOM_API.CREATE_ROOMS}?title=${title}&max_players=${max_players}&game_mode=${game_mode}&time_limit=${time_limit}`
+            );
             navigate(`${gameLobbyUrl(res.data.room_id)}`);
         }
         catch (error) {
