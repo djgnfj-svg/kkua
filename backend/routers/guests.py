@@ -6,6 +6,7 @@ from schemas.guest import GuestResponse
 from db.postgres import get_db
 import uuid
 import datetime
+from models.gameroom_participant import GameroomParticipant
 
 router = APIRouter(
     prefix="/guests",
@@ -57,4 +58,12 @@ def guest_login(request: Request, response: Response, db: Session = Depends(get_
         secure=False,  # 프로덕션에서는 True로 설정
         samesite="lax"
     )
-    return guest
+    
+    # 게임 중인지 확인하고 리다이렉션 정보 추가
+    should_redirect, room_id = GameroomParticipant.should_redirect_to_game(db, guest.guest_id)
+    
+    result = GuestResponse.model_validate(guest)
+    if should_redirect:
+        result.active_game = {"room_id": room_id}
+    
+    return result
