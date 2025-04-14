@@ -23,6 +23,11 @@ router = APIRouter(
 @router.get("/", response_model=List[GameroomResponse], status_code=status.HTTP_200_OK)
 def list_gamerooms(db: Session = Depends(get_db)):
     rooms = db.query(Gameroom).filter(Gameroom.status != GameStatus.FINISHED).all()
+    
+    # 각 방에 대해 created_username 속성 추가
+    for room in rooms:
+        setattr(room, 'created_username', room.creator.nickname)
+    
     return rooms
 
 
@@ -95,6 +100,7 @@ def create_gameroom(
     db.add(creator_participant)
     db.commit()
     
+    setattr(db_room, 'created_username', guest.nickname)
     return db_room
 
 
@@ -167,6 +173,8 @@ def update_gameroom(
 
     db.commit()
     db.refresh(db_room)
+    
+    setattr(db_room, 'created_username', db_room.creator.nickname)
     return db_room
 
 
