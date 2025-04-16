@@ -58,12 +58,12 @@ function Lobby() {
   useEffect(() => {
     const fetchGuestStatus = async () => {
       try {
-        const res = await axiosInstance.get(USER_API.GET_GUEST_STATUS);
+        const res = await axiosInstance.get(`${USER_API.GET_GUEST_STATUS}?uuid=${uuid}`);
         const roomId = res?.data?.room_id;
-
+        console.log(res)
         if (roomId) {
-          alert("기존 방에 재입장합니다.");
-          navigate(gameLobbyUrl(roomId));
+          // alert("기존 방에 재입장합니다.");
+          // navigate(gameLobbyUrl(roomId));
         }
       } catch (err) {
         console.error("게스트 상태 확인 실패:", err);
@@ -83,8 +83,14 @@ function Lobby() {
   ];
 
   // url 이동
-  const handleClickEnterGame = (room_id) =>{
-    navigate(gameLobbyUrl(room_id))
+  const handleClickEnterGame = async (room_id) => {
+    try{
+      await axiosInstance.post(ROOM_API.JOIN_ROOMS(room_id))
+      alert("끄아하러 가요! ")
+      navigate(gameLobbyUrl(room_id))
+    }catch(err){
+      alert("입장 불가능한 방입니다.");
+    }
   }
 
   {/* 슬라이드 인터벌 초기화 함수 */}
