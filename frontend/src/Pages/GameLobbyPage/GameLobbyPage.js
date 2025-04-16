@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import axiosInstance from '../../Api/axiosInstance';
-import { gameLobbyUrl, lobbyUrl } from '../../Component/urls';
+import { gameLobbyUrl, gameUrl, lobbyUrl } from '../../Component/urls';
 import userIsTrue from '../../Component/userIsTrue';
 import { ROOM_API } from '../../Api/roomApi';
 
@@ -86,7 +86,17 @@ function GameLobbyPage() {
     }
   }}
 
-  
+  /* Start BTN */
+  const handleClickStartBtn = async (id) => {
+    try{
+      const res = await axiosInstance.post(ROOM_API.PLAY_ROOMS(roomId))
+      alert("게임이 시작됩니다 !");
+      navigate(gameUrl(roomId));
+    }catch(error){
+      alert("버그행동 금지")
+      console.log(error)
+    }
+  }
 
   return (
     <div className="w-full min-h-screen bg-white flex flex-col items-center pt-5 relative overflow-y-auto">
@@ -138,7 +148,7 @@ function GameLobbyPage() {
       {/* Owner button */}
       {isOwner && (
         <div className="w-full text-center mt-4">
-          <button className="px-6 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition-all">
+          <button onClick={handleClickStartBtn} className="px-6 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition-all"  >
             게임 시작
           </button>
         </div>
