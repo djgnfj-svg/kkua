@@ -135,6 +135,15 @@ function GameLobbyPage() {
         ))}
       </div>
 
+      {/* Owner button */}
+      {isOwner && (
+        <div className="w-full text-center mt-4">
+          <button className="px-6 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition-all">
+            게임 시작
+          </button>
+        </div>
+      )}
+
       {/* Bottom button list */}
       <div className="flex justify-between w-full bg-gray-200 pb-4 mt-auto">
         {Array.from({ length: 5}).map((_, idx) => (
