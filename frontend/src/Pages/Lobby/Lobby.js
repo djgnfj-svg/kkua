@@ -43,24 +43,23 @@ function Lobby() {
   // api 를 통해 방정보 받아오기
   {/* 방 제목 / 게임 타입 / 진행중인 인원 */}
   useEffect(() => {
+  fetchRoom();
+  },[])
+
   const fetchRoom = async () => {
     try{
       const res= await axiosInstance.get(ROOM_API.get_ROOMS);
-      console.log(res)
       setRoomsData(res.data)
     }catch(error){
       console.log("방 요청 실패 " + error);
     }
   }
-  fetchRoom();
-  },[])
 
   useEffect(() => {
     const fetchGuestStatus = async () => {
       try {
         const res = await axiosInstance.get(`${USER_API.GET_GUEST_STATUS}?uuid=${uuid}`);
         const roomId = res?.data?.room_id;
-        console.log(res)
         if (roomId) {
           // alert("기존 방에 재입장합니다.");
           // navigate(gameLobbyUrl(roomId));
@@ -128,6 +127,11 @@ function Lobby() {
   const handleClickOpenModal =() => {
       setModalIsOpen(true)
   }
+  //Refresh BTN
+  const handleClickRefresh = () => {
+    fetchRoom()
+    alert("새 정보를 가져옵니다.");
+  }
 
   return (
     <div className="w-full h-screen flex justify-center bg-white">
@@ -147,7 +151,7 @@ function Lobby() {
           </div>
         </div>
         {/* 새로고침 안내 (게스트 닉네임 아래 중앙 정렬) */}
-        <div className="hidden md:flex justify-center items-center absolute bottom-[100px] left-1/2 transform -translate-x-1/2 z-50">
+        <div className="hidden md:flex justify-center items-center absolute bottom-[100px] left-1/2 transform -translate-x-1/2 z-50" onClick={handleClickRefresh}>
           <div className="w-[50px] h-[50px] rounded-full border-2 border-gray-400 flex items-center justify-center cursor-pointer bg-white shadow-md">
             <img src={`${process.env.PUBLIC_URL || ''}/imgs/icon/refreshIcon.png`} alt="새로고침 아이콘" className="w-6 h-6" />
           </div>
