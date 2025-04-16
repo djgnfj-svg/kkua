@@ -40,6 +40,18 @@ function InGame() {
   const [usedLog, setUsedLog] = useState([]);
   const [players, setPlayers] = useState(['하우두유', '부러', '김밥', '후러']);
   const specialPlayer = '부러';
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    const checkGuest = async () => {
+      const result = await userIsTrue();
+      if (!result) {
+        alert("어멋 어딜들어오세요 Cut !");
+        navigate("/")
+      }
+    };
+    checkGuest();
+  }, []);
 
   const [inputValue, setInputValue] = useState('');
   const [message, setMessage] = useState('');

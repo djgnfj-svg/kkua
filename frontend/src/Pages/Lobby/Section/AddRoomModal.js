@@ -4,6 +4,8 @@ import './AddRoomModal.css';
 import axiosInstance from '../../../Api/axiosInstance';
 import { ROOM_API } from '../../../Api/roomApi';
 import { useNavigate } from 'react-router-dom';
+import Cookies from 'js-cookie';
+import { gameLobbyUrl, gameUrl } from '../../../Component/urls';
 
 Modal.setAppElement('#root');
 
@@ -12,18 +14,18 @@ function AddRoomModal({ isOpen, isClose }) {
   
     const [makeRoom, setMakeRoom] = useState({
         title: "",
-        mode: "",
-        people: ""
+        game_mode: "arcade",
+        max_players:2,
+        time_limit:120,
     });
 
     const handleSubmitBtn = async () => {
+        const {title , max_players , game_mode , time_limit} = makeRoom
         try {
-            const res = await axiosInstance.post(ROOM_API.CREATE_ROOMS,{
-                title:makeRoom.title,
-                room_type : "string",
-                max_people : makeRoom.people
-            })
-            navigate("/kea");
+            const res = await axiosInstance.post(
+                `${ROOM_API.CREATE_ROOMS}?title=${title}&max_players=${max_players}&game_mode=${game_mode}&time_limit=${time_limit}`
+            );
+            navigate(`${gameLobbyUrl(res.data.room_id)}`);
         }
         catch (error) {
             console.log(error);
@@ -66,14 +68,14 @@ function AddRoomModal({ isOpen, isClose }) {
                                 <div className="label">게임 모드</div>
                                 <div className="mode-buttons">
                                     <button
-                                        className={`mode-btn ${makeRoom.mode === 'arcade' ? 'active' : ''}`}
+                                        className={`mode-btn active`}
                                         onClick={() => setMakeRoom({ ...makeRoom, mode: 'arcade' })}
                                     >
                                         아케이드
                                     </button>
                                     <button
-                                        className={`mode-btn ${makeRoom.mode === 'boss' ? 'active' : ''}`}
-                                        onClick={() => setMakeRoom({ ...makeRoom, mode: 'boss' })}
+                                        className={`mode-btn boss`}
+                                        onClick={() => alert("wating for Update v0.2 ~")}
                                     >
                                         보스전
                                     </button>
@@ -83,14 +85,14 @@ function AddRoomModal({ isOpen, isClose }) {
                             <div className="game-size-section">
                                 <div className="label">인원</div>
                                 <div className="size-buttons">
-                                    {['2', '3', '4'].map((num) => (
+                                    {[2, 3, 4].map((num) => (
                                         <label key={num}>
                                             <input
                                                 type="radio"
                                                 name="size"
                                                 value={num}
-                                                checked={makeRoom.people === num}
-                                                onChange={() => setMakeRoom({ ...makeRoom, people: num })}
+                                                checked={makeRoom.max_players === num}
+                                                onChange={() => setMakeRoom({ ...makeRoom, max_players: num })}
                                             />{' '}
                                             {num}인
                                         </label>
@@ -101,8 +103,9 @@ function AddRoomModal({ isOpen, isClose }) {
 
                         {/* 생성 버튼 */}
                         <button
-                            className={makeRoom.title.length >= 2 && makeRoom.mode !== "" && makeRoom.people !== "" ? 'create-btn' : 'create-btn-fasle'}
-                            onClick={handleSubmitBtn} disabled={makeRoom.title.length >= 2 && makeRoom.mode !== "" && makeRoom.people !== "" ? false : true}
+                            className={makeRoom.title.length >= 2 && makeRoom.mode !== "" ? 'create-btn' : 'create-btn-fasle'}
+                            onClick={handleSubmitBtn}
+                            disabled={makeRoom.title.length >= 2 && makeRoom.mode !== "" ? false : true}
                         >
                             생성하기
                         </button>

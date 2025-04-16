@@ -20,10 +20,11 @@ class GameroomUpdate(BaseModel):
     status: Optional[str] = None
 
 class GameroomResponse(GameroomBase):
+    people: int
     room_id: int
-    created_by: int
+    created_username: str
     created_at: datetime.datetime
     updated_at: datetime.datetime
 
     class Config:
-        orm_mode = True 
+        from_attributes = True 
