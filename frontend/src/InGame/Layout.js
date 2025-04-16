@@ -24,7 +24,7 @@ function Layout({
         {/* 왼쪽 고양이 */}
         <div className="hidden md:flex flex-col items-start mt-[220px] pl-4 space-y-6 w-[170px] shrink-0">
           <div className="text-sm font-bold ml-1">ㅋㅋ 그것도 모름?</div>
-          <img src="/imgs/cat_book.png" alt="고양이" className="w-24 ml-2" />
+          <img src="/imgs/icon/AddIcon.png" alt="고양이" className="w-24 ml-2" />
         </div>
 
         {/* 중앙 타이핑 영역 */}
