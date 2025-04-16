@@ -1,10 +1,13 @@
-
-// src/InGame/InGame.js
 import { useEffect, useState } from 'react';
 import TopMsgAni from './TopMsg_Ani';
 import useTopMsg from './TopMsg';
 import Layout from './Layout';
 import Timer from './Timer';
+import userIsTrue from '../Component/userIsTrue';
+import { useNavigate, useParams } from 'react-router-dom';
+import axiosInstance from '../Api/axiosInstance';
+import { ROOM_API } from '../Api/roomApi';
+import { gameLobbyUrl, gameUrl } from '../Component/urls';
 
 const time_gauge = 40;
 
@@ -19,14 +22,37 @@ function InGame() {
   // 퀴즈 제시어 
   const [quizMsg, setQuizMsg] = useState(''); // 초기값은 빈 문자열
 
+  const {roomId , gameid} = useParams();
+
   useEffect(() => {
     if (itemList.length > 0) {
       const randomWord = itemList[Math.floor(Math.random() * itemList.length)].word;
       setQuizMsg(randomWord);
     }
   }, []);
+  useEffect(() => {
+    const checkGuest = async () => {
+      const result = await userIsTrue();
+      if (!result) {
+        alert("어멋 어딜들어오세요 Cut !");
+        navigate("/")
+      }
+    };
+    checkGuest();
+  }, []);
 
-  //
+  useEffect(() => {
+    const checkGuest = async () => {
+      const result = await userIsTrue();
+      if (!result) {
+        alert("어멋 어딜들어오세요 Cut !");
+        navigate("/")
+      }
+    };
+    checkGuest();
+  }, []);
+
+
   const [timeOver, setTimeOver] = useState(false);
 
   const { timeLeft, resetTimer } = Timer(120, () => {
@@ -41,17 +67,6 @@ function InGame() {
   const [players, setPlayers] = useState(['하우두유', '부러', '김밥', '후러']);
   const specialPlayer = '부러';
   const navigate = useNavigate()
-
-  useEffect(() => {
-    const checkGuest = async () => {
-      const result = await userIsTrue();
-      if (!result) {
-        alert("어멋 어딜들어오세요 Cut !");
-        navigate("/")
-      }
-    };
-    checkGuest();
-  }, []);
 
   const [inputValue, setInputValue] = useState('');
   const [message, setMessage] = useState('');
@@ -99,26 +114,47 @@ function InGame() {
     }
   };
 
+  const handleClickFinish = async () => {
+    try{
+      await axiosInstance.post(ROOM_API.END_ROOMS(gameid))
+      navigate(gameLobbyUrl(gameid))
+    }catch(error){
+      console.log(error)
+      alert("5252 난아직 이 게임을 끝낼 생각이 없다고");
+    }
+  }
+
+
   return (
-    <Layout
-      typingText={typingText}
-      handleTypingDone={handleTypingDone}
-      //message={message}
-       quizMsg={quizMsg}
-      message={timeOver ? '시간 초과!' : message}
-      timeLeft={timeLeft}
-      timeOver={timeOver}
-      itemList={itemList}
-      showCount={showCount}
-      players={players}
-      specialPlayer={specialPlayer}
-      inputValue={inputValue}
-      setInputValue={setInputValue}
-      crashKeyDown={crashKeyDown}
-      crashMessage={crashMessage}
-      time_gauge={time_gauge}
-    />
-   )
+    <>
+      <Layout
+        typingText={typingText}
+        handleTypingDone={handleTypingDone}
+        //message={message}
+        quizMsg={quizMsg}
+        message={timeOver ? '시간 초과!' : message}
+        timeLeft={timeLeft}
+        timeOver={timeOver}
+        itemList={itemList}
+        showCount={showCount}
+        players={players}
+        specialPlayer={specialPlayer}
+        inputValue={inputValue}
+        setInputValue={setInputValue}
+        crashKeyDown={crashKeyDown}
+        crashMessage={crashMessage}
+        time_gauge={time_gauge}
+      />
+      <div className="fixed bottom-4 left-4 z-50">
+        <button
+          onClick={handleClickFinish}
+          className="bg-red-500 text-white px-4 py-2 rounded-lg shadow hover:bg-red-600 transition"
+        >
+          게임 종료
+        </button>
+      </div>
+    </>
+  )
 }
 
 export default InGame;

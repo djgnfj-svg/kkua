@@ -8,7 +8,8 @@ const msgData = [
     { word: '기형', desc: '' },
     { word: '기미', desc: '' },
     { word: '분노', desc: '' },
-    { word: '노래', desc: '' }
+    { word: '노래', desc: '' },
+    { word :'분기탱천' , desc: ''}
   ];
   
 export default msgData;
