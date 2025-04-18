@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from db.postgres import Base, engine
-from routers import guests_router, gamerooms
+from routers import guests_router, gamerooms_router
 
 app = FastAPI(title="게임방 관리 API", description="PostgreSQL을 사용한 게임방 및 게임 관리 API")
 
@@ -19,7 +19,7 @@ Base.metadata.create_all(bind=engine)
 
 # 라우터 등록
 app.include_router(guests_router.router)
-app.include_router(gamerooms.router)
+app.include_router(gamerooms_router.router)
 
 @app.get("/")
 async def root():

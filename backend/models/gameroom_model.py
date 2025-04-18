@@ -19,7 +19,7 @@ class Gameroom(Base):
     status = Column(Enum(GameStatus), nullable=False, default=GameStatus.WAITING)
     
     # Room 모델에서 가져온 추가 필드들
-    people = Column(Integer, nullable=False, default=1)  # 현재 인원
+    participant_count = Column(Integer, nullable=False, default=1)  # 현재 참여자 수
     room_type = Column(String, nullable=False, default="normal")  # 방 타입
     
     created_by = Column(Integer, ForeignKey("guests.guest_id"), nullable=False)
