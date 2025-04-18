@@ -49,7 +49,6 @@
 
 ### Database
 - PostgreSQL
-- Redis
 
 ### DevOps
 - AWS
