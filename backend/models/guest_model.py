@@ -12,6 +12,7 @@ class Guest(Base):
     nickname = Column(String, unique=True, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     last_login = Column(DateTime, nullable=True)
+    device_info = Column(String, nullable=True)
     
     # Gameroom만 유지, Room 관계 제거
     gamerooms = relationship("Gameroom", back_populates="creator")

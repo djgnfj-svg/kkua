@@ -6,13 +6,13 @@ import uuid
 # 기존 import
 from db.postgres import get_db
 from models.gameroom import Gameroom, GameStatus
-from models.guest import Guest
+from models.guest_model import Guest
 
 # 새로 추가: GameroomParticipant, ParticipantStatus
 from models.gameroom_participant import GameroomParticipant, ParticipantStatus
 
 from schemas.gameroom import GameroomCreate, GameroomResponse, GameroomUpdate
-from schemas.guest import GuestResponse  # 필요시 추가
+from schemas.guest_schema import GuestResponse  # 필요시 추가
 
 router = APIRouter(
     prefix="/gamerooms",
