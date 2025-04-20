@@ -34,8 +34,6 @@ class GameroomRepository:
     def create(self, data: Dict[str, Any], guest_id: int) -> Gameroom:
         """게임룸을 생성합니다."""
         try:
-            print(f"게임룸 생성 데이터: {data}, 생성자 ID: {guest_id}")
-            
             # created_by가 없거나 None인 경우 guest_id를 사용
             if 'created_by' not in data or data['created_by'] is None:
                 data['created_by'] = guest_id
@@ -272,44 +270,43 @@ class GameroomRepository:
 
     def get_participants(self, room_id: int) -> List[Dict[str, Any]]:
         """게임룸 참여자 목록을 가져옵니다."""
+        # 게임룸 정보 가져오기
+        gameroom = self.find_by_id(room_id)
+        if not gameroom:
+            return []
+        
+        # 생성자 ID
+        creator_id = gameroom.created_by
+        
+        # 참가자 정보 조회 쿼리
+        query = """
+            SELECT gp.guest_id, g.nickname, gp.joined_at
+            FROM gameroom_participants gp
+            JOIN guests g ON gp.guest_id = g.guest_id
+            WHERE gp.room_id = :room_id AND gp.left_at IS NULL
+            ORDER BY gp.joined_at ASC
+        """
+        
         try:
-            # 게임룸 정보 가져오기 (생성자 ID 확인용)
-            gameroom = self.find_by_id(room_id)
-            if not gameroom:
-                return []
-            
-            # 생성자 ID
-            creator_id = gameroom.created_by
-            
-            # is_creator 컬럼이 없으므로 쿼리 수정
-            query = """
-                SELECT gp.guest_id, g.nickname, gp.joined_at
-                FROM gameroom_participants gp
-                JOIN guests g ON gp.guest_id = g.guest_id
-                WHERE gp.room_id = :room_id AND gp.left_at IS NULL
-                ORDER BY gp.joined_at ASC
-            """
-            
             result = self.db.execute(text(query), {"room_id": room_id}).fetchall()
             
-            # 결과를 딕셔너리 리스트로 변환하고 생성자 여부 직접 추가
-            participants = []
-            for row in result:
-                is_creator = (row[0] == creator_id)  # guest_id가 creator_id와 같은지 확인
-                participants.append({
+            # 결과를 딕셔너리 리스트로 변환
+            participants = [
+                {
                     "guest_id": row[0],
                     "nickname": row[1],
-                    "is_creator": is_creator,  # 여기서 is_creator 계산
+                    "is_creator": (row[0] == creator_id),
                     "joined_at": row[2]
-                })
+                }
+                for row in result
+            ]
             
             # 생성자가 먼저 오도록 정렬
             participants.sort(key=lambda p: (not p["is_creator"], p["joined_at"]))
             
             return participants
         except Exception as e:
-            import logging
-            logging.error(f"참가자 목록 조회 오류: {str(e)}")
+            print(f"참가자 목록 조회 오류: {str(e)}")
             return []
 
     def check_participation(self, room_id: int, guest_id: int) -> Optional[GameroomParticipant]:

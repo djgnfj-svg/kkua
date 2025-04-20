@@ -259,44 +259,40 @@ class GameroomService:
         게임룸에서 나갑니다.
         방장이 나가면 모든 참여자가 강제로 퇴장됩니다.
         """
+        # 쿠키에서 게스트 UUID 가져오기
+        guest_uuid = request.cookies.get("kkua_guest_uuid")
+        if not guest_uuid:
+            raise HTTPException(status_code=400, detail="게스트 UUID가 필요합니다")
+        
+        # UUID 객체로 변환
         try:
-            # 쿠키에서 게스트 UUID 가져오기
-            guest_uuid = request.cookies.get("kkua_guest_uuid")
-            if not guest_uuid:
-                raise HTTPException(status_code=400, detail="게스트 UUID가 필요합니다")
-            
-            # UUID 객체로 변환
-            try:
-                uuid_obj = uuid.UUID(guest_uuid)
-            except ValueError:
-                raise HTTPException(status_code=400, detail="유효하지 않은 UUID 형식입니다")
-            
-            # 게스트 찾기
-            guest = self.guest_repository.find_by_uuid(uuid_obj)
-            if not guest:
-                raise HTTPException(status_code=404, detail="게스트를 찾을 수 없습니다")
-            
-            # 게임룸 찾기
-            room = self.repository.find_by_id(room_id)
-            if not room:
-                raise HTTPException(status_code=404, detail="게임룸을 찾을 수 없습니다")
-            
-            # 참여 여부 확인
-            participation = self.repository.check_participation(room_id, guest.guest_id)
-            if not participation:
-                raise HTTPException(status_code=400, detail="해당 게임룸에 참여하고 있지 않습니다")
-            
-            # 방장 여부 확인
-            is_owner = (room.created_by == guest.guest_id)
-            
+            uuid_obj = uuid.UUID(guest_uuid)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="유효하지 않은 UUID 형식입니다")
+        
+        # 게스트 정보 조회
+        guest = self.guest_repository.find_by_uuid(uuid_obj)
+        if not guest:
+            raise HTTPException(status_code=404, detail="게스트를 찾을 수 없습니다")
+        
+        # 게임룸 정보 조회
+        room = self.repository.find_by_id(room_id)
+        if not room:
+            raise HTTPException(status_code=404, detail="게임룸을 찾을 수 없습니다")
+        
+        # 참여 여부 확인
+        if not self.repository.check_participation(room_id, guest.guest_id):
+            raise HTTPException(status_code=400, detail="해당 게임룸에 참여하고 있지 않습니다")
+        
+        # 방장 여부 확인
+        is_owner = (room.created_by == guest.guest_id)
+        
+        try:
             if is_owner:
                 # 방장이 나가는 경우: 모든 참여자를 퇴장시키고 방 삭제
                 participants = self.repository.get_participants(room_id)
                 for participant in participants:
-                    # 딕셔너리로 접근하도록 수정
-                    success = self.repository.remove_participant(room_id, participant["guest_id"])
-                    if not success:
-                        continue
+                    self.repository.remove_participant(room_id, participant["guest_id"])
                 
                 # 방 삭제
                 self.repository.delete(room)
@@ -309,9 +305,12 @@ class GameroomService:
                 # 일반 참여자가 나가는 경우
                 self.repository.remove_participant(room_id, guest.guest_id)
                 
-                # 참여자가 없으면 게임룸 삭제
+                # 참여자 수 업데이트 - 실제로는 방장이 있으므로 0이 될 수 없음
                 remaining_participants = self.repository.get_participants(room_id)
+                
+                # 혹시 모를 데이터 불일치를 대비한 안전 장치
                 if not remaining_participants:
+                    print("경고: 예상치 못하게 참여자가 0명입니다. 방을 삭제합니다.")
                     self.repository.delete(room)
                     return {
                         "status": "success", 
@@ -320,18 +319,12 @@ class GameroomService:
                     }
                 
                 return {
-                    "status": "success", 
+                    "status": "success",
                     "message": "게임룸에서 나갔습니다.",
                     "is_owner": False
                 }
-            
-        except HTTPException:
-            # HTTP 예외는 그대로 던지기
-            raise
         except Exception as e:
-            # 그 외 예외는 로깅하고 적절한 상태 코드로 응답
-            import logging
-            logging.error(f"게임룸 퇴장 중 오류 발생: {str(e)}")
+            print(f"게임룸 퇴장 중 오류 발생: {str(e)}")
             raise HTTPException(status_code=500, detail=f"게임룸 퇴장 중 오류가 발생했습니다: {str(e)}")
     
     def start_game(self, room_id: int, request: Request):

@@ -48,17 +48,12 @@ async def create_gameroom(
     except:
         pass
     
-    # 쿠키에서만 UUID 가져오기
+    # 쿠키에서 UUID 가져오기
     guest_uuid = request.cookies.get("kkua_guest_uuid")
     
-    print(f"사용 UUID: {guest_uuid}")
-    
-    # UUID가 "undefined"인 경우 처리
-    if guest_uuid == "undefined":
-        raise HTTPException(status_code=400, detail="유효하지 않은 게스트 UUID입니다")
-    
-    if not guest_uuid:
-        raise HTTPException(status_code=400, detail="게스트 UUID가 필요합니다")
+    # UUID 유효성 검사
+    if guest_uuid == "undefined" or not guest_uuid:
+        raise HTTPException(status_code=400, detail="유효한 게스트 UUID가 필요합니다")
     
     # 요청 파라미터 준비 (쿼리 파라미터 + 본문 데이터)
     room_data = {
@@ -68,24 +63,19 @@ async def create_gameroom(
         "time_limit": body.get("time_limit", time_limit)
     }
     
-    print(f"방 생성 데이터: {room_data}")
-    
     try:
-        # UUID를 검증하고 게스트 찾기
-        if isinstance(guest_uuid, str):
-            try:
-                uuid_obj = uuid.UUID(guest_uuid)
-            except ValueError:
-                raise HTTPException(status_code=400, detail=f"유효하지 않은 UUID 형식: {guest_uuid}")
-        else:
-            uuid_obj = guest_uuid
+        # UUID 검증 및 객체 변환
+        try:
+            uuid_obj = uuid.UUID(guest_uuid) if isinstance(guest_uuid, str) else guest_uuid
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"유효하지 않은 UUID 형식: {guest_uuid}")
             
+        # 게스트 찾기
         guest = service.guest_repository.find_by_uuid(uuid_obj)
-        
         if not guest:
             raise HTTPException(status_code=404, detail="게스트를 찾을 수 없습니다")
         
-        # guest_id를 명시적으로 추가
+        # guest_id 추가
         room_data["created_by"] = guest.guest_id
         
         # 방 생성
@@ -126,28 +116,48 @@ def leave_gameroom(
 ):
     return service.leave_gameroom(room_id, request)
 
-@router.post("/{room_id}/start", status_code=status.HTTP_200_OK)
-def start_game(
-    room_id: int, 
-    request: Request, 
-    service: GameroomService = Depends(get_gameroom_service)
-):
-    return service.start_game(room_id, request)
-
-@router.post("/{room_id}/end", status_code=status.HTTP_200_OK)
-def end_game(
-    room_id: int, 
-    request: Request, 
-    service: GameroomService = Depends(get_gameroom_service)
-):
-    return service.end_game(room_id, request)
 
 @router.get("/{room_id}/participants", status_code=status.HTTP_200_OK)
 def get_gameroom_participants(
     room_id: int, 
     service: GameroomService = Depends(get_gameroom_service)
 ):
-    return service.get_participants(room_id)
+    """
+    게임룸의 참가자 목록과 방 정보를 함께 반환합니다.
+    """
+    # 방 정보 조회
+    room = service.repository.find_by_id(room_id)
+    if not room:
+        raise HTTPException(status_code=404, detail="게임룸을 찾을 수 없습니다")
+    
+    # 참가자 정보 조회
+    participants = service.get_participants(room_id)
+    
+    # 참가자 수
+    participant_count = len(participants)
+    
+    # 방장 닉네임 찾기 (참가자 정보에서)
+    creator_name = "알 수 없음"
+    for participant in participants:
+        if participant["guest"]["is_room_creator"]:
+            creator_name = participant["guest"]["nickname"]
+            break
+    
+    # 응답에 room_info 추가하여 반환
+    return {
+        "participants": participants,
+        "room_info": {
+            "room_id": room.room_id,
+            "title": room.title,
+            "max_players": room.max_players,
+            "game_mode": room.game_mode,
+            "time_limit": room.time_limit,
+            "created_by": room.created_by,
+            "created_username": creator_name,
+            "status": room.status.value,
+            "participant_count": participant_count
+        }
+    }
 
 @router.get("/check-active-game", status_code=status.HTTP_200_OK)
 def check_active_game(

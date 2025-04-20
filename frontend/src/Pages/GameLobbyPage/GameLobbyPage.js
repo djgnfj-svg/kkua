@@ -68,21 +68,6 @@ function GameLobbyPage() {
     checkGuest();
   }, [navigate]);
 
-  /* ROOM INFO */
-  useEffect(() => {
-    axiosInstance.patch(`${ROOM_API.get_ROOMSID(roomId)}`)
-      .then(res => {
-        setRoomsData(res.data)
-        const guestInfo = JSON.parse(localStorage.getItem('guest-storage'))?.state;
-        if (guestInfo?.nickname === res.data.created_username) {
-          setIsOwner(true);
-        }
-      })
-      .catch(err => {
-        console.error("GET 실패:", err.response?.data || err.message);
-      });
-  }, [])
-
   /* USER INFO */
   const fetchParticipants = async () => {
     try {
@@ -91,11 +76,26 @@ function GameLobbyPage() {
       // 응답 형식 로깅
       console.log("참가자 API 응답:", response.data);
 
-      // 응답이 올바른 형식인지 확인
-      if (response.data && Array.isArray(response.data)) {
-        setUserInfo(response.data);
-      } else {
-        console.error("참가자 정보가 올바른 형식이 아닙니다:", response.data);
+      // 새로운 응답 구조 처리
+      if (response.data) {
+        // 참가자 정보 설정 (participants 배열)
+        if (response.data.participants && Array.isArray(response.data.participants)) {
+          setUserInfo(response.data.participants);
+        } else {
+          console.error("참가자 정보가 올바른 형식이 아닙니다:", response.data);
+          setUserInfo([]);
+        }
+
+        // 방 정보 설정 (room_info 객체)
+        if (response.data.room_info) {
+          setRoomsData(response.data.room_info);
+
+          // 방장 여부 확인
+          const guestInfo = JSON.parse(localStorage.getItem('guest-storage'))?.state;
+          if (guestInfo?.nickname === response.data.room_info.created_username) {
+            setIsOwner(true);
+          }
+        }
       }
     } catch (error) {
       console.error("참가자 정보 가져오기 실패:", error);
