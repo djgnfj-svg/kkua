@@ -165,7 +165,9 @@ function GameLobbyPage() {
     participants,
     gameStatus,
     sendMessage,
-    updateStatus
+    updateStatus,
+    roomUpdated,
+    setRoomUpdated
   } = useGameRoomSocket(roomId);
 
   /* 채팅 메시지 상태 및 핸들러 추가 */
@@ -251,6 +253,27 @@ function GameLobbyPage() {
     checkUuidConsistency();
   }, [navigate]);
 
+  // 웹소켓 관련 useEffect 수정/추가
+  useEffect(() => {
+    // participants나 connected 상태가 변경될 때 API 다시 호출
+    if (connected) {
+      console.log("웹소켓 연결 상태 변경 또는 참가자 목록 업데이트. 참가자 정보 새로고침");
+      fetchParticipants();
+    }
+  }, [connected, participants]);
+
+  // 더 확실한 방법으로, 방 상태 업데이트 웹소켓 메시지를 추가로 처리하기 위해
+  // useGameRoomSocket 훅 수정 후, 해당 훅에서 다음 효과를 추가
+  useEffect(() => {
+    // roomUpdated가 true이면 참가자 정보를 다시 가져옴
+    if (roomUpdated) {
+      console.log('방 업데이트 트리거 감지, 참가자 정보 새로고침');
+      fetchParticipants();
+      // 정보를 가져온 후 상태 초기화
+      setRoomUpdated(false);
+    }
+  }, [roomUpdated]);
+
   return (
     <div className="w-full min-h-screen bg-white flex flex-col items-center pt-5 relative overflow-y-auto">
       {/* Close button */}
@@ -280,7 +303,7 @@ function GameLobbyPage() {
 
       {/* Players */}
       <div className="flex flex-col gap-5 mb-auto">
-        {userInfo?.map((item, index) => (
+        {(participants.length > 0 ? participants : userInfo)?.map((item, index) => (
           <div
             key={index}
             className="min-w-[100px] h-[160px] px-4 bg-gray-300 rounded-2xl shadow-md flex flex-col items-center justify-center"
@@ -288,26 +311,26 @@ function GameLobbyPage() {
             <div className="flex flex-col items-center pt-2">
               <div className="w-[80px] h-[80px] bg-white rounded-2xl"></div>
 
-              {/* 참가자 닉네임 표시 - 백엔드 응답 형식에 맞게 수정 */}
+              {/* 참가자 닉네임 표시 - 다양한 데이터 구조 처리 */}
               <div className="font-bold mt-2 mb-1 text-sm">
-                {/* 백엔드 응답 구조에 따라 조건부 렌더링 */}
-                {item.guest?.nickname ? (
-                  item.guest.nickname
-                ) : (
-                  item.nickname || '게스트'
-                )}
+                {item.nickname || (item.guest?.nickname) || `게스트_${item.guest_id || index}`}
               </div>
 
               {/* 참가자 상태 표시 */}
               <div className="text-xs">
-                {item.participant?.status === 'ready' ? (
+                {item.status === 'READY' || item.participant?.status === 'ready' ? (
                   <span className="text-green-600">준비완료</span>
-                ) : item.participant?.status === 'playing' ? (
+                ) : item.status === 'PLAYING' || item.participant?.status === 'playing' ? (
                   <span className="text-blue-600">게임중</span>
                 ) : (
                   <span className="text-gray-600">대기중</span>
                 )}
               </div>
+
+              {/* 방장 표시 */}
+              {item.is_owner && (
+                <div className="text-xs text-red-500 font-bold mt-1">방장</div>
+              )}
             </div>
           </div>
         ))}

@@ -72,98 +72,122 @@ async def websocket_endpoint(
             participant = gameroom_repo.add_participant(room_id, guest.guest_id)
             print(f"방장을 참가자로 추가: guest_id={guest.guest_id}, participant_id={participant.id}")
             
-        # 웹소켓 연결 등록
-        await ws_manager.connect(websocket, room_id, guest.guest_id)
-        
-        # 연결 성공 알림
-        await ws_manager.send_personal_message({
-            "type": "connected",
-            "message": "게임룸 웹소켓에 연결되었습니다",
-            "guest_id": guest.guest_id,
-            "room_id": room_id,
-            "timestamp": datetime.utcnow().isoformat()
-        }, websocket)
-        
-        print(f"웹소켓 연결 성공: room_id={room_id}, guest_id={guest.guest_id}")
-        
         try:
-            # 메시지 수신 루프
-            while True:
-                data = await websocket.receive_text()
-                message_data = json.loads(data)
-                print(f"웹소켓 메시지 수신: {message_data}")
-                
-                # 메시지 타입별 처리
-                if message_data.get("type") == "chat":
-                    # 채팅 메시지 처리
-                    nickname = guest.nickname if guest.nickname else f"게스트_{guest.uuid.hex[:8]}"
-                    await ws_manager.broadcast_to_room(
-                        room_id, 
-                        {
-                            "type": "chat",
-                            "guest_id": guest.guest_id,
-                            "nickname": nickname,
-                            "message": message_data.get("message", ""),
-                            "timestamp": message_data.get("timestamp", "")
-                        }
-                    )
-                
-                elif message_data.get("type") == "status_update":
-                    # 상태 업데이트 처리
-                    status = message_data.get("status", "WAITING")
+            # 웹소켓 연결 등록
+            await ws_manager.connect(websocket, room_id, guest.guest_id)
+
+            # 현재 방 참가자 정보 조회 (메소드명 수정: get_room_participants -> find_room_participants)
+            participants = gameroom_repo.find_room_participants(room_id)
+            participant_data = [
+                {
+                    "guest_id": p.guest.guest_id,
+                    "nickname": p.guest.nickname,
+                    "status": p.status.value,
+                    "is_owner": room.created_by == p.guest.guest_id
+                }
+                for p in participants
+            ]
+
+            # 새 참가자 입장 시 전체 참가자 목록 브로드캐스트
+            await ws_manager.broadcast_to_room(room_id, {
+                "type": "participants_update",
+                "participants": participant_data,
+                "message": f"{guest.nickname}님이 입장했습니다."
+            })
+            
+            # 연결 성공 알림
+            await ws_manager.send_personal_message({
+                "type": "connected",
+                "message": "게임룸 웹소켓에 연결되었습니다",
+                "guest_id": guest.guest_id,
+                "room_id": room_id,
+                "timestamp": datetime.utcnow().isoformat()
+            }, websocket)
+            
+            print(f"웹소켓 연결 성공: room_id={room_id}, guest_id={guest.guest_id}")
+            
+            try:
+                # 메시지 수신 루프
+                while True:
+                    data = await websocket.receive_text()
+                    message_data = json.loads(data)
+                    print(f"웹소켓 메시지 수신: {message_data}")
                     
-                    # 문자열을 열거형으로 변환
-                    try:
-                        status_enum = ParticipantStatus[status]
-                    except KeyError:
-                        await ws_manager.send_personal_message({
-                            "type": "error",
-                            "message": f"유효하지 않은 상태 값: {status}"
-                        }, websocket)
-                        continue
-                    
-                    # 참가자 상태 업데이트
-                    if participant:  # 참가자가 존재하는지 확인
-                        updated = gameroom_repo.update_participant_status(participant.id, status_enum)
-                        
-                        # 상태 변경 알림
-                        await ws_manager.broadcast_room_update(
-                            room_id,
-                            "status_changed",
+                    # 메시지 타입별 처리
+                    if message_data.get("type") == "chat":
+                        # 채팅 메시지 처리
+                        nickname = guest.nickname if guest.nickname else f"게스트_{guest.uuid.hex[:8]}"
+                        await ws_manager.broadcast_to_room(
+                            room_id, 
                             {
+                                "type": "chat",
                                 "guest_id": guest.guest_id,
-                                "nickname": guest.nickname,
-                                "status": updated.status.value
+                                "nickname": nickname,
+                                "message": message_data.get("message", ""),
+                                "timestamp": message_data.get("timestamp", "")
                             }
                         )
-                    else:
-                        print(f"참가자 정보 없음: guest_id={guest.guest_id}")
-                        await ws_manager.send_personal_message({
-                            "type": "error",
-                            "message": "상태 업데이트 실패: 참가자 정보가 없습니다"
-                        }, websocket)
+                    
+                    elif message_data.get("type") == "status_update":
+                        # 상태 업데이트 처리
+                        status = message_data.get("status", "WAITING")
+                        
+                        # 문자열을 열거형으로 변환
+                        try:
+                            status_enum = ParticipantStatus[status]
+                        except KeyError:
+                            await ws_manager.send_personal_message({
+                                "type": "error",
+                                "message": f"유효하지 않은 상태 값: {status}"
+                            }, websocket)
+                            continue
+                        
+                        # 참가자 상태 업데이트
+                        if participant:  # 참가자가 존재하는지 확인
+                            updated = gameroom_repo.update_participant_status(participant.id, status_enum)
+                            
+                            # 상태 변경 알림
+                            await ws_manager.broadcast_room_update(
+                                room_id,
+                                "status_changed",
+                                {
+                                    "guest_id": guest.guest_id,
+                                    "nickname": guest.nickname,
+                                    "status": updated.status.value
+                                }
+                            )
+                        else:
+                            print(f"참가자 정보 없음: guest_id={guest.guest_id}")
+                            await ws_manager.send_personal_message({
+                                "type": "error",
+                                "message": "상태 업데이트 실패: 참가자 정보가 없습니다"
+                            }, websocket)
+                    
+            except WebSocketDisconnect:
+                # 연결 종료 처리
+                print(f"웹소켓 연결 종료됨: room_id={room_id}, guest_id={guest.guest_id}")
+                await ws_manager.disconnect(websocket, room_id, guest.guest_id)
                 
-        except WebSocketDisconnect:
-            # 연결 종료 처리
-            print(f"웹소켓 연결 종료됨: room_id={room_id}, guest_id={guest.guest_id}")
-            await ws_manager.disconnect(websocket, room_id, guest.guest_id)
-            
-            # 다른 참가자들에게 퇴장 알림
-            await ws_manager.broadcast_room_update(
-                room_id, 
-                "user_left", 
-                {
-                    "guest_id": guest.guest_id,
-                    "nickname": guest.nickname
-                }
-            )
+                # 다른 참가자들에게 퇴장 알림
+                await ws_manager.broadcast_room_update(
+                    room_id, 
+                    "user_left", 
+                    {
+                        "guest_id": guest.guest_id,
+                        "nickname": guest.nickname
+                    }
+                )
+                
+            except Exception as e:
+                # 기타 예외 처리
+                print(f"웹소켓 오류: {str(e)}")
+                traceback.print_exc()  # 상세 예외 정보 출력
+                if guest:
+                    await ws_manager.disconnect(websocket, room_id, guest.guest_id)
             
         except Exception as e:
-            # 기타 예외 처리
-            print(f"웹소켓 오류: {str(e)}")
-            traceback.print_exc()  # 상세 예외 정보 출력
-            if guest:
-                await ws_manager.disconnect(websocket, room_id, guest.guest_id)
+            print(f"웹소켓 초기화 중 오류: {str(e)}")
+            traceback.print_exc()
             
     except Exception as e:
         # 전역 예외 처리

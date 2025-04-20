@@ -10,6 +10,7 @@ export default function useGameRoomSocket(roomId) {
     const [participants, setParticipants] = useState([]);
     const [gameStatus, setGameStatus] = useState('waiting');
     const socketRef = useRef(null);
+    const [roomUpdated, setRoomUpdated] = useState(false);
 
     useEffect(() => {
         if (roomId) {
@@ -30,6 +31,7 @@ export default function useGameRoomSocket(roomId) {
             socket.onopen = () => {
                 console.log("웹소켓 연결 성공!");
                 setConnected(true);
+                setRoomUpdated(true);
             };
 
             socket.onmessage = (event) => {
@@ -42,10 +44,29 @@ export default function useGameRoomSocket(roomId) {
                         nickname: data.nickname,
                         message: data.message,
                         guest_id: data.guest_id,
-                        timestamp: data.timestamp
+                        timestamp: data.timestamp,
+                        type: data.type
                     }]);
-                } else if (data.type === 'user_update') {
-                    setParticipants(data.participants || []);
+                } else if (data.type === 'participants_update') {
+                    // 참가자 목록 직접 업데이트 (API 호출 없음)
+                    console.log('웹소켓으로 참가자 목록 업데이트:', data.participants);
+                    if (data.participants && Array.isArray(data.participants)) {
+                        // 웹소켓으로 받은 참가자 정보를 userInfo 상태로 직접 사용
+                        setParticipants(data.participants);
+
+                        // 시스템 메시지로 추가 (입장/퇴장 알림)
+                        if (data.message) {
+                            setMessages((prev) => [...prev, {
+                                nickname: "시스템",
+                                message: data.message,
+                                type: 'system',
+                                timestamp: data.timestamp || new Date().toISOString()
+                            }]);
+                        }
+
+                        // 방 업데이트 플래그 설정 - GameLobbyPage에서 감지하도록
+                        setRoomUpdated(true);
+                    }
                 } else if (data.type === 'game_status') {
                     setGameStatus(data.status);
                 }
@@ -102,6 +123,8 @@ export default function useGameRoomSocket(roomId) {
         participants,
         gameStatus,
         sendMessage,
-        updateStatus
+        updateStatus,
+        roomUpdated,
+        setRoomUpdated
     };
 } 

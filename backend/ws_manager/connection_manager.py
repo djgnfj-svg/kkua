@@ -61,8 +61,25 @@ class ConnectionManager:
             # 디버깅용 로그
             print(f"브로드캐스트 메시지: {json.dumps(message)}")
             
-            for connection in self.active_connections[room_id].values():
-                await connection.send_text(json.dumps(message))
+            # 닫힌 연결 추적
+            closed_connections = []
+            
+            for guest_id, connection in self.active_connections[room_id].items():
+                try:
+                    # 웹소켓 상태 확인
+                    if connection.client_state.CONNECTED:
+                        await connection.send_text(json.dumps(message))
+                    else:
+                        print(f"연결이 이미 닫힘: room_id={room_id}, guest_id={guest_id}")
+                        closed_connections.append(guest_id)
+                except RuntimeError as e:
+                    print(f"메시지 전송 오류: {str(e)} - room_id={room_id}, guest_id={guest_id}")
+                    closed_connections.append(guest_id)
+            
+            # 닫힌 연결 제거
+            for guest_id in closed_connections:
+                self.active_connections[room_id].pop(guest_id, None)
+                print(f"닫힌 연결 제거됨: room_id={room_id}, guest_id={guest_id}")
     
     async def broadcast_room_update(self, room_id: int, update_type: str, data: dict = None):
         """방 상태 업데이트 알림"""
