@@ -52,6 +52,15 @@ class ConnectionManager:
     async def broadcast_to_room(self, room_id: int, message: dict):
         """방의 모든 사용자에게 메시지 전송"""
         if room_id in self.active_connections:
+            # 메시지 형식 확인 및 누락된, 중요 필드 기본값 설정
+            if 'type' not in message:
+                message['type'] = 'message'
+            if 'timestamp' not in message:
+                message['timestamp'] = datetime.utcnow().isoformat()
+            
+            # 디버깅용 로그
+            print(f"브로드캐스트 메시지: {json.dumps(message)}")
+            
             for connection in self.active_connections[room_id].values():
                 await connection.send_text(json.dumps(message))
     

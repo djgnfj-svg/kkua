@@ -341,13 +341,18 @@ function GameLobbyPage() {
       <div className="w-full max-w-md mt-4 border border-gray-300 rounded-lg">
         <div className="h-40 overflow-y-auto p-3 bg-gray-100" ref={chatContainerRef}>
           {messages.length > 0 ? (
-            messages.map((msg, i) => (
-              <div key={i} className="mb-2">
-                <span className="font-bold text-blue-600">
-                  {msg?.nickname || `게스트_${i}`}
-                </span>: <span>{msg?.message || ''}</span>
-              </div>
-            ))
+            messages.map((msg, i) => {
+              // 디버깅용 콘솔 로그
+              console.log(`메시지 ${i} 상세:`, JSON.stringify(msg));
+
+              return (
+                <div key={i} className="mb-2">
+                  <span className="font-bold text-blue-600">
+                    {msg.nickname || (msg.guest_id ? `게스트_${msg.guest_id}` : `게스트_${i}`)}
+                  </span>: <span>{msg.message || ''}</span>
+                </div>
+              );
+            })
           ) : (
             <div className="text-center text-gray-500 py-2">아직 메시지가 없습니다</div>
           )}

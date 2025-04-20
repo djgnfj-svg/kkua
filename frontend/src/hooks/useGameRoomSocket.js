@@ -33,30 +33,21 @@ export default function useGameRoomSocket(roomId) {
             };
 
             socket.onmessage = (event) => {
-                try {
-                    const data = JSON.parse(event.data);
-                    console.log("메시지 수신:", data);
+                const data = JSON.parse(event.data);
+                console.log('소켓 메시지 수신:', data);
 
-                    // 메시지 유형에 따라 처리
-                    if (data.type === 'chat') {
-                        // 서버에서 오는 메시지 형식 확인 후 처리
-                        const messageContent = data.content || data.message || data;
-                        // 로그로 실제 데이터 형식 확인
-                        console.log("채팅 메시지 데이터:", messageContent);
-
-                        // 다양한 형식 지원
-                        const formattedMessage = typeof messageContent === 'string'
-                            ? { message: messageContent }
-                            : messageContent;
-
-                        setMessages(prev => [...prev, formattedMessage]);
-                    } else if (data.type === 'user_update') {
-                        setParticipants(data.participants || []);
-                    } else if (data.type === 'game_status') {
-                        setGameStatus(data.status);
-                    }
-                } catch (error) {
-                    console.error("메시지 처리 오류:", error);
+                if (data.type === 'chat') {
+                    // 채팅 메시지 처리
+                    setMessages((prev) => [...prev, {
+                        nickname: data.nickname,
+                        message: data.message,
+                        guest_id: data.guest_id,
+                        timestamp: data.timestamp
+                    }]);
+                } else if (data.type === 'user_update') {
+                    setParticipants(data.participants || []);
+                } else if (data.type === 'game_status') {
+                    setGameStatus(data.status);
                 }
             };
 
@@ -82,10 +73,12 @@ export default function useGameRoomSocket(roomId) {
     // 메시지 전송 함수
     const sendMessage = (message) => {
         if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-            socketRef.current.send(JSON.stringify({
+            const messageData = {
                 type: 'chat',
-                message
-            }));
+                message: message,
+                timestamp: new Date().toISOString()
+            };
+            socketRef.current.send(JSON.stringify(messageData));
         } else {
             console.error("웹소켓이 연결되지 않았습니다");
         }
