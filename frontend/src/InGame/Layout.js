@@ -34,7 +34,7 @@ function Layout({
         {/* 왼쪽 고양이 */}
         <div className="hidden md:flex flex-col items-start mt-[220px] pl-4 space-y-6 w-[170px] shrink-0">
           <div className="text-sm font-bold ml-1">ㅋㅋ 그것도 모름?</div>
-          <img src="/imgs/icon/AddIcon.png" alt="고양이" className="w-24 ml-2" />
+          <img src="/imgs/icon/AddIconA.png" alt="고양이" className="w-24 ml-2" />
         </div>
 
         {/* 중앙 타이핑 영역 */}
@@ -138,7 +138,7 @@ function Layout({
               }}
             ></div>
             <img
-              src={process.env.PUBLIC_URL + '/imgs/cat_working.gif'}
+              src={process.env.PUBLIC_URL + '/imgs/cat_workingA.gif'}
               alt="고양이"
               className={`absolute top-1/2 w-6 h-6 z-10 ${inputTimeLeft === 12 ? '' : 'transition-[left] ease-linear duration-1000'}`}
               style={{

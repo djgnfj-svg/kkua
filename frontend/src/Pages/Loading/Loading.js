@@ -126,7 +126,7 @@ function Loading() {
         </div> 
     
         
-        <img src='/imgs/logo/kkeua_logo.png' className="mx-auto mt-5 w-[40%]"></img>
+        <img src='/imgs/logo/kkeua_logoA.png' className="mx-auto mt-5 w-[40%]"></img>
           <LoadingButton onClick={startButtonOn} id="Loading__button--startbutton" text="시작하기"></LoadingButton><br></br>
           <LoadingButton onClick={backButtonOn} id="Loading__button--backbutton" text="뒤로가기"></LoadingButton> 
       </div> 
