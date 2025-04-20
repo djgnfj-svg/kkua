@@ -4,6 +4,7 @@ import axiosInstance from '../../Api/axiosInstance';
 import { gameLobbyUrl, gameUrl, lobbyUrl } from '../../Component/urls';
 import userIsTrue from '../../Component/userIsTrue';
 import { ROOM_API } from '../../Api/roomApi';
+import guestStore from '../../store/guestStore';
 
 function GameLobbyPage() {
   const { roomId } = useParams();
@@ -14,6 +15,7 @@ function GameLobbyPage() {
   });
   const [userInfo , setUserInfo] = useState([]);
   const [isOwner, setIsOwner] = useState(false);
+  const [redirectingToGame, setRedirectingToGame] = useState(false);
   const navigate = useNavigate();
 
   /* Guest Check */
@@ -21,7 +23,7 @@ function GameLobbyPage() {
     const checkGuest = async () => {
       const result = await userIsTrue();
       if (!result) {
-        alert("어멋 어딜들어오세요 Get Out !");
+        alert("올바르지않은 접근입니다.");
         navigate("/");
         return;
       }
@@ -29,8 +31,8 @@ function GameLobbyPage() {
     checkGuest();
   }, []);
 
-  /* ROOM INFO */
-  useEffect(() => {
+   /* ROOM INFO */
+   useEffect(() => {
     axiosInstance.patch(`${ROOM_API.get_ROOMSID(roomId)}`)
     .then(res => {
       setRoomsData(res.data)
@@ -52,8 +54,37 @@ function GameLobbyPage() {
         const res = await axiosInstance.get(ROOM_API.get_ROOMSUSER(roomId));
         console.log(res.data)
         setUserInfo(res.data);
+        
+        const guestInfo = JSON.parse(localStorage.getItem('guest-storage'))?.state;
+        // const guestNicknames = res.data.map((item) => item.guest.nickname);
+        const rawNickname = guestInfo?.nickname;
+        const cleanedNickname = rawNickname?.replace(/^"|"$/g, '');
+        console.log("guestInfo:", cleanedNickname);
+        if (!cleanedNickname.includes(guestInfo?.nickname)) {
+          alert("이 방에 참가된 유저가 아닙니다.");
+          navigate(lobbyUrl);
+        }
+        
+        const guestUUID = guestStore.getState().uuid;
+        const currentGuest = res.data.find((item) => item.guest.uuid === guestUUID);
+        if (currentGuest?.participant?.status === 'playing') {
+          setRedirectingToGame(true);
+          setTimeout(() => {
+            setRedirectingToGame(false);
+            navigate(gameUrl(roomId));
+          }, 3000);
+        }
       } catch (error) {
-        console.log(error);
+        console.log(error)
+        if (error.response?.status === 404) {
+          alert("이미 존재하지 않는 방입니다.");
+          navigate(lobbyUrl);
+        } else if (error.response?.status === 400 && error.response.data?.detail === "이 방에 참여하고 있지 않습니다.") {
+          alert("이 방에 참여하고 있지 않습니다.");
+          navigate(lobbyUrl);
+        } else {
+          console.log(error);
+        }
       }
     };
 
@@ -69,22 +100,26 @@ function GameLobbyPage() {
           const res = await axiosInstance.delete(ROOM_API.DELET_ROOMSID(roomId))
           navigate(lobbyUrl)
       }catch(error){
-        alert("당신은 나갈수 없어요. 끄아지옥 ON.... Create User");
         console.log(error)
       }
     }
-    }else{
-    let res = window.confirm("로비로 나가시겠습니까?");
-    if(res){
-      try{
-        await axiosInstance.post(ROOM_API.LEAVE_ROOMS(roomId))
-        navigate(lobbyUrl);
-      }catch(error){
-        alert("당신은 나갈수 없어요. 끄아지옥 ON....");
-        console.log(error)
+    } else {
+      let res = window.confirm("로비로 나가시겠습니까?");
+      if(res){
+        try{
+          await axiosInstance.post(ROOM_API.LEAVE_ROOMS(roomId))
+          navigate(lobbyUrl);
+        } catch(error){
+          if (error.response?.status === 400 && error.response.data?.detail === "이 방에 참여하고 있지 않습니다.") {
+            alert("이미 나간 방이거나 존재하지 않는 방입니다.");
+            navigate(lobbyUrl);
+          } else {
+            console.log(error);
+          }
+        }
       }
     }
-  }}
+  }
 
   /* Start BTN */
   const handleClickStartBtn = async (id) => {
@@ -93,9 +128,19 @@ function GameLobbyPage() {
       alert("게임이 시작됩니다 !");
       navigate(gameUrl(roomId));
     }catch(error){
-      alert("버그행동 금지")
+      alert("게임을 시작할 수 없습니다.")
       console.log(error)
     }
+  }
+
+  if (redirectingToGame) {
+    return (
+      <div className="w-full h-screen flex items-center justify-center bg-white">
+        <div className="text-center text-2xl font-extrabold text-red-600 animate-pulse leading-relaxed">
+          게임을 이미 시작하셨습니다.<br />게임페이지로 이동 중입니다...
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -148,9 +193,24 @@ function GameLobbyPage() {
       {/* Owner button */}
       {isOwner && (
         <div className="w-full text-center mt-4">
-          <button onClick={handleClickStartBtn} className="px-6 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition-all"  >
-            게임 시작
-          </button>
+          <div className="relative inline-block group">
+            <button
+              onClick={userInfo.length >= 2 ? handleClickStartBtn : null}
+              disabled={userInfo.length < 2}
+              className={`px-6 py-2 rounded-lg shadow transition-all font-bold ${
+                userInfo.length >= 2
+                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                  : 'bg-gray-400 text-white cursor-not-allowed'
+              }`}
+            >
+              게임 시작
+            </button>
+            {userInfo.length < 2 && (
+              <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-black text-white text-sm px-4 py-2 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 shadow-md">
+                2인 이상일 때 게임을 시작할 수 있습니다
+              </div>
+            )}
+          </div>
         </div>
       )}
 
