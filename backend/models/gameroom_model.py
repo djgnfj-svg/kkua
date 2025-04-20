@@ -55,25 +55,14 @@ class GameroomParticipant(Base):
     @staticmethod
     def should_redirect_to_game(db, guest_id):
         """게스트가 활성화된 게임방에 참여 중인지 확인하고 리다이렉트해야 하는지 결정합니다."""
-        # UUID를 정수로 변환 (guest_id가 UUID 객체인 경우 정수로 변환)
-        if isinstance(guest_id, uuid.UUID):
-            # guest_repository에서 실제 guest_id 정수 값 가져오기
-            guest = db.execute(
-                text("SELECT guest_id FROM guests WHERE uuid = :uuid"),
-                {"uuid": guest_id}
-            ).fetchone()
-            
-            if guest:
-                guest_id = guest[0]  # 실제 정수 guest_id
-                print(f"UUID를 정수 guest_id로 변환: {guest_id}")
-            else:
-                print(f"UUID에 해당하는 게스트를 찾을 수 없음: {guest_id}")
-                return False, None
+        # UUID 변환 로직 제거 - guest_id는 이미 정수 형태임
+        print(f"활성 게임 체크 - 게스트 ID: {guest_id}")
         
         # 정수 guest_id로 참가 중인 방 찾기
         participant = db.query(GameroomParticipant).filter(
             GameroomParticipant.guest_id == guest_id,
-            GameroomParticipant.left_at.is_(None)
+            GameroomParticipant.left_at.is_(None),
+            GameroomParticipant.status != ParticipantStatus.LEFT  # LEFT 상태가 아닌 경우만 확인
         ).first()
         
         if participant:
@@ -82,6 +71,8 @@ class GameroomParticipant(Base):
             ).first()
             
             if room and room.status != GameStatus.FINISHED:
+                print(f"활성 게임방 발견: {room.room_id}")
                 return True, room.room_id
-                
+        
+        print("활성 게임방 없음")        
         return False, None

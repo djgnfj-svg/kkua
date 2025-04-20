@@ -183,117 +183,156 @@ class GameroomService:
         
         return {"detail": "게임룸이 성공적으로 종료되었습니다"}
     
-    def join_gameroom(self, room_id: int, request: Request) -> Dict[str, str]:
-        """게임룸 참가"""
-        guest = self.get_guest_by_cookie(request)
-        
-        # 게임룸 조회
-        room = self.repository.find_by_id(room_id)
-        if not room:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="게임룸이 존재하지 않습니다."
+    def join_gameroom(self, room_id: int, request):
+        """
+        게임룸에 참가합니다.
+        """
+        try:
+            # 쿠키에서 게스트 UUID 가져오기
+            guest_uuid = request.cookies.get("kkua_guest_uuid")
+            if not guest_uuid:
+                raise HTTPException(status_code=400, detail="게스트 UUID가 필요합니다")
+            
+            # UUID 객체로 변환
+            try:
+                uuid_obj = uuid.UUID(guest_uuid)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="유효하지 않은 UUID 형식입니다")
+            
+            # 게스트 찾기
+            guest = self.guest_repository.find_by_uuid(uuid_obj)
+            if not guest:
+                raise HTTPException(status_code=404, detail="게스트를 찾을 수 없습니다")
+            
+            # 게임룸 찾기
+            room = self.repository.find_by_id(room_id)
+            if not room:
+                raise HTTPException(status_code=404, detail="게임룸을 찾을 수 없습니다")
+            
+            # 이미 참여 중인지 확인
+            is_participating = self.repository.check_participation(room_id, guest.guest_id)
+            if is_participating:
+                raise HTTPException(status_code=400, detail="이미 게임룸에 참여 중입니다")
+            
+            # 게임 중인지 확인
+            if room.status.value == "in_progress":
+                raise HTTPException(status_code=400, detail="이미 게임이 진행 중입니다")
+            
+            # 참여자 수 확인
+            participants = self.repository.get_participants(room_id)
+            if len(participants) >= room.max_players:
+                raise HTTPException(status_code=400, detail="게임룸이 가득 찼습니다")
+            
+            # 참여자 추가
+            self.repository.add_participant(room_id, guest.guest_id)
+            
+            # 참여자 목록 업데이트
+            updated_participants = self.repository.get_participants(room_id)
+            
+            # 생성자 정보 가져오기
+            creator = None
+            for p in updated_participants:
+                if p["is_creator"]:
+                    creator = p
+                    break
+            
+            # GameroomResponse 형식으로 반환
+            return GameroomResponse(
+                room_id=room.room_id,
+                title=room.title,
+                max_players=room.max_players,
+                game_mode=room.game_mode,
+                created_by=room.created_by,
+                created_username=creator["nickname"] if creator else "Unknown",
+                status=room.status.value,
+                participant_count=len(updated_participants),
+                time_limit=room.time_limit
             )
-        
-        # 현재 참가자 수 확인
-        current_participants = self.repository.count_participants(room_id)
-        
-        # None 체크 추가
-        if current_participants is None:
-            current_participants = 0
-            print(f"참가자 수가 None이어서 0으로 설정함 - room_id: {room_id}")
-        
-        print(f"현재 참가자 수: {current_participants}, 최대 플레이어 수: {room.max_players}")
-        
-        # 참가자 수 체크
-        if current_participants >= room.max_players:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="게임룸이 가득 찼습니다."
-            )
-        
-        # 이미 참가 중인지 확인
-        participant = self.repository.find_participant(room_id, guest.guest_id)
-        if participant:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="이미 게임룸에 참가 중입니다."
-            )
-        
-        # 게임이 시작된 경우 참가 불가
-        if room.status == GameStatus.PLAYING:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="게임이 이미 시작되어 참가할 수 없습니다."
-            )
-        
-        # 참가자 추가
-        participant = self.repository.add_participant(room_id, guest.guest_id)
-        
-        # 방 정보
-        guest_info = {
-            "guest_id": guest.guest_id,
-            "nickname": guest.nickname
-        }
-        
-        # 비동기 호출을 스레드로 처리
-        def run_async_broadcast():
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            loop.run_until_complete(ws_manager.broadcast_room_update(
-                room_id, 
-                "user_joined", 
-                guest_info
-            ))
-            loop.close()
-        
-        # 백그라운드에서 실행
-        threading.Thread(target=run_async_broadcast).start()
-        
-        return {"message": "게임룸에 참가했습니다.", "room_id": room_id}
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"게임룸 참가 중 오류가 발생했습니다: {str(e)}")
     
-    def leave_gameroom(self, room_id: int, request: Request) -> Dict[str, str]:
-        """게임룸에서 나갑니다."""
-        guest = self.get_guest_by_cookie(request)
-        
-        # 게임룸 조회
-        room = self.repository.find_by_id(room_id)
-        if not room:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, 
-                detail="게임룸을 찾을 수 없습니다"
-            )
-        
-        # 참가 확인
-        participation = self.repository.find_participant(room_id, guest.guest_id)
-        
-        if not participation:
-            # 방 생성자인지 확인
-            if room.created_by == guest.guest_id:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="방장은 방을 나갈 수 없습니다. 방을 삭제해주세요."
-                )
+    def leave_gameroom(self, room_id: int, request):
+        """
+        게임룸에서 나갑니다.
+        방장이 나가면 모든 참여자가 강제로 퇴장됩니다.
+        """
+        try:
+            # 쿠키에서 게스트 UUID 가져오기
+            guest_uuid = request.cookies.get("kkua_guest_uuid")
+            if not guest_uuid:
+                raise HTTPException(status_code=400, detail="게스트 UUID가 필요합니다")
+            
+            # UUID 객체로 변환
+            try:
+                uuid_obj = uuid.UUID(guest_uuid)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="유효하지 않은 UUID 형식입니다")
+            
+            # 게스트 찾기
+            guest = self.guest_repository.find_by_uuid(uuid_obj)
+            if not guest:
+                raise HTTPException(status_code=404, detail="게스트를 찾을 수 없습니다")
+            
+            # 게임룸 찾기
+            room = self.repository.find_by_id(room_id)
+            if not room:
+                raise HTTPException(status_code=404, detail="게임룸을 찾을 수 없습니다")
+            
+            # 참여 여부 확인
+            participation = self.repository.check_participation(room_id, guest.guest_id)
+            if not participation:
+                raise HTTPException(status_code=400, detail="해당 게임룸에 참여하고 있지 않습니다")
+            
+            # 방장 여부 확인
+            is_owner = (room.created_by == guest.guest_id)
+            
+            if is_owner:
+                # 방장이 나가는 경우: 모든 참여자를 퇴장시키고 방 삭제
+                participants = self.repository.get_participants(room_id)
+                for participant in participants:
+                    # 딕셔너리로 접근하도록 수정
+                    success = self.repository.remove_participant(room_id, participant["guest_id"])
+                    if not success:
+                        continue
+                
+                # 방 삭제
+                self.repository.delete(room)
+                return {
+                    "status": "success", 
+                    "message": "게임룸에서 나갔습니다. 방장이 나가 모든 참여자가 퇴장되었으며 게임룸이 삭제되었습니다.",
+                    "is_owner": True
+                }
             else:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="이 방에 참여하고 있지 않습니다."
-                )
-        
-        # 참가자 제거
-        self.repository.remove_participant(participation)
-        
-        # 웹소켓으로 참가자 퇴장 알림
-        asyncio.create_task(ws_manager.broadcast_room_update(
-            room_id, 
-            "participant_left", 
-            {
-                "guest_id": guest.guest_id,
-                "nickname": guest.nickname
-            }
-        ))
-        
-        return {"detail": f"게임룸({room_id})에서 성공적으로 나갔습니다."}
+                # 일반 참여자가 나가는 경우
+                self.repository.remove_participant(room_id, guest.guest_id)
+                
+                # 참여자가 없으면 게임룸 삭제
+                remaining_participants = self.repository.get_participants(room_id)
+                if not remaining_participants:
+                    self.repository.delete(room)
+                    return {
+                        "status": "success", 
+                        "message": "게임룸에서 나갔습니다. 참여자가 없어 게임룸이 삭제되었습니다.",
+                        "is_owner": False
+                    }
+                
+                return {
+                    "status": "success", 
+                    "message": "게임룸에서 나갔습니다.",
+                    "is_owner": False
+                }
+            
+        except HTTPException:
+            # HTTP 예외는 그대로 던지기
+            raise
+        except Exception as e:
+            # 그 외 예외는 로깅하고 적절한 상태 코드로 응답
+            import logging
+            logging.error(f"게임룸 퇴장 중 오류 발생: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"게임룸 퇴장 중 오류가 발생했습니다: {str(e)}")
     
     def start_game(self, room_id: int, request: Request):
         """게임 시작"""

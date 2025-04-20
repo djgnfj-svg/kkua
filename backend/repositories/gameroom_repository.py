@@ -158,17 +158,35 @@ class GameroomRepository:
             print(f"참가자 추가 중 오류 발생: {str(e)}")
             raise
     
-    def remove_participant(self, participation: GameroomParticipant) -> None:
-        """참가자를 게임룸에서 제거합니다."""
-        participation.left_at = datetime.now()
-        participation.status = ParticipantStatus.LEFT
-        
-        # 인원수 감소
-        room = self.find_by_id(participation.room_id)
-        if room.participant_count > 0:
-            room.participant_count -= 1
-        
-        self.db.commit()
+    def remove_participant(self, room_id: int, guest_id: int):
+        """게임룸 참여자를 제거합니다."""
+        try:
+            participant = self.db.query(GameroomParticipant).filter(
+                GameroomParticipant.room_id == room_id,
+                GameroomParticipant.guest_id == guest_id,
+                GameroomParticipant.left_at.is_(None)
+            ).first()
+            
+            if participant:
+                # 참가자 상태 업데이트
+                participant.left_at = datetime.datetime.utcnow()
+                participant.status = ParticipantStatus.LEFT  # 상태를 LEFT로 변경
+                
+                # 게임룸의 참가자 수 감소
+                room = self.db.query(Gameroom).filter(
+                    Gameroom.room_id == room_id
+                ).first()
+                
+                if room and room.participant_count > 0:
+                    room.participant_count -= 1
+                    
+                self.db.commit()
+            return True
+        except Exception as e:
+            self.db.rollback()  # 오류 발생 시 롤백 추가
+            import logging
+            logging.error(f"참여자 제거 중 오류 발생: {str(e)}")
+            return False
     
     def update_game_status(self, room: Gameroom, status: GameStatus) -> Gameroom:
         """게임 상태를 업데이트합니다."""
@@ -240,22 +258,6 @@ class GameroomRepository:
             # 오류 발생 시 0 반환 (None 대신)
             return 0
     
-    def remove_participant(self, room_id: int, guest_id: int) -> None:
-        """게임룸에서 참가자를 제거합니다."""
-        try:
-            participant = self.db.query(GameroomParticipant).filter(
-                GameroomParticipant.room_id == room_id,
-                GameroomParticipant.guest_id == guest_id
-            ).first()
-            
-            if participant:
-                self.db.delete(participant)
-                self.db.commit()
-        except Exception as e:
-            self.db.rollback()
-            print(f"참가자 제거 오류: {str(e)}")
-            raise
-
     def is_participant(self, room_id: int, guest_id: int) -> bool:
         """게스트가 게임룸의 참가자인지 확인합니다."""
         try:
@@ -269,29 +271,51 @@ class GameroomRepository:
             return False
 
     def get_participants(self, room_id: int) -> List[Dict[str, Any]]:
-        """게임룸의 모든 참가자를 가져옵니다."""
+        """게임룸 참여자 목록을 가져옵니다."""
         try:
-            # SQL 쿼리로 직접 조회 (JOIN 사용)
-            query = text("""
-                SELECT gp.guest_id, g.nickname, gp.is_creator, gp.joined_at
+            # 게임룸 정보 가져오기 (생성자 ID 확인용)
+            gameroom = self.find_by_id(room_id)
+            if not gameroom:
+                return []
+            
+            # 생성자 ID
+            creator_id = gameroom.created_by
+            
+            # is_creator 컬럼이 없으므로 쿼리 수정
+            query = """
+                SELECT gp.guest_id, g.nickname, gp.joined_at
                 FROM gameroom_participants gp
                 JOIN guests g ON gp.guest_id = g.guest_id
-                WHERE gp.room_id = :room_id
-                ORDER BY gp.is_creator DESC, gp.joined_at ASC
-            """)
+                WHERE gp.room_id = :room_id AND gp.left_at IS NULL
+                ORDER BY gp.joined_at ASC
+            """
             
-            result = self.db.execute(query, {"room_id": room_id})
+            result = self.db.execute(text(query), {"room_id": room_id}).fetchall()
             
+            # 결과를 딕셔너리 리스트로 변환하고 생성자 여부 직접 추가
             participants = []
             for row in result:
+                is_creator = (row[0] == creator_id)  # guest_id가 creator_id와 같은지 확인
                 participants.append({
                     "guest_id": row[0],
                     "nickname": row[1],
-                    "is_creator": row[2],
-                    "joined_at": row[3]
+                    "is_creator": is_creator,  # 여기서 is_creator 계산
+                    "joined_at": row[2]
                 })
+            
+            # 생성자가 먼저 오도록 정렬
+            participants.sort(key=lambda p: (not p["is_creator"], p["joined_at"]))
             
             return participants
         except Exception as e:
-            print(f"참가자 목록 조회 오류: {str(e)}")
-            return [] 
+            import logging
+            logging.error(f"참가자 목록 조회 오류: {str(e)}")
+            return []
+
+    def check_participation(self, room_id: int, guest_id: int) -> Optional[GameroomParticipant]:
+        """게스트가 게임룸에 참여 중인지 확인하고 참가자 객체를 반환합니다."""
+        return self.db.query(GameroomParticipant).filter(
+            GameroomParticipant.room_id == room_id,
+            GameroomParticipant.guest_id == guest_id,
+            GameroomParticipant.left_at.is_(None)  # 아직 나가지 않은 상태
+        ).first() 
