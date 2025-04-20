@@ -1,18 +1,29 @@
-from fastapi import HTTPException, status, Request
+from fastapi import HTTPException, status, Request, WebSocket
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any, Optional
 import uuid
+import asyncio
+import json
+from datetime import datetime
+import threading
 
 from repositories.gameroom_repository import GameroomRepository
-from models.gameroom_model import Gameroom, GameStatus
-from models.gameroom_participant import ParticipantStatus
+from models.gameroom_model import Gameroom, GameStatus, ParticipantStatus
 from models.guest_model import Guest
-from schemas.gameroom import GameroomResponse
+from schemas.gameroom_schema import (
+    GameroomResponse, GameroomListResponse, JoinGameroomResponse, 
+    CreateGameroomRequest, GameroomDetailResponse
+)
+from ws_manager.connection_manager import ConnectionManager
+from repositories.guest_repository import GuestRepository
+
+# 웹소켓 연결 관리자
+ws_manager = ConnectionManager()
 
 class GameroomService:
-    def __init__(self, repository: GameroomRepository, db: Session):
+    def __init__(self, repository: GameroomRepository, guest_repository: GuestRepository):
         self.repository = repository
-        self.db = db
+        self.guest_repository = guest_repository
     
     def get_guest_by_cookie(self, request: Request) -> Guest:
         """쿠키에서 UUID를 추출하여 게스트를 반환합니다."""
@@ -31,7 +42,7 @@ class GameroomService:
                 detail="유효하지 않은 UUID 형식입니다."
             )
         
-        guest = self.db.query(Guest).filter(Guest.uuid == guest_uuid).first()
+        guest = self.guest_repository.find_by_uuid(guest_uuid)
         if not guest:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -44,141 +55,202 @@ class GameroomService:
         """활성화된 모든 게임룸을 조회합니다."""
         return self.repository.find_all_active()
     
-    def create_gameroom(self, request: Request, title: str = None, max_players: int = None, 
-                       game_mode: str = None, time_limit: int = None) -> Gameroom:
-        """새 게임룸을 생성합니다."""
-        guest = self.get_guest_by_cookie(request)
+    def create_gameroom(self, data: CreateGameroomRequest, guest_uuid: str) -> GameroomResponse:
+        """게임룸 생성 메서드"""
+        print(f"게임룸 생성 시작 - 데이터: {data}, UUID: {guest_uuid}")
         
-        # 이미 생성한 방이 있는지 확인
-        existing_room = self.repository.find_active_by_creator(guest.guest_id)
-        if existing_room:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="이미 생성한 방이 있습니다. 새로운 방을 만들기 전에 기존 방을 삭제해주세요."
+        try:
+            # 문자열 UUID를 UUID 객체로 변환
+            uuid_obj = uuid.UUID(guest_uuid)
+            guest = self.guest_repository.find_by_uuid(uuid_obj)
+            
+            if not guest:
+                print(f"게스트를 찾을 수 없음: {guest_uuid}")
+                raise HTTPException(status_code=404, detail="게스트를 찾을 수 없습니다")
+            
+            # 기존 게임방에 이미 참여 중인지 확인
+            should_redirect, active_room_id = self.guest_repository.check_active_game(guest.guest_id)
+            if should_redirect:
+                print(f"기존 게임방 참여 중: {active_room_id}")
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"이미 다른 게임방({active_room_id})에 참여 중입니다"
+                )
+            
+            # 데이터 준비
+            room_data = {
+                "title": data.title,
+                "max_players": data.max_players,
+                "game_mode": data.game_mode,
+                "time_limit": data.time_limit,
+                "created_by": guest.guest_id,
+                "participant_count": 1  # 생성자 포함
+            }
+            
+            # 게임룸 생성
+            new_room = self.repository.create(room_data, guest.guest_id)
+            print(f"게임룸 생성 성공: room_id={new_room.room_id}")
+            
+            return GameroomResponse(
+                room_id=new_room.room_id,
+                title=new_room.title,
+                max_players=new_room.max_players,
+                game_mode=new_room.game_mode,
+                created_by=new_room.created_by,
+                created_username=new_room.created_username,
+                status=new_room.status.value,
+                participant_count=new_room.participant_count,
+                time_limit=new_room.time_limit
             )
-        
-        # 기본값 설정
-        room_data = {
-            "title": title if title is not None else "새로운 방",
-            "max_players": max_players if max_players is not None else 4,
-            "game_mode": game_mode if game_mode is not None else "normal",
-            "time_limit": time_limit if time_limit is not None else 60,
-            "created_by": guest.guest_id,
-            "status": GameStatus.WAITING
-        }
-        
-        return self.repository.create(room_data, guest.guest_id)
+        except Exception as e:
+            print(f"게임룸 생성 오류: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            raise HTTPException(status_code=400, detail=f"게임룸 생성 실패: {str(e)}")
     
     def update_gameroom(self, room_id: int, request: Request, title: str = None, 
-                        max_players: int = None, game_mode: str = None, 
-                        time_limit: int = None) -> Gameroom:
-        """게임룸 정보를 업데이트합니다."""
+                        max_players: int = None, game_mode: str = None, time_limit: int = None):
+        """게임룸 정보 업데이트"""
         guest = self.get_guest_by_cookie(request)
         
         # 게임룸 조회
-        db_room = self.repository.find_by_id(room_id)
-        if not db_room:
+        room = self.repository.find_by_id(room_id)
+        if not room:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="게임룸을 찾을 수 없습니다"
+                detail="게임룸이 존재하지 않습니다."
             )
         
-        # 방 생성자만 수정 가능
-        if db_room.created_by != guest.guest_id:
+        # 방장 확인
+        if room.created_by != guest.guest_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="방 생성자만 수정할 수 있습니다"
+                detail="방장만 게임룸 정보를 수정할 수 있습니다."
             )
         
-        # 게임중인 방은 수정 불가
-        if db_room.status == GameStatus.PLAYING:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="게임 진행 중인 방은 수정할 수 없습니다"
-            )
+        # 게임룸 업데이트
+        updated_room = self.repository.update(
+            room_id, title, max_players, game_mode, time_limit
+        )
         
-        # 업데이트할 값 설정
-        update_data = {
-            "title": title,
-            "max_players": max_players,
-            "game_mode": game_mode,
-            "time_limit": time_limit
+        # 방 정보
+        room_info = {
+            "room_id": updated_room.room_id,
+            "title": updated_room.title,
+            "max_players": updated_room.max_players,
+            "game_mode": updated_room.game_mode,
+            "time_limit": updated_room.time_limit
         }
         
-        return self.repository.update(db_room, update_data)
+        # 비동기 호출을 스레드로 처리
+        # 동기 컨텍스트에서 비동기 함수를 안전하게 호출
+        def run_async_broadcast():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(ws_manager.broadcast_room_update(room_id, "room_updated", room_info))
+            loop.close()
+        
+        # 백그라운드에서 실행
+        threading.Thread(target=run_async_broadcast).start()
+        
+        return updated_room
     
-    def delete_gameroom(self, room_id: int) -> Dict[str, str]:
+    def delete_gameroom(self, room_id: int, request: Request) -> Dict[str, str]:
         """게임룸을 삭제 처리합니다."""
+        guest = self.get_guest_by_cookie(request)
+        
         room = self.repository.find_by_id(room_id)
         if not room:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, 
                 detail="게임룸을 찾을 수 없습니다"
+            )
+            
+        # 방 생성자만 삭제 가능
+        if room.created_by != guest.guest_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="방 생성자만 방을 삭제할 수 있습니다"
             )
         
         self.repository.delete(room)
+        
+        # 웹소켓으로 방 삭제 알림
+        asyncio.create_task(ws_manager.broadcast_room_update(
+            room_id, 
+            "room_closed"
+        ))
+        
         return {"detail": "게임룸이 성공적으로 종료되었습니다"}
     
     def join_gameroom(self, room_id: int, request: Request) -> Dict[str, str]:
-        """게임룸에 참가합니다."""
+        """게임룸 참가"""
         guest = self.get_guest_by_cookie(request)
         
         # 게임룸 조회
         room = self.repository.find_by_id(room_id)
         if not room:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, 
-                detail="게임룸을 찾을 수 없습니다"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="게임룸이 존재하지 않습니다."
             )
         
-        # 이미 방 생성자인지 확인
-        if room.created_by == guest.guest_id:
+        # 현재 참가자 수 확인
+        current_participants = self.repository.count_participants(room_id)
+        
+        # None 체크 추가
+        if current_participants is None:
+            current_participants = 0
+            print(f"참가자 수가 None이어서 0으로 설정함 - room_id: {room_id}")
+        
+        print(f"현재 참가자 수: {current_participants}, 최대 플레이어 수: {room.max_players}")
+        
+        # 참가자 수 체크
+        if current_participants >= room.max_players:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="이미 해당 방의 생성자입니다."
+                detail="게임룸이 가득 찼습니다."
             )
         
-        # 최대 인원 초과 확인
-        if room.participant_count >= room.max_players:
+        # 이미 참가 중인지 확인
+        participant = self.repository.find_participant(room_id, guest.guest_id)
+        if participant:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="방이 가득 찼습니다."
+                detail="이미 게임룸에 참가 중입니다."
             )
         
-        # 게임 진행중인지 확인
+        # 게임이 시작된 경우 참가 불가
         if room.status == GameStatus.PLAYING:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="게임이 이미 시작되었습니다."
-            )
-        
-        # 게임이 종료되었는지 확인
-        if room.status == GameStatus.FINISHED:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="종료된 게임입니다."
-            )
-        
-        # 이미 참여중인지 확인
-        existing_participation = self.repository.find_participant(room_id, guest.guest_id)
-        if existing_participation:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="이미 이 방에 참여중입니다."
-            )
-        
-        # 다른 방에 이미 참여 중인지 확인
-        other_participation = self.repository.find_other_participation(guest.guest_id, room_id)
-        if other_participation:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"다른 방(방 ID: {other_participation.room_id})에 이미 참여 중입니다. 먼저 해당 방에서 나가야 합니다."
+                detail="게임이 이미 시작되어 참가할 수 없습니다."
             )
         
         # 참가자 추가
-        self.repository.add_participant(room_id, guest.guest_id)
+        participant = self.repository.add_participant(room_id, guest.guest_id)
         
-        return {"detail": f"게임룸({room_id})에 성공적으로 참여하였습니다."}
+        # 방 정보
+        guest_info = {
+            "guest_id": guest.guest_id,
+            "nickname": guest.nickname
+        }
+        
+        # 비동기 호출을 스레드로 처리
+        def run_async_broadcast():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(ws_manager.broadcast_room_update(
+                room_id, 
+                "user_joined", 
+                guest_info
+            ))
+            loop.close()
+        
+        # 백그라운드에서 실행
+        threading.Thread(target=run_async_broadcast).start()
+        
+        return {"message": "게임룸에 참가했습니다.", "room_id": room_id}
     
     def leave_gameroom(self, room_id: int, request: Request) -> Dict[str, str]:
         """게임룸에서 나갑니다."""
@@ -192,7 +264,7 @@ class GameroomService:
                 detail="게임룸을 찾을 수 없습니다"
             )
         
-        # 참여 기록 확인
+        # 참가 확인
         participation = self.repository.find_participant(room_id, guest.guest_id)
         
         if not participation:
@@ -211,45 +283,51 @@ class GameroomService:
         # 참가자 제거
         self.repository.remove_participant(participation)
         
+        # 웹소켓으로 참가자 퇴장 알림
+        asyncio.create_task(ws_manager.broadcast_room_update(
+            room_id, 
+            "participant_left", 
+            {
+                "guest_id": guest.guest_id,
+                "nickname": guest.nickname
+            }
+        ))
+        
         return {"detail": f"게임룸({room_id})에서 성공적으로 나갔습니다."}
     
-    def start_game(self, room_id: int, request: Request) -> Dict[str, str]:
-        """게임을 시작합니다."""
+    def start_game(self, room_id: int, request: Request):
+        """게임 시작"""
         guest = self.get_guest_by_cookie(request)
         
         # 게임룸 조회
         room = self.repository.find_by_id(room_id)
         if not room:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, 
-                detail="게임룸을 찾을 수 없습니다"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="게임룸이 존재하지 않습니다."
             )
         
-        # 방 생성자만 게임 시작 가능
+        # 방장 확인
         if room.created_by != guest.guest_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="방 생성자만 게임을 시작할 수 있습니다"
+                detail="방장만 게임을 시작할 수 있습니다."
             )
         
-        # 게임 상태 확인
-        if room.status != GameStatus.WAITING:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="대기 중인 방만 게임을 시작할 수 있습니다"
-            )
+        # 게임 상태 업데이트
+        updated_room = self.repository.update_status(room_id, GameStatus.PLAYING)
         
-        # 최소 인원 확인 (예: 최소 2명 이상)
-        if room.participant_count < 2:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="게임을 시작하려면 최소 2명 이상의 참가자가 필요합니다"
-            )
+        # 비동기 호출을 스레드로 처리
+        def run_async_broadcast():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(ws_manager.broadcast_room_update(room_id, "game_started", {}))
+            loop.close()
         
-        # 게임 시작 처리
-        self.repository.update_game_status(room, GameStatus.PLAYING)
+        # 백그라운드에서 실행
+        threading.Thread(target=run_async_broadcast).start()
         
-        return {"detail": f"게임룸({room_id})의 게임이 시작되었습니다."}
+        return {"message": "게임이 시작되었습니다.", "room_id": room_id}
     
     def end_game(self, room_id: int, request: Request) -> Dict[str, str]:
         """게임을 종료합니다."""
@@ -279,6 +357,12 @@ class GameroomService:
         
         # 게임 종료 처리
         self.repository.update_game_status(room, GameStatus.FINISHED)
+        
+        # 웹소켓으로 게임 종료 알림
+        asyncio.create_task(ws_manager.broadcast_room_update(
+            room_id, 
+            "game_ended"
+        ))
         
         return {"detail": f"게임룸({room_id})의 게임이 종료되었습니다."}
     
@@ -333,7 +417,7 @@ class GameroomService:
             return {"redirect": False}
         
         # 유저가 게임 중인지 확인
-        should_redirect, room_id = self.repository.check_active_game(guest_uuid)
+        should_redirect, room_id = self.guest_repository.check_active_game(guest_uuid)
         
         if should_redirect:
             return {
@@ -341,4 +425,44 @@ class GameroomService:
                 "room_id": room_id
             }
         
-        return {"redirect": False} 
+        return {"redirect": False}
+    
+    def update_participant_status(self, room_id: int, guest_id: int, status: str) -> Dict[str, str]:
+        """참가자 상태를 업데이트합니다. (웹소켓을 통해 호출)"""
+        # 게임룸 조회
+        room = self.repository.find_by_id(room_id)
+        if not room:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, 
+                detail="게임룸을 찾을 수 없습니다"
+            )
+        
+        # 참가자 조회
+        participant = self.repository.find_participant(room_id, guest_id)
+        if not participant:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="해당 참가자를 찾을 수 없습니다"
+            )
+        
+        # 진행 중인 게임에서는 상태 변경 불가
+        if room.status == GameStatus.PLAYING and status.upper() != "PLAYING":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="게임 진행 중에는 상태를 변경할 수 없습니다"
+            )
+        
+        # 상태 업데이트
+        updated_participant = self.repository.update_participant_status(participant.id, status.upper())
+        
+        # 웹소켓으로 상태 변경 알림
+        asyncio.create_task(ws_manager.broadcast_room_update(
+            room_id, 
+            "status_changed",
+            {
+                "guest_id": guest_id,
+                "status": updated_participant.status.value
+            }
+        ))
+        
+        return {"detail": "참가자 상태가 업데이트되었습니다."} 

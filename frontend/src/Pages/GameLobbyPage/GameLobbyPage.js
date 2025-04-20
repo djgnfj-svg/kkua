@@ -1,9 +1,11 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import axiosInstance from '../../Api/axiosInstance';
 import { gameLobbyUrl, gameUrl, lobbyUrl } from '../../Component/urls';
 import userIsTrue from '../../Component/userIsTrue';
 import { ROOM_API } from '../../Api/roomApi';
+import guestStore from '../../store/guestStore';
+import useGameRoomSocket from '../../hooks/useGameRoomSocket';
 
 function GameLobbyPage() {
   const { roomId } = useParams();
@@ -12,91 +14,258 @@ function GameLobbyPage() {
     game_mode: "",
     max_players: 0
   });
-  const [userInfo , setUserInfo] = useState([]);
+  const [userInfo, setUserInfo] = useState([]);
   const [isOwner, setIsOwner] = useState(false);
   const navigate = useNavigate();
 
   /* Guest Check */
   useEffect(() => {
     const checkGuest = async () => {
-      const result = await userIsTrue();
-      if (!result) {
-        alert("어멋 어딜들어오세요 Get Out !");
-        navigate("/");
-        return;
+      // 쿠키 확인 (직접 document.cookie 사용)
+      const cookies = document.cookie.split(';');
+      const guestUuidCookie = cookies.find(cookie => cookie.trim().startsWith('kkua_guest_uuid='));
+      const guestUuid = guestUuidCookie ? guestUuidCookie.split('=')[1].trim() : null;
+
+      console.log("쿠키에서 찾은 UUID:", guestUuid);
+
+      // 스토어 상태 확인
+      const { uuid } = guestStore.getState();
+      console.log("스토어에 저장된 UUID:", uuid);
+
+      if (guestUuid) {
+        // 스토어 상태 업데이트
+        if (!uuid || uuid !== guestUuid) {
+          console.log("UUID 불일치, 스토어 업데이트");
+          guestStore.getState().setGuestInfo({
+            ...guestStore.getState(),
+            uuid: guestUuid
+          });
+        }
+
+        // userIsTrue 호출
+        const result = await userIsTrue();
+        if (!result) {
+          alert("어멋 어딜들어오세요 Get Out !");
+          navigate("/");
+          return;
+        }
+      } else {
+        // 쿠키가 없으면 로그인 시도
+        try {
+          const response = await axiosInstance.post('/guests/login');
+
+          guestStore.getState().setGuestInfo({
+            uuid: response.data.uuid,
+            nickname: response.data.nickname,
+            guest_id: response.data.guest_id
+          });
+        } catch (error) {
+          alert("서버 연결에 문제가 있습니다");
+          navigate("/");
+        }
       }
     };
     checkGuest();
-  }, []);
+  }, [navigate]);
 
   /* ROOM INFO */
   useEffect(() => {
     axiosInstance.patch(`${ROOM_API.get_ROOMSID(roomId)}`)
-    .then(res => {
-      setRoomsData(res.data)
-      const guestInfo = JSON.parse(localStorage.getItem('guest-storage'))?.state;
-      if (guestInfo?.nickname === res.data.created_username) {
-        setIsOwner(true);
-      }
-      console.log("GET 성공:", res.data);
-    })
-    .catch(err => {
-      console.error("GET 실패:", err.response?.data || err.message);
-    });
-  },[])
+      .then(res => {
+        setRoomsData(res.data)
+        const guestInfo = JSON.parse(localStorage.getItem('guest-storage'))?.state;
+        if (guestInfo?.nickname === res.data.created_username) {
+          setIsOwner(true);
+        }
+      })
+      .catch(err => {
+        console.error("GET 실패:", err.response?.data || err.message);
+      });
+  }, [])
 
   /* USER INFO */
-  useEffect(() => {
-    const fetchUserInfo = async () => {
-      try {
-        const res = await axiosInstance.get(ROOM_API.get_ROOMSUSER(roomId));
-        console.log(res.data)
-        setUserInfo(res.data);
-      } catch (error) {
-        console.log(error);
-      }
-    };
+  const fetchParticipants = async () => {
+    try {
+      const response = await axiosInstance.get(ROOM_API.get_ROOMSUSER(roomId));
 
-    fetchUserInfo();
-  }, []);
+      // 응답이 올바른 형식인지 확인
+      if (response.data && Array.isArray(response.data)) {
+        setUserInfo(response.data);
+      } else {
+        console.error("참가자 정보가 올바른 형식이 아닙니다:", response.data);
+      }
+    } catch (error) {
+      console.error("참가자 정보 가져오기 실패:", error);
+
+      // 에러 응답 상세 로깅
+      if (error.response) {
+        console.error("응답 상태:", error.response.status);
+        console.error("응답 헤더:", error.response.headers);
+
+        // 응답이 HTML인 경우 (일반적으로 오류 페이지)
+        if (error.response.data && typeof error.response.data === 'string' &&
+          error.response.data.includes('<!DOCTYPE')) {
+          console.error("HTML 응답 수신 - 서버 오류 또는 인증 문제일 수 있습니다");
+        } else {
+          console.error("응답 데이터:", error.response.data);
+        }
+      } else if (error.request) {
+        console.error("응답 없음:", error.request);
+      } else {
+        console.error("요청 설정 오류:", error.message);
+      }
+
+      // 오류 발생 시 빈 배열로 설정하여 UI 에러 방지
+      setUserInfo([]);
+    }
+  };
+
+  useEffect(() => {
+    fetchParticipants();
+    // 30초마다 참가자 정보 갱신
+    const interval = setInterval(fetchParticipants, 30000);
+    return () => clearInterval(interval);
+  }, [roomId]);
 
   /* LEAVE ROOM */
   const handleClickExit = async () => {
-    if(isOwner){
-      let res = window.confirm("방을 삭제 하시겟습니까?")
-      if(res){
-        try{
-          const res = await axiosInstance.delete(ROOM_API.DELET_ROOMSID(roomId))
+    if (isOwner) {
+      let confirmDelete = window.confirm("방을 삭제 하시겟습니까?")
+      if (confirmDelete) {
+        try {
+          await axiosInstance.delete(ROOM_API.DELET_ROOMSID(roomId))
           navigate(lobbyUrl)
-      }catch(error){
-        alert("당신은 나갈수 없어요. 끄아지옥 ON.... Create User");
-        console.log(error)
+        } catch (error) {
+          alert("당신은 나갈수 없어요. 끄아지옥 ON.... Create User");
+          console.log(error)
+        }
+      }
+    } else {
+      let confirmLeave = window.confirm("로비로 나가시겠습니까?");
+      if (confirmLeave) {
+        try {
+          // uuid 가져오기
+          const { uuid } = guestStore.getState();
+
+          // 요청 본문에 게스트 UUID 추가
+          await axiosInstance.post(ROOM_API.LEAVE_ROOMS(roomId), {
+            guest_uuid: uuid
+          });
+
+          alert("방에서 나갑니다!");
+          navigate(lobbyUrl);
+        } catch (error) {
+          console.error("방 나가기 실패:", error);
+          alert("당신은 나갈수 없어요. 끄아지옥 ON....");
+        }
       }
     }
-    }else{
-    let res = window.confirm("로비로 나가시겠습니까?");
-    if(res){
-      try{
-        await axiosInstance.post(ROOM_API.LEAVE_ROOMS(roomId))
-        navigate(lobbyUrl);
-      }catch(error){
-        alert("당신은 나갈수 없어요. 끄아지옥 ON....");
-        console.log(error)
-      }
-    }
-  }}
+  }
 
   /* Start BTN */
   const handleClickStartBtn = async (id) => {
-    try{
+    try {
       const res = await axiosInstance.post(ROOM_API.PLAY_ROOMS(roomId))
       alert("게임이 시작됩니다 !");
       navigate(gameUrl(roomId));
-    }catch(error){
-      alert("버그행동 금지")
+    } catch (error) {
       console.log(error)
+      alert("버그행동 금지")
     }
   }
+
+  /* 웹소켓 연결 사용 */
+  const {
+    connected,
+    messages,
+    participants,
+    gameStatus,
+    sendMessage,
+    updateStatus
+  } = useGameRoomSocket(roomId);
+
+  /* 채팅 메시지 상태 및 핸들러 추가 */
+  const [chatMessage, setChatMessage] = useState('');
+
+  const chatContainerRef = useRef(null);
+
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const handleSendMessage = () => {
+    if (chatMessage.trim() === '') return;
+
+    if (sendMessage) {
+      sendMessage(chatMessage);
+      setChatMessage('');
+    }
+  };
+
+  /* 준비 상태 업데이트 핸들러 */
+  const handleReady = () => {
+    updateStatus('READY');
+  };
+
+  /* 게임 시작 후 자동 이동 */
+  useEffect(() => {
+    if (gameStatus === 'playing') {
+      navigate(gameUrl(roomId));
+    }
+  }, [gameStatus, roomId]);
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      const lastMsg = messages[messages.length - 1];
+      console.log('마지막 메시지 전체:', lastMsg);
+      console.log('마지막 메시지 닉네임:', lastMsg.nickname);
+      console.log('마지막 메시지 내용:', lastMsg.message);
+    }
+  }, [messages]);
+
+  useEffect(() => {
+    // 메시지 배열이 업데이트될 때마다 로그 출력
+    console.log("현재 메시지 배열:", messages);
+
+    // 메시지가 있을 경우 각 메시지의 닉네임을 확인
+    if (messages.length > 0) {
+      messages.forEach((msg, idx) => {
+        console.log(`메시지 ${idx} 닉네임:`, msg.nickname);
+      });
+    }
+  }, [messages]);
+
+  useEffect(() => {
+    // UUID 확인 로직 추가
+    const checkUuidConsistency = async () => {
+      const { uuid } = guestStore.getState();
+
+      if (!uuid) {
+        // UUID가 없는 경우 로그인 API 호출
+        try {
+          const response = await axiosInstance.post('/guests/login');
+          console.log("로그인 응답:", response.data);
+
+          // 응답 데이터로 게스트 정보 업데이트
+          guestStore.getState().setGuestInfo({
+            uuid: response.data.uuid,
+            nickname: response.data.nickname,
+            guest_id: response.data.guest_id
+          });
+
+          console.log("게스트 스토어 업데이트 완료:", guestStore.getState());
+        } catch (error) {
+          console.error("로그인 실패:", error);
+          alert("서버 연결에 문제가 있습니다");
+          navigate("/");
+        }
+      }
+    };
+
+    checkUuidConsistency();
+  }, [navigate]);
 
   return (
     <div className="w-full min-h-screen bg-white flex flex-col items-center pt-5 relative overflow-y-auto">
@@ -121,7 +290,7 @@ function GameLobbyPage() {
       <div className="text-center mb-5">
         <div className="font-bold text-lg">{roomsData.title}</div>
         <div className="font-bold text-base">
-          {roomsData?.game_mode} [{roomsData?.people} / {roomsData?.max_players}]
+          {roomsData?.game_mode} [{roomsData?.participant_count} / {roomsData?.max_players}]
         </div>
       </div>
 
@@ -132,15 +301,28 @@ function GameLobbyPage() {
             key={index}
             className="min-w-[100px] h-[160px] px-4 bg-gray-300 rounded-2xl shadow-md flex flex-col items-center justify-center"
           >
-              <div className="flex flex-col items-center pt-2">
-                <div className="w-[80px] h-[80px] bg-white rounded-2xl"></div>
-                <div className="font-bold mt-2 mb-1 text-sm">
-                  {item.guest.nickname.split('_')[0]}_
-                </div>
-                <div className="font-bold mt-2 mb-1 text-sm">
-                  {item.guest.nickname.split('_')[1]}
-                </div>
+            <div className="flex flex-col items-center pt-2">
+              <div className="w-[80px] h-[80px] bg-white rounded-2xl"></div>
+              <div className="font-bold mt-2 mb-1 text-sm">
+                {item?.guest?.nickname ? (
+                  <>
+                    {item.guest.nickname.split('_')[0] || ''}
+                    {item.guest.nickname.includes('_') ? '_' : ''}
+                  </>
+                ) : (
+                  <div className="font-bold mt-2 mb-1 text-sm">게스트</div>
+                )}
               </div>
+              <div className="font-bold mt-2 mb-1 text-sm">
+                {item?.guest?.nickname ? (
+                  <>
+                    {item.guest.nickname.includes('_') ? item.guest.nickname.split('_')[1] || '' : ''}
+                  </>
+                ) : (
+                  <div className="font-bold mt-2 mb-1 text-sm">게스트</div>
+                )}
+              </div>
+            </div>
           </div>
         ))}
       </div>
@@ -165,6 +347,52 @@ function GameLobbyPage() {
           </div>
         ))}
       </div>
+
+      {/* 접속 상태 표시 */}
+      <div className={`absolute top-5 left-5 w-3 h-3 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+
+      {/* 채팅 섹션 수정 */}
+      <div className="w-full max-w-md mt-4 border border-gray-300 rounded-lg">
+        <div className="h-40 overflow-y-auto p-3 bg-gray-100" ref={chatContainerRef}>
+          {messages.length > 0 ? (
+            messages.map((msg, i) => (
+              <div key={i} className="mb-2">
+                <span className="font-bold text-blue-600">
+                  {msg?.nickname || `게스트_${i}`}
+                </span>: <span>{msg?.message || ''}</span>
+              </div>
+            ))
+          ) : (
+            <div className="text-center text-gray-500 py-2">아직 메시지가 없습니다</div>
+          )}
+        </div>
+        <div className="flex border-t p-2">
+          <input
+            type="text"
+            value={chatMessage}
+            onChange={(e) => setChatMessage(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+            placeholder="메시지 입력..."
+            className="flex-1 px-2 py-1 border rounded-l-md focus:outline-none"
+          />
+          <button
+            onClick={handleSendMessage}
+            className="bg-blue-500 text-white px-3 py-1 rounded-r-md"
+          >
+            전송
+          </button>
+        </div>
+      </div>
+
+      {/* 준비 버튼 */}
+      {!isOwner && (
+        <button
+          onClick={handleReady}
+          className="mt-4 px-6 py-2 bg-yellow-500 text-white rounded-lg shadow hover:bg-yellow-600 transition-all"
+        >
+          준비하기
+        </button>
+      )}
     </div>
   )
 }

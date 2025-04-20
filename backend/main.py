@@ -1,15 +1,15 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from db.postgres import Base, engine
-from routers import guests_router, gamerooms_router
+from routers import guests_router, gamerooms_router, gameroom_ws_router
 
 app = FastAPI(title="게임방 관리 API", description="PostgreSQL을 사용한 게임방 및 게임 관리 API")
 
 # CORS 미들웨어 설정
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 프로덕션에서는 실제 프론트엔드 도메인으로 제한하세요
-    allow_credentials=True,
+    allow_origins=["http://localhost:3000"],  # 와일드카드(*) 대신 구체적인 출처 지정
+    allow_credentials=True,  # 중요: 인증 정보(쿠키) 허용
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -20,6 +20,7 @@ Base.metadata.create_all(bind=engine)
 # 라우터 등록
 app.include_router(guests_router.router)
 app.include_router(gamerooms_router.router)
+app.include_router(gameroom_ws_router.router)
 
 @app.get("/")
 async def root():
