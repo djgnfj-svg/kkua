@@ -55,6 +55,16 @@ function GameLobbyPage() {
         console.log(res.data)
         setUserInfo(res.data);
         
+        const guestInfo = JSON.parse(localStorage.getItem('guest-storage'))?.state;
+        // const guestNicknames = res.data.map((item) => item.guest.nickname);
+        const rawNickname = guestInfo?.nickname;
+        const cleanedNickname = rawNickname?.replace(/^"|"$/g, '');
+        console.log("guestInfo:", cleanedNickname);
+        if (!cleanedNickname.includes(guestInfo?.nickname)) {
+          alert("이 방에 참가된 유저가 아닙니다.");
+          navigate(lobbyUrl);
+        }
+        
         const guestUUID = guestStore.getState().uuid;
         const currentGuest = res.data.find((item) => item.guest.uuid === guestUUID);
         if (currentGuest?.participant?.status === 'playing') {
@@ -62,7 +72,7 @@ function GameLobbyPage() {
           setTimeout(() => {
             setRedirectingToGame(false);
             navigate(gameUrl(roomId));
-          }, 1000);
+          }, 3000);
         }
       } catch (error) {
         console.log(error)

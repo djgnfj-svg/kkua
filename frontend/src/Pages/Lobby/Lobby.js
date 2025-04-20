@@ -91,8 +91,8 @@ function Lobby() {
         const res = await axiosInstance.get(`${USER_API.GET_GUEST_STATUS}?uuid=${uuid}`);
         const roomId = res?.data?.room_id;
         if (roomId) {
-          // alert("기존 방에 재입장합니다.");
-          // navigate(gameLobbyUrl(roomId));
+          alert("기존 방에 재입장합니다.");
+          navigate(gameLobbyUrl(roomId));
         }
       } catch (err) {
         console.error("게스트 상태 확인 실패:", err);
@@ -120,7 +120,7 @@ function Lobby() {
       navigate(gameLobbyUrl(room_id));
     } catch (err) {
       console.log(err);
-      throw new Error("입장 실패");
+      alert(err.data);
     } finally {
       setIsEntering(false); // 입장 중 상태 해제
     }
