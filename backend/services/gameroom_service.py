@@ -286,14 +286,14 @@ class GameroomService:
         
         # 방장 여부 확인
         is_owner = (room.created_by == guest.guest_id)
-        
+
         try:
             if is_owner:
                 # 방장이 나가는 경우: 모든 참여자를 퇴장시키고 방 삭제
                 participants = self.repository.get_participants(room_id)
                 for participant in participants:
                     self.repository.remove_participant(room_id, participant["guest_id"])
-                
+                    
                 # 방 삭제
                 self.repository.delete(room)
                 return {
@@ -304,20 +304,6 @@ class GameroomService:
             else:
                 # 일반 참여자가 나가는 경우
                 self.repository.remove_participant(room_id, guest.guest_id)
-                
-                # 참여자 수 업데이트 - 실제로는 방장이 있으므로 0이 될 수 없음
-                remaining_participants = self.repository.get_participants(room_id)
-                
-                # 혹시 모를 데이터 불일치를 대비한 안전 장치
-                if not remaining_participants:
-                    print("경고: 예상치 못하게 참여자가 0명입니다. 방을 삭제합니다.")
-                    self.repository.delete(room)
-                    return {
-                        "status": "success", 
-                        "message": "게임룸에서 나갔습니다. 참여자가 없어 게임룸이 삭제되었습니다.",
-                        "is_owner": False
-                    }
-                
                 return {
                     "status": "success",
                     "message": "게임룸에서 나갔습니다.",

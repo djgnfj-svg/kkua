@@ -147,7 +147,7 @@ class GameroomRepository:
             # 참가자 수 증가
             room = self.db.query(Gameroom).filter(Gameroom.room_id == room_id).first()
             if room:
-                room.participant_count = self.count_participants(room_id) + 1
+                room.participant_count += 1
             
             self.db.commit()
             return participant
@@ -167,7 +167,7 @@ class GameroomRepository:
             
             if participant:
                 # 참가자 상태 업데이트
-                participant.left_at = datetime.datetime.utcnow()
+                participant.left_at = datetime.now()
                 participant.status = ParticipantStatus.LEFT  # 상태를 LEFT로 변경
                 
                 # 게임룸의 참가자 수 감소
@@ -182,8 +182,6 @@ class GameroomRepository:
             return True
         except Exception as e:
             self.db.rollback()  # 오류 발생 시 롤백 추가
-            import logging
-            logging.error(f"참여자 제거 중 오류 발생: {str(e)}")
             return False
     
     def update_game_status(self, room: Gameroom, status: GameStatus) -> Gameroom:

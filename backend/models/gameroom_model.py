@@ -5,7 +5,7 @@ import datetime
 import enum
 import uuid
 from sqlalchemy import text
-
+from models.guest_model import Guest
 class GameStatus(enum.Enum):
     WAITING = "waiting"
     PLAYING = "playing" 
@@ -55,6 +55,13 @@ class GameroomParticipant(Base):
     @staticmethod
     def should_redirect_to_game(db, guest_id):
         """게스트가 활성화된 게임방에 참여 중인지 확인하고 리다이렉트해야 하는지 결정합니다."""
+        # guest_id가 UUID인 경우 해당 게스트의 ID 찾기
+        if isinstance(guest_id, uuid.UUID):
+            guest = db.query(Guest).filter(Guest.uuid == guest_id).first()
+            if not guest:
+                return False, None
+            guest_id = guest.guest_id
+        
         # 정수 guest_id로 참가 중인 방 찾기
         participant = db.query(GameroomParticipant).filter(
             GameroomParticipant.guest_id == guest_id,
@@ -68,7 +75,6 @@ class GameroomParticipant(Base):
             ).first()
             
             if room and room.status != GameStatus.FINISHED:
-                print(f"활성 게임방 발견: {room.room_id}")
                 return True, room.room_id
         
         return False, None
