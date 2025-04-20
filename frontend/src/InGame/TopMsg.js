@@ -28,14 +28,14 @@ export default function useTopMsg({
     // msgData 내 존재하는 단어인지 확인
     const found = msgData.find(item => item.word === trim);
     if (!found) {
-      setMessage(`올바르지 않은 단어입니다.`);
+      setMessage(`잘못된 단어입니다: ${trim}`);
       setTimeout(() => setMessage(''), 2000);
       setInputValue('');
       return;
     }
 
     // 끝말잇기 규칙 검사
-    const prevLastChar = quizMsg[quizMsg.length - 1];
+    const prevLastChar = quizMsg.charAt(quizMsg.length - 1);
     const inputFirstChar = trim[0];
     if (prevLastChar !== inputFirstChar) {
       setMessage(`시작 글자가 잘못 되었습니다! 제시어는 '${quizMsg}'`);
@@ -45,19 +45,13 @@ export default function useTopMsg({
     }
 
     // 정답 처리
-    setTypingText(trim);
     setPendingItem({ word: trim, desc: found.desc });
+    setTypingText(trim);
     setMessage('');
     setInputValue('');
 
-    // 다음 제시어 무작위 선택 (중복 제외)
-    const remaining = msgData.filter(item =>
-      !usedLog.includes(item.word) && item.word !== trim
-    );
-    if (remaining.length > 0) {
-      const next = remaining[Math.floor(Math.random() * remaining.length)];
-      setQuizMsg(next.word);
-    }
+    // 업데이트: 제시어를 입력 단어의 마지막 문자로 설정
+    setQuizMsg(trim.charAt(trim.length - 1));
   };
 
   return { crashMessage };

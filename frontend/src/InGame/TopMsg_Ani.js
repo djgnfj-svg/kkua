@@ -1,4 +1,3 @@
-// TopMsg_Ani.js
 import { useEffect, useState } from 'react';
 
 export default function TopMsgAni({ text, onDone }) {
@@ -25,9 +24,12 @@ export default function TopMsgAni({ text, onDone }) {
       index++;
     }, 150);
 
-
     return () => clearInterval(interval);
   }, [text, onDone]);
 
-  return <div className="text-xl leading-tight">{displayText}</div>;
+  return (
+    <>
+      <div className="text-xl leading-tight">{displayText}</div>
+    </>
+  );
 }

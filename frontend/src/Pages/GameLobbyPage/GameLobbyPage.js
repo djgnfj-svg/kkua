@@ -16,6 +16,7 @@ function GameLobbyPage() {
   });
   const [userInfo, setUserInfo] = useState([]);
   const [isOwner, setIsOwner] = useState(false);
+  const [redirectingToGame, setRedirectingToGame] = useState(false);
   const navigate = useNavigate();
 
   /* Guest Check */
@@ -273,6 +274,15 @@ function GameLobbyPage() {
       setRoomUpdated(false);
     }
   }, [roomUpdated]);
+  if (redirectingToGame) {
+    return (
+      <div className="w-full h-screen flex items-center justify-center bg-white">
+        <div className="text-center text-2xl font-extrabold text-red-600 animate-pulse leading-relaxed">
+          게임을 이미 시작하셨습니다.<br />게임페이지로 이동 중입니다...
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full min-h-screen bg-white flex flex-col items-center pt-5 relative overflow-y-auto">
@@ -339,9 +349,23 @@ function GameLobbyPage() {
       {/* Owner button */}
       {isOwner && (
         <div className="w-full text-center mt-4">
-          <button onClick={handleClickStartBtn} className="px-6 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition-all"  >
-            게임 시작
-          </button>
+          <div className="relative inline-block group">
+            <button
+              onClick={userInfo.length >= 2 ? handleClickStartBtn : null}
+              disabled={userInfo.length < 2}
+              className={`px-6 py-2 rounded-lg shadow transition-all font-bold ${userInfo.length >= 2
+                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                  : 'bg-gray-400 text-white cursor-not-allowed'
+                }`}
+            >
+              게임 시작
+            </button>
+            {userInfo.length < 2 && (
+              <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-black text-white text-sm px-4 py-2 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 shadow-md">
+                2인 이상일 때 게임을 시작할 수 있습니다
+              </div>
+            )}
+          </div>
         </div>
       )}
 

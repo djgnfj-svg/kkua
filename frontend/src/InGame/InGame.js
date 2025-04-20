@@ -12,24 +12,24 @@ import { gameLobbyUrl, gameUrl } from '../Component/urls';
 const time_gauge = 40;
 
 function InGame() {
-  const [itemList, setItemList] = useState([
-    { word: '햄스터', desc: '쥐과 동물이다' },
-    { word: '터널', desc: '지나갈 수 있는 커다란 구멍을 뜻한다. 특히 도로 위 자동차' },
-    { word: '널뛰기', desc: '사람이 올라갈 수 있는 크기의 시소 모양 기구이다. 사람이 점프하여 일어난 반동으로 반대편에 힘 응애 췡췡 보냄' }, 
-    { word: '기분', desc: '심리적으로 느껴지는 뇌의 화학반응 활동' }  
-  ]);
+  const [itemList, setItemList] = useState([]);
 
   // 퀴즈 제시어 
-  const [quizMsg, setQuizMsg] = useState(''); // 초기값은 빈 문자열
+  const [quizMsg, setQuizMsg] = useState('햄'); // 초기 시작 단어
 
-  const {roomId , gameid} = useParams();
+  const {gameid} = useParams();
 
-  useEffect(() => {
+  const setRandomQuizWord = () => {
     if (itemList.length > 0) {
       const randomWord = itemList[Math.floor(Math.random() * itemList.length)].word;
       setQuizMsg(randomWord);
     }
+  };
+
+  useEffect(() => {
+    setRandomQuizWord();
   }, []);
+  
   useEffect(() => {
     const checkGuest = async () => {
       const result = await userIsTrue();
@@ -40,20 +40,11 @@ function InGame() {
     };
     checkGuest();
   }, []);
-
-  useEffect(() => {
-    const checkGuest = async () => {
-      const result = await userIsTrue();
-      if (!result) {
-        alert("어멋 어딜들어오세요 Cut !");
-        navigate("/")
-      }
-    };
-    checkGuest();
-  }, []);
-
 
   const [timeOver, setTimeOver] = useState(false);
+  const [frozenTime, setFrozenTime] = useState(null);
+  const [inputTimeLeft, setInputTimeLeft] = useState(12);
+  const [catActive, setCatActive] = useState(true);
 
   const { timeLeft, resetTimer } = Timer(120, () => {
     setMessage('게임종료!');
@@ -65,7 +56,7 @@ function InGame() {
 
   const [usedLog, setUsedLog] = useState([]);
   const [players, setPlayers] = useState(['하우두유', '부러', '김밥', '후러']);
-  const specialPlayer = '부러';
+  const [specialPlayer, setSpecialPlayer] = useState('부러');
   const navigate = useNavigate()
 
   const [inputValue, setInputValue] = useState('');
@@ -92,10 +83,33 @@ function InGame() {
 
   const handleTypingDone = () => {
     if (!pendingItem) return;
-    setUsedLog(prev => [...prev, pendingItem.word]);
-    setItemList(prev => [...prev, pendingItem]);
-    setPendingItem(null);
+ 
+    setUsedLog(prev => {
+      if (!prev.includes(pendingItem.word)) {
+        return [...prev, pendingItem.word];
+      }
+      return prev;
+    });
+ 
+    setItemList(prev => {
+      if (!prev.find(item => item.word === pendingItem.word)) {
+        return [...prev, pendingItem];
+      }
+      return prev;
+    });
+ 
+    setQuizMsg(pendingItem.word.charAt(pendingItem.word.length - 1));
+ 
+    setSpecialPlayer(prev => {
+      const currentIndex = players.indexOf(prev);
+      const nextIndex = (currentIndex + 1) % players.length;
+      return players[nextIndex];
+    });
+ 
     setTypingText('');
+    setPendingItem(null);
+    setInputTimeLeft(12);
+    setCatActive(true); // resume cat
   };
 
   useEffect(() => {
@@ -107,6 +121,25 @@ function InGame() {
     window.addEventListener('resize', updateCount);
     return () => window.removeEventListener('resize', updateCount);
   }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setInputTimeLeft(prev => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+  
+  useEffect(() => {
+    if (inputTimeLeft === 0 && inputValue.trim() === '' && typingText === '') {
+      setTimeout(() => {
+        setMessage('게임종료!');
+        setFrozenTime(timeLeft);
+        setRandomQuizWord();
+        setCatActive(false); // 고양이 정지
+        resetTimer(); // 상단 타이머 종료
+      }, 500); // Wait for gauge and cat animation to visibly finish
+    }
+  }, [inputTimeLeft, inputValue, typingText]);
 
   const crashKeyDown = (e) => {
     if (e.key === 'Enter') {
@@ -124,7 +157,6 @@ function InGame() {
     }
   }
 
-
   return (
     <>
       <Layout
@@ -133,17 +165,22 @@ function InGame() {
         //message={message}
         quizMsg={quizMsg}
         message={timeOver ? '시간 초과!' : message}
-        timeLeft={timeLeft}
+        timeLeft={frozenTime ?? timeLeft}
         timeOver={timeOver}
         itemList={itemList}
         showCount={showCount}
         players={players}
         specialPlayer={specialPlayer}
+        setSpecialPlayer={setSpecialPlayer}
         inputValue={inputValue}
         setInputValue={setInputValue}
         crashKeyDown={crashKeyDown}
         crashMessage={crashMessage}
         time_gauge={time_gauge}
+        inputTimeLeft={inputTimeLeft}
+        setInputTimeLeft={setInputTimeLeft}
+        catActive={catActive}
+        frozenTime={frozenTime} // add this line
       />
       <div className="fixed bottom-4 left-4 z-50">
         <button

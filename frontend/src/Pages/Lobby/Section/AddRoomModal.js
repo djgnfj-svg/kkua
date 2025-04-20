@@ -65,7 +65,8 @@ function AddRoomModal({ isOpen, isClose }) {
                 style={{
                     overlay: { backgroundColor: 'rgba(0, 0, 0, 0.5)' },
                     content: { border: 'none', background: 'none', padding: 0 }
-                }}>
+                }}
+            >
                 <div className="modal-container">
                     <div className="modal-ears">
                         <div className="ear left"></div>
@@ -130,6 +131,12 @@ function AddRoomModal({ isOpen, isClose }) {
                             disabled={roomTitle.length >= 2 && gameMode !== "" ? false : true}
                         >
                             생성하기
+                        </button>
+                        <button
+                            className="cancel-btn"
+                            onClick={() => isClose(false)}
+                        >
+                            취소하기
                         </button>
                     </div>
                 </div>
