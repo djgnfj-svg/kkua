@@ -25,9 +25,6 @@ def guest_login(
 ) -> GuestResponse:
     # 두 쿠키 모두 확인 (auth가 우선)
     guest_uuid = request.cookies.get("kkua_guest_auth") or request.cookies.get("kkua_guest_uuid")
-    
-    print(f"로그인 시도 - 쿠키 UUID: {guest_uuid}")
-    
     nickname = login_data.nickname
     device_info = login_data.device_info or request.headers.get("User-Agent", "")
     

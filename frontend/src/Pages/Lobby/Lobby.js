@@ -48,7 +48,6 @@ function Lobby() {
           const data = response.data;
           console.log("게스트 로그인 응답:", data);
           console.log("게스트 정보 업데이트됨:", data.uuid);
-          alert("로그인 되었습니다!");
         } catch (error) {
           console.error("게스트 로그인 실패:", error);
           // 로그인 페이지로 리디렉션
@@ -109,7 +108,7 @@ function Lobby() {
     fetchGuestStatus();
   }, [uuid, navigate]); // uuid와 navigate를 의존성으로 추가
 
-  {/* 배너 이미지 */}
+  {/* 배너 이미지 */ }
   const slides = [
     { color: `rgb(175, 142, 235)` },
     { color: `rgb(241, 69, 79)` },
@@ -120,16 +119,16 @@ function Lobby() {
 
   // url 이동
   const handleClickEnterGame = async (room_id) => {
-    try{
+    try {
       await axiosInstance.post(ROOM_API.JOIN_ROOMS(room_id))
       alert("끄아하러 가요! ")
       navigate(gameLobbyUrl(room_id))
-    }catch(err){
+    } catch (err) {
       alert("입장 불가능한 방입니다.");
     }
   }
 
-  {/* 슬라이드 인터벌 초기화 함수 */}
+  {/* 슬라이드 인터벌 초기화 함수 */ }
   const resetInterval = () => {
     if (intervalRef.current) clearInterval(intervalRef.current);
 
@@ -138,13 +137,13 @@ function Lobby() {
     }, 3000);
   };
 
-  {/* 슬라이드 자동 전환 */}
+  {/* 슬라이드 자동 전환 */ }
   useEffect(() => {
     resetInterval();
     return () => clearInterval(intervalRef.current); // 컴포넌트 언마운트 시 인터벌 제거
   }, [slides.length]);
 
-  {/* 좌우 버튼 기능 추가 */}
+  {/* 좌우 버튼 기능 추가 */ }
   const handlePrevSlide = () => {
     setActiveIndex((prevIndex) => (prevIndex === 0 ? slides.length - 1 : prevIndex - 1));
     resetInterval(); // 버튼 클릭 시 인터벌 초기화
@@ -155,7 +154,7 @@ function Lobby() {
     resetInterval(); // 버튼 클릭 시 인터벌 초기화
   }
 
-  {/* 점 클릭 시 슬라이드 이동 */}
+  {/* 점 클릭 시 슬라이드 이동 */ }
   const handleDotClick = (index) => {
     setActiveIndex(index);
     resetInterval(); // 클릭 시 인터벌 초기화

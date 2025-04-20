@@ -35,7 +35,6 @@ async def websocket_endpoint(
         # UUID 형식 확인
         try:
             guest_uuid_obj = uuid.UUID(guest_uuid)
-            print(f"UUID 형식 검증 성공: {guest_uuid}")
         except ValueError:
             print(f"UUID 형식 검증 실패: {guest_uuid}")
             await websocket.close(code=4000, reason="유효하지 않은 UUID 형식입니다")
@@ -50,8 +49,6 @@ async def websocket_endpoint(
             await websocket.close(code=4001, reason="유효하지 않은 게스트 UUID입니다")
             return
         
-        print(f"게스트 조회 성공: guest_id={guest.guest_id}, nickname={guest.nickname}")
-        
         # 게임룸 조회
         gameroom_repo = GameroomRepository(db)
         room = gameroom_repo.find_by_id(room_id)
@@ -60,14 +57,10 @@ async def websocket_endpoint(
             await websocket.close(code=4002, reason="게임룸이 존재하지 않습니다")
             return
         
-        print(f"게임룸 조회 성공: room_id={room_id}, title={room.title}")
-        
         # 참가자 확인 - 방장이거나 참가자인 경우 허용
         participant = gameroom_repo.find_participant(room_id, guest.guest_id)
         is_participant = participant is not None
         is_creator = room.created_by == guest.guest_id
-        
-        print(f"권한 확인: guest_id={guest.guest_id}, 참가자={is_participant}, 방장={is_creator}")
         
         if not (is_participant or is_creator):
             print(f"웹소켓 액세스 거부: guest_id={guest.guest_id}, room_id={room_id}")

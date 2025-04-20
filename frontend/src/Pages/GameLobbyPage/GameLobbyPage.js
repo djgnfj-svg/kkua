@@ -88,6 +88,9 @@ function GameLobbyPage() {
     try {
       const response = await axiosInstance.get(ROOM_API.get_ROOMSUSER(roomId));
 
+      // 응답 형식 로깅
+      console.log("참가자 API 응답:", response.data);
+
       // 응답이 올바른 형식인지 확인
       if (response.data && Array.isArray(response.data)) {
         setUserInfo(response.data);
@@ -96,25 +99,6 @@ function GameLobbyPage() {
       }
     } catch (error) {
       console.error("참가자 정보 가져오기 실패:", error);
-
-      // 에러 응답 상세 로깅
-      if (error.response) {
-        console.error("응답 상태:", error.response.status);
-        console.error("응답 헤더:", error.response.headers);
-
-        // 응답이 HTML인 경우 (일반적으로 오류 페이지)
-        if (error.response.data && typeof error.response.data === 'string' &&
-          error.response.data.includes('<!DOCTYPE')) {
-          console.error("HTML 응답 수신 - 서버 오류 또는 인증 문제일 수 있습니다");
-        } else {
-          console.error("응답 데이터:", error.response.data);
-        }
-      } else if (error.request) {
-        console.error("응답 없음:", error.request);
-      } else {
-        console.error("요청 설정 오류:", error.message);
-      }
-
       // 오류 발생 시 빈 배열로 설정하여 UI 에러 방지
       setUserInfo([]);
     }
@@ -296,30 +280,32 @@ function GameLobbyPage() {
 
       {/* Players */}
       <div className="flex flex-col gap-5 mb-auto">
-        {userInfo?.map((item,index) => (
+        {userInfo?.map((item, index) => (
           <div
             key={index}
             className="min-w-[100px] h-[160px] px-4 bg-gray-300 rounded-2xl shadow-md flex flex-col items-center justify-center"
           >
             <div className="flex flex-col items-center pt-2">
               <div className="w-[80px] h-[80px] bg-white rounded-2xl"></div>
+
+              {/* 참가자 닉네임 표시 - 백엔드 응답 형식에 맞게 수정 */}
               <div className="font-bold mt-2 mb-1 text-sm">
-                {item?.guest?.nickname ? (
-                  <>
-                    {item.guest.nickname.split('_')[0] || ''}
-                    {item.guest.nickname.includes('_') ? '_' : ''}
-                  </>
+                {/* 백엔드 응답 구조에 따라 조건부 렌더링 */}
+                {item.guest?.nickname ? (
+                  item.guest.nickname
                 ) : (
-                  <div className="font-bold mt-2 mb-1 text-sm">게스트</div>
+                  item.nickname || '게스트'
                 )}
               </div>
-              <div className="font-bold mt-2 mb-1 text-sm">
-                {item?.guest?.nickname ? (
-                  <>
-                    {item.guest.nickname.includes('_') ? item.guest.nickname.split('_')[1] || '' : ''}
-                  </>
+
+              {/* 참가자 상태 표시 */}
+              <div className="text-xs">
+                {item.participant?.status === 'ready' ? (
+                  <span className="text-green-600">준비완료</span>
+                ) : item.participant?.status === 'playing' ? (
+                  <span className="text-blue-600">게임중</span>
                 ) : (
-                  <div className="font-bold mt-2 mb-1 text-sm">게스트</div>
+                  <span className="text-gray-600">대기중</span>
                 )}
               </div>
             </div>
@@ -338,7 +324,7 @@ function GameLobbyPage() {
 
       {/* Bottom button list */}
       <div className="flex justify-between w-full bg-gray-200 pb-4 mt-auto">
-        {Array.from({ length: 5}).map((_, idx) => (
+        {Array.from({ length: 5 }).map((_, idx) => (
           <div
             key={idx}
             className="flex-1 py-4 text-center font-bold"

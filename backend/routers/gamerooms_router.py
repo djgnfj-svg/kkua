@@ -110,25 +110,6 @@ async def create_gameroom(
         traceback.print_exc()
         raise HTTPException(status_code=400, detail=f"방 생성 실패: {str(e)}")
 
-@router.patch("/{room_id}", response_model=GameroomResponse, status_code=status.HTTP_200_OK)
-def update_gameroom(
-    room_id: int, 
-    request: Request, 
-    title: str = None, 
-    max_players: int = None, 
-    game_mode: str = None, 
-    time_limit: int = None, 
-    service: GameroomService = Depends(get_gameroom_service)
-):
-    return service.update_gameroom(room_id, request, title, max_players, game_mode, time_limit)
-
-@router.delete("/{room_id}", status_code=status.HTTP_200_OK)
-def delete_gameroom(
-    room_id: int, 
-    service: GameroomService = Depends(get_gameroom_service)
-):
-    return service.delete_gameroom(room_id)
-
 @router.post("/{room_id}/join", status_code=status.HTTP_200_OK)
 def join_gameroom(
     room_id: int, 
@@ -174,4 +155,4 @@ def check_active_game(
     guest_uuid_str: str = None, 
     service: GameroomService = Depends(get_gameroom_service)
 ):
-    return service.check_active_game(request, guest_uuid_str) 
+    return service.check_active_game(request, guest_uuid_str)
