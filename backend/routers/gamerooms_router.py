@@ -166,3 +166,63 @@ def check_active_game(
     service: GameroomService = Depends(get_gameroom_service)
 ):
     return service.check_active_game(request, guest_uuid_str)
+
+@router.post("/{room_id}/start", status_code=status.HTTP_200_OK)
+def start_game(
+    room_id: int, 
+    request: Request, 
+    service: GameroomService = Depends(get_gameroom_service)
+):
+    """
+    게임을 시작합니다. 방장만 게임을 시작할 수 있습니다.
+    모든 참가자가 준비 상태여야 합니다.
+    """
+    return service.start_game(room_id, request)
+
+@router.get("/{room_id}/is-owner", status_code=status.HTTP_200_OK)
+def check_if_owner(
+    room_id: int,
+    request: Request,
+    service: GameroomService = Depends(get_gameroom_service)
+):
+    """
+    현재 게스트가 특정 게임룸의 방장인지 확인합니다.
+    """
+    try:
+        # 쿠키에서 UUID 가져오기
+        guest_uuid_str = request.cookies.get("kkua_guest_uuid")
+        
+        # UUID 유효성 검사
+        if not guest_uuid_str or guest_uuid_str == "undefined":
+            return {"is_owner": False, "detail": "유효한 게스트 UUID가 필요합니다"}
+        
+        # UUID 객체 변환
+        try:
+            guest_uuid = uuid.UUID(guest_uuid_str)
+        except ValueError:
+            return {"is_owner": False, "detail": "유효하지 않은 UUID 형식입니다"}
+        
+        # 게스트 찾기
+        guest = service.guest_repository.find_by_uuid(guest_uuid)
+        if not guest:
+            return {"is_owner": False, "detail": "게스트를 찾을 수 없습니다"}
+        
+        # 방 정보 조회
+        room = service.repository.find_by_id(room_id)
+        if not room:
+            return {"is_owner": False, "detail": "게임룸을 찾을 수 없습니다"}
+        
+        # 방장 확인
+        is_owner = room.created_by == guest.guest_id
+        
+        return {
+            "is_owner": is_owner,
+            "room_id": room_id,
+            "guest_id": guest.guest_id
+        }
+        
+    except Exception as e:
+        print(f"방장 확인 오류: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {"is_owner": False, "detail": f"방장 확인 실패: {str(e)}"}

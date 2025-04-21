@@ -90,12 +90,6 @@ function GameLobbyPage() {
         // 방 정보 설정 (room_info 객체)
         if (response.data.room_info) {
           setRoomsData(response.data.room_info);
-
-          // 방장 여부 확인
-          const guestInfo = JSON.parse(localStorage.getItem('guest-storage'))?.state;
-          if (guestInfo?.nickname === response.data.room_info.created_username) {
-            setIsOwner(true);
-          }
         }
       }
     } catch (error) {
@@ -105,8 +99,28 @@ function GameLobbyPage() {
     }
   };
 
+  /* 방장 확인 */
+  const checkIfOwner = async () => {
+    try {
+      const response = await axiosInstance.get(`/gamerooms/${roomId}/is-owner`);
+      console.log("방장 확인 응답:", response.data);
+
+      if (response.data.is_owner) {
+        console.log("✅ 방장 확인: 현재 사용자는 방장입니다!");
+        setIsOwner(true);
+      } else {
+        console.log("❌ 방장 확인: 현재 사용자는 방장이 아닙니다.");
+        setIsOwner(false);
+      }
+    } catch (error) {
+      console.error("방장 여부 확인 실패:", error);
+      setIsOwner(false);
+    }
+  };
+
   useEffect(() => {
     fetchParticipants();
+    checkIfOwner(); // 방장 여부 확인 추가
     // 30초마다 참가자 정보 갱신
     const interval = setInterval(fetchParticipants, 30000);
     return () => clearInterval(interval);
@@ -150,12 +164,23 @@ function GameLobbyPage() {
   /* Start BTN */
   const handleClickStartBtn = async (id) => {
     try {
-      const res = await axiosInstance.post(ROOM_API.PLAY_ROOMS(roomId))
-      alert("게임이 시작됩니다 !");
+      // 여기서 백엔드의 게임 시작 엔드포인트 호출
+      const response = await axiosInstance.post(ROOM_API.PLAY_ROOMS(roomId));
+
+      // 응답 로깅하여 디버깅 지원
+      console.log("게임 시작 응답:", response.data);
+
+      alert("게임이 시작됩니다!");
       navigate(gameUrl(roomId));
     } catch (error) {
-      console.log(error)
-      alert("버그행동 금지")
+      console.error("게임 시작 오류:", error);
+
+      // 오류 메시지 상세하게 표시
+      if (error.response && error.response.data && error.response.data.detail) {
+        alert(`게임 시작 실패: ${error.response.data.detail}`);
+      } else {
+        alert("게임을 시작할 수 없습니다. 모든 플레이어가 준비되었는지 확인하세요.");
+      }
     }
   }
 
@@ -357,16 +382,51 @@ function GameLobbyPage() {
         <div className="w-full text-center mt-4">
           <div className="relative inline-block group">
             <button
-              onClick={userInfo.length >= 2 ? handleClickStartBtn : null}
-              disabled={userInfo.length < 2}
-              className={`px-6 py-2 rounded-lg shadow transition-all font-bold ${userInfo.length >= 2
+              onClick={() => {
+                // 디버깅을 위한 콘솔 로그 추가
+                console.log("참가자 전체 목록:", participants);
+
+                // 각 참가자별 준비 상태 확인 로그
+                participants.forEach((player, index) => {
+                  console.log(`참가자 ${index} 정보:`, {
+                    닉네임: player.nickname || (player.guest?.nickname) || `게스트_${player.guest_id || index}`,
+                    방장여부: player.is_owner ? "방장" : "일반 참가자",
+                    준비상태: player.is_owner ? "방장(준비체크 제외)" :
+                      (player.status === 'READY' || player.status === 'ready' || player.is_ready === true ?
+                        "준비완료" : "미준비")
+                  });
+                });
+
+                // 모든 플레이어가 준비되었는지 확인 (방장 제외)
+                const allNonOwnerPlayersReady = participants.every(player =>
+                  player.is_owner || // 방장은 준비 상태 확인에서 제외
+                  player.status === 'READY' ||
+                  player.status === 'ready' ||
+                  player.is_ready === true
+                );
+
+                console.log("모든 비방장 참가자 준비 완료?", allNonOwnerPlayersReady);
+                console.log("참가자 수:", participants.length);
+
+                if (participants.length >= 2 && allNonOwnerPlayersReady) {
+                  console.log("✅ 게임 시작 조건 충족: 게임을 시작합니다");
+                  handleClickStartBtn();
+                } else if (participants.length < 2) {
+                  console.log("❌ 게임 시작 실패: 참가자 수 부족");
+                  alert('게임 시작을 위해 최소 2명의 플레이어가 필요합니다.');
+                } else {
+                  console.log("❌ 게임 시작 실패: 모든 플레이어가 준비되지 않음");
+                  alert('모든 플레이어가 준비 상태여야 합니다.');
+                }
+              }}
+              className={`px-6 py-2 rounded-lg shadow transition-all font-bold ${participants.length >= 2
                 ? 'bg-blue-600 text-white hover:bg-blue-700'
                 : 'bg-gray-400 text-white cursor-not-allowed'
                 }`}
             >
               게임 시작
             </button>
-            {userInfo.length < 2 && (
+            {participants.length < 2 && (
               <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-black text-white text-sm px-4 py-2 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 shadow-md">
                 2인 이상일 때 게임을 시작할 수 있습니다
               </div>
@@ -433,8 +493,8 @@ function GameLobbyPage() {
         <button
           onClick={handleReady}
           className={`mt-4 px-6 py-2 ${isReady
-              ? 'bg-green-500 hover:bg-green-600'
-              : 'bg-yellow-500 hover:bg-yellow-600'
+            ? 'bg-green-500 hover:bg-green-600'
+            : 'bg-yellow-500 hover:bg-yellow-600'
             } text-white rounded-lg shadow transition-all`}
         >
           {isReady ? '준비완료' : '준비하기'}

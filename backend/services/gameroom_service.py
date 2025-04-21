@@ -350,7 +350,7 @@ class GameroomService:
             )
         
         # 게임 상태 업데이트
-        updated_room = self.repository.update_status(room_id, GameStatus.PLAYING)
+        updated_room = self.repository.update_game_status(room, GameStatus.PLAYING)
         
         # 비동기 호출을 스레드로 처리
         def run_async_broadcast():

@@ -5,10 +5,10 @@ from routers import guests_router, gamerooms_router, gameroom_ws_router
 
 app = FastAPI(title="게임방 관리 API", description="PostgreSQL을 사용한 게임방 및 게임 관리 API")
 
-# CORS 미들웨어 설정
+# CORS 미들웨어 설정 수정
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # 와일드카드(*) 대신 구체적인 출처 지정
+    allow_origins=["*"],  # 모든 오리진 허용 (개발 환경용)
     allow_credentials=True,  # 중요: 인증 정보(쿠키) 허용
     allow_methods=["*"],
     allow_headers=["*"],
