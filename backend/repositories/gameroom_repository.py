@@ -223,18 +223,32 @@ class GameroomRepository:
         
         return GameroomParticipant.should_redirect_to_game(self.db, guest.guest_id)
         
-    def update_participant_status(self, participant_id: int, status_str: str) -> GameroomParticipant:
+    def update_participant_status(self, participant_id: int, status_str) -> GameroomParticipant:
         """참가자 상태를 업데이트합니다."""
+        # 파라미터가 이미 ParticipantStatus 객체인지 확인
+        if isinstance(status_str, ParticipantStatus):
+            new_status = status_str
+        else:
+            # 문자열인 경우, 열거형으로 변환
+            try:
+                new_status = ParticipantStatus[status_str.upper()]
+            except (KeyError, AttributeError):
+                raise ValueError(f"유효하지 않은 참가자 상태: {status_str}")
+        
+        # 참가자 찾기
         participant = self.db.query(GameroomParticipant).filter(
             GameroomParticipant.id == participant_id
         ).first()
         
-        if participant:
-            new_status = ParticipantStatus[status_str.upper()]
-            participant.status = new_status
-            self.db.commit()
-            self.db.refresh(participant)
+        if not participant:
+            raise ValueError(f"참가자를 찾을 수 없음: {participant_id}")
         
+        # 상태 업데이트
+        participant.status = new_status
+        self.db.commit()
+        self.db.refresh(participant)
+        
+        # 업데이트된 참가자 객체 반환
         return participant
     
     def find_by_uuid(self, guest_uuid: uuid.UUID) -> Optional[Guest]:

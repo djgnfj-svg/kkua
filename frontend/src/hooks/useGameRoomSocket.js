@@ -11,6 +11,7 @@ export default function useGameRoomSocket(roomId) {
     const [gameStatus, setGameStatus] = useState('waiting');
     const socketRef = useRef(null);
     const [roomUpdated, setRoomUpdated] = useState(false);
+    const [isReady, setIsReady] = useState(false);
 
     useEffect(() => {
         if (roomId) {
@@ -69,6 +70,29 @@ export default function useGameRoomSocket(roomId) {
                     }
                 } else if (data.type === 'game_status') {
                     setGameStatus(data.status);
+                } else if (data.type === 'ready_status_changed') {
+                    // 준비 상태 변경 처리
+                    console.log('준비 상태 변경 메시지:', data);
+
+                    // 현재 사용자의 준비 상태인 경우 상태 업데이트
+                    const { guest_id } = guestStore.getState();
+                    if (data.guest_id === guest_id) {
+                        setIsReady(data.is_ready);
+                    }
+
+                    // 방 업데이트 플래그 설정 - 참가자 목록 갱신 트리거
+                    setRoomUpdated(true);
+
+                    // 시스템 메시지로 추가
+                    setMessages((prev) => [...prev, {
+                        nickname: "시스템",
+                        message: `${data.nickname || '플레이어'}님이 ${data.is_ready ? '준비완료' : '대기중'} 상태가 되었습니다.`,
+                        type: 'system',
+                        timestamp: data.timestamp || new Date().toISOString()
+                    }]);
+                } else if (data.type === 'ready_status_updated') {
+                    // 자신의 준비 상태 업데이트 응답
+                    setIsReady(data.is_ready);
                 }
             };
 
@@ -105,6 +129,17 @@ export default function useGameRoomSocket(roomId) {
         }
     };
 
+    // 준비 상태 토글 함수 추가
+    const toggleReady = () => {
+        if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+            socketRef.current.send(JSON.stringify({
+                type: 'toggle_ready'
+            }));
+        } else {
+            console.error("웹소켓이 연결되지 않았습니다");
+        }
+    };
+
     // 상태 업데이트 함수 (준비 또는 시작)
     const updateStatus = (status) => {
         if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
@@ -122,7 +157,9 @@ export default function useGameRoomSocket(roomId) {
         messages,
         participants,
         gameStatus,
+        isReady,
         sendMessage,
+        toggleReady,
         updateStatus,
         roomUpdated,
         setRoomUpdated

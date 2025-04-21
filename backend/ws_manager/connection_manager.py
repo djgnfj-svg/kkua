@@ -97,3 +97,14 @@ class ConnectionManager:
         if guest_id in self.user_connections:
             return self.user_connections[guest_id]
         return None 
+
+    async def broadcast_ready_status(self, room_id: int, guest_id: int, is_ready: bool, nickname: str = None):
+        """게스트의 준비 상태 변경을 브로드캐스트합니다."""
+        message = {
+            "type": "ready_status_changed",
+            "guest_id": guest_id,
+            "nickname": nickname,
+            "is_ready": is_ready,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        await self.broadcast_to_room(room_id, message) 

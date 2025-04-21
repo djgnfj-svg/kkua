@@ -332,6 +332,23 @@ class GameroomService:
                 detail="방장만 게임을 시작할 수 있습니다."
             )
         
+        # 참가자들이 모두 준비 상태인지 확인
+        participants = self.repository.find_room_participants(room_id)
+        
+        # 방장 제외 모든 참가자가 READY 상태인지 확인
+        not_ready_participants = []
+        for participant in participants:
+            # 방장이 아니면서 준비 상태가 아닌 경우
+            if participant.guest_id != room.created_by and participant.status != ParticipantStatus.READY:
+                not_ready_participants.append(participant.guest.nickname)
+        
+        # 준비되지 않은 참가자가 있으면 게임 시작 불가
+        if not_ready_participants:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"모든 참가자가 준비 상태여야 합니다. 준비되지 않은 참가자: {', '.join(not_ready_participants)}"
+            )
+        
         # 게임 상태 업데이트
         updated_room = self.repository.update_status(room_id, GameStatus.PLAYING)
         

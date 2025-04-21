@@ -128,6 +128,48 @@ async def websocket_endpoint(
                             }
                         )
                     
+                    elif message_data.get("type") == "toggle_ready":
+                        # 준비 상태 토글 처리
+                        if participant:
+                            current_status = participant.status
+                            
+                            # 현재 상태에 따라 토글
+                            if current_status == ParticipantStatus.WAITING:
+                                new_status = ParticipantStatus.READY
+                                is_ready = True
+                            elif current_status == ParticipantStatus.READY:
+                                new_status = ParticipantStatus.WAITING
+                                is_ready = False
+                            else:
+                                # 게임 중에는 상태 변경 불가
+                                await ws_manager.send_personal_message({
+                                    "type": "error",
+                                    "message": "게임 중에는 준비 상태를 변경할 수 없습니다"
+                                }, websocket)
+                                continue
+                            
+                            # 참가자 상태 업데이트
+                            updated = gameroom_repo.update_participant_status(participant.id, new_status)
+                            
+                            # 준비 상태 변경 알림
+                            await ws_manager.broadcast_ready_status(
+                                room_id, 
+                                guest.guest_id, 
+                                is_ready,
+                                guest.nickname
+                            )
+                            
+                            # 개인 메시지로 상태 변경 확인
+                            await ws_manager.send_personal_message({
+                                "type": "ready_status_updated",
+                                "is_ready": is_ready
+                            }, websocket)
+                        else:
+                            await ws_manager.send_personal_message({
+                                "type": "error",
+                                "message": "준비 상태 변경 실패: 참가자 정보가 없습니다"
+                            }, websocket)
+                    
                     elif message_data.get("type") == "status_update":
                         # 상태 업데이트 처리
                         status = message_data.get("status", "WAITING")

@@ -165,7 +165,9 @@ function GameLobbyPage() {
     messages,
     participants,
     gameStatus,
+    isReady,
     sendMessage,
+    toggleReady,
     updateStatus,
     roomUpdated,
     setRoomUpdated
@@ -191,9 +193,9 @@ function GameLobbyPage() {
     }
   };
 
-  /* 준비 상태 업데이트 핸들러 */
+  /* 준비 상태 업데이트 핸들러 수정 */
   const handleReady = () => {
-    updateStatus('READY');
+    toggleReady(); // 새로운 toggleReady 함수 사용
   };
 
   /* 게임 시작 후 자동 이동 */
@@ -321,16 +323,19 @@ function GameLobbyPage() {
             <div className="flex flex-col items-center pt-2">
               <div className="w-[80px] h-[80px] bg-white rounded-2xl"></div>
 
-              {/* 참가자 닉네임 표시 - 다양한 데이터 구조 처리 */}
+              {/* 참가자 닉네임 표시 */}
               <div className="font-bold mt-2 mb-1 text-sm">
                 {item.nickname || (item.guest?.nickname) || `게스트_${item.guest_id || index}`}
               </div>
 
-              {/* 참가자 상태 표시 */}
+              {/* 참가자 상태 표시 - 토글 상태 반영 */}
               <div className="text-xs">
-                {item.status === 'READY' || item.participant?.status === 'ready' ? (
+                {item.status === 'READY' || item.status === 'ready' ||
+                  item.participant?.status === 'ready' ||
+                  (item.is_ready === true) ? (
                   <span className="text-green-600">준비완료</span>
-                ) : item.status === 'PLAYING' || item.participant?.status === 'playing' ? (
+                ) : item.status === 'PLAYING' || item.status === 'playing' ||
+                  item.participant?.status === 'playing' ? (
                   <span className="text-blue-600">게임중</span>
                 ) : (
                   <span className="text-gray-600">대기중</span>
@@ -338,9 +343,10 @@ function GameLobbyPage() {
               </div>
 
               {/* 방장 표시 */}
-              {item.is_owner && (
-                <div className="text-xs text-red-500 font-bold mt-1">방장</div>
-              )}
+              {(item.is_owner || item.is_creator ||
+                (item.guest && item.guest.guest_id === roomsData.created_by)) && (
+                  <div className="text-xs text-red-500 font-bold mt-1">방장</div>
+                )}
             </div>
           </div>
         ))}
@@ -354,8 +360,8 @@ function GameLobbyPage() {
               onClick={userInfo.length >= 2 ? handleClickStartBtn : null}
               disabled={userInfo.length < 2}
               className={`px-6 py-2 rounded-lg shadow transition-all font-bold ${userInfo.length >= 2
-                  ? 'bg-blue-600 text-white hover:bg-blue-700'
-                  : 'bg-gray-400 text-white cursor-not-allowed'
+                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                : 'bg-gray-400 text-white cursor-not-allowed'
                 }`}
             >
               게임 시작
@@ -422,13 +428,16 @@ function GameLobbyPage() {
         </div>
       </div>
 
-      {/* 준비 버튼 */}
+      {/* 준비 버튼 - 상태에 따라 텍스트와 색상 변경 */}
       {!isOwner && (
         <button
           onClick={handleReady}
-          className="mt-4 px-6 py-2 bg-yellow-500 text-white rounded-lg shadow hover:bg-yellow-600 transition-all"
+          className={`mt-4 px-6 py-2 ${isReady
+              ? 'bg-green-500 hover:bg-green-600'
+              : 'bg-yellow-500 hover:bg-yellow-600'
+            } text-white rounded-lg shadow transition-all`}
         >
-          준비하기
+          {isReady ? '준비완료' : '준비하기'}
         </button>
       )}
     </div>
