@@ -3,11 +3,11 @@ import TopMsgAni from './TopMsg_Ani';
 import useTopMsg from './TopMsg';
 import Layout from './Layout';
 import Timer from './Timer';
-import userIsTrue from '../Component/userIsTrue';
+import userIsTrue from '../../Component/userIsTrue';
 import { useNavigate, useParams } from 'react-router-dom';
-import axiosInstance from '../Api/axiosInstance';
-import { ROOM_API } from '../Api/roomApi';
-import { gameLobbyUrl, gameUrl } from '../Component/urls';
+import axiosInstance from '../../Api/axiosInstance';
+import { ROOM_API } from '../../Api/roomApi';
+import { gameLobbyUrl, gameUrl } from '../../Component/urls';
 
 const time_gauge = 40;
 

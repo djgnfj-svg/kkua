@@ -48,8 +48,6 @@ function Lobby() {
           });
 
           const data = response.data;
-          console.log("게스트 로그인 응답:", data);
-          console.log("게스트 정보 업데이트됨:", data.uuid);
         } catch (error) {
           console.error("게스트 로그인 실패:", error);
           // 로그인 페이지로 리디렉션
@@ -86,8 +84,9 @@ function Lobby() {
       await fetchRoom(); // 최신 데이터 요청
 
       const availableRooms = roomsData.filter(
-        (room) => room.status === 'waiting' && room.people < room.max_players
+        (room) => room.status === "waiting" && room.participant_count < room.max_players
       );
+      console.log("data ", roomsData)
 
       if (availableRooms.length === 0) {
         alert("입장 가능한 방이 없습니다.");
@@ -112,7 +111,6 @@ function Lobby() {
       // 유효한 UUID가 있을 때만 API 호출
       const guestUuid = Cookies.get('kkua_guest_uuid');
       if (guestUuid) {
-        console.log("게스트 상태 확인 중, UUID:", guestUuid);
         try {
           const res = await axiosInstance.get(USER_API.GET_GUEST_STATUS, {
             headers: {
