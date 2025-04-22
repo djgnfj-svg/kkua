@@ -8,7 +8,7 @@ from datetime import datetime
 import threading
 
 from repositories.gameroom_repository import GameroomRepository
-from models.gameroom_model import Gameroom, GameStatus, ParticipantStatus
+from models.gameroom_model import Gameroom, GameStatus, ParticipantStatus, GameroomParticipant
 from models.guest_model import Guest
 from schemas.gameroom_schema import (
     GameroomResponse, GameroomListResponse, 
@@ -17,14 +17,17 @@ from schemas.gameroom_schema import (
 from schemas.gameroom_actions_schema import JoinGameroomResponse, GameroomDetailResponse
 from ws_manager.connection_manager import ConnectionManager
 from repositories.guest_repository import GuestRepository
+from actions.gameroom_actions import GameroomActions
 
 # 웹소켓 연결 관리자
 ws_manager = ConnectionManager()
 
 class GameroomService:
-    def __init__(self, repository: GameroomRepository, guest_repository: GuestRepository):
-        self.repository = repository
-        self.guest_repository = guest_repository
+    def __init__(self, db: Session):
+        self.db = db
+        self.repository = GameroomRepository(db)
+        self.actions = GameroomActions(db)
+        self.guest_repository = GuestRepository(db)
     
     def get_guest_by_cookie(self, request: Request) -> Guest:
         """쿠키에서 UUID를 추출하여 게스트를 반환합니다."""
@@ -52,137 +55,59 @@ class GameroomService:
         
         return guest
     
-    def list_gamerooms(self) -> List[Gameroom]:
-        """활성화된 모든 게임룸을 조회합니다."""
-        return self.repository.find_all_active()
-    
-    def create_gameroom(self, data: CreateGameroomRequest, guest_uuid: str) -> GameroomResponse:
-        """게임룸 생성 메서드"""
-        print(f"게임룸 생성 시작 - 데이터: {data}, UUID: {guest_uuid}")
-        
-        try:
-            # 문자열 UUID를 UUID 객체로 변환
-            uuid_obj = uuid.UUID(guest_uuid)
-            guest = self.guest_repository.find_by_uuid(uuid_obj)
+    def list_gamerooms(self, status=None, limit=10, offset=0):
+        """게임룸 목록을 조회합니다. 정렬 기능을 제거했습니다."""
+        # 상태 필터링 적용
+        filter_args = {}
+        if status:
+            filter_args['status'] = status
             
-            if not guest:
-                print(f"게스트를 찾을 수 없음: {guest_uuid}")
-                raise HTTPException(status_code=404, detail="게스트를 찾을 수 없습니다")
-            
-            # 기존 게임방에 이미 참여 중인지 확인
-            should_redirect, active_room_id = self.guest_repository.check_active_game(guest.guest_id)
-            if should_redirect:
-                print(f"기존 게임방 참여 중: {active_room_id}")
-                raise HTTPException(
-                    status_code=400, 
-                    detail=f"이미 다른 게임방({active_room_id})에 참여 중입니다"
-                )
-            
-            # 데이터 준비
-            room_data = {
-                "title": data.title,
-                "max_players": data.max_players,
-                "game_mode": data.game_mode,
-                "time_limit": data.time_limit,
-                "created_by": guest.guest_id,
-                "participant_count": 1  # 생성자 포함
-            }
-            
-            # 게임룸 생성
-            new_room = self.repository.create(room_data, guest.guest_id)
-            print(f"게임룸 생성 성공: room_id={new_room.room_id}")
-            
-            return GameroomResponse(
-                room_id=new_room.room_id,
-                title=new_room.title,
-                max_players=new_room.max_players,
-                game_mode=new_room.game_mode,
-                created_by=new_room.created_by,
-                created_username=new_room.created_username,
-                status=new_room.status.value,
-                participant_count=new_room.participant_count,
-                time_limit=new_room.time_limit
-            )
-        except Exception as e:
-            print(f"게임룸 생성 오류: {str(e)}")
-            import traceback
-            traceback.print_exc()
-            raise HTTPException(status_code=400, detail=f"게임룸 생성 실패: {str(e)}")
-    
-    def update_gameroom(self, room_id: int, request: Request, title: str = None, 
-                        max_players: int = None, game_mode: str = None, time_limit: int = None):
-        """게임룸 정보 업데이트"""
-        guest = self.get_guest_by_cookie(request)
-        
-        # 게임룸 조회
-        room = self.repository.find_by_id(room_id)
-        if not room:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="게임룸이 존재하지 않습니다."
-            )
-        
-        # 방장 확인
-        if room.created_by != guest.guest_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="방장만 게임룸 정보를 수정할 수 있습니다."
-            )
-        
-        # 게임룸 업데이트
-        updated_room = self.repository.update(
-            room_id, title, max_players, game_mode, time_limit
+        return self.repository.find_all(
+            limit=limit, 
+            offset=offset, 
+            filter_args=filter_args
         )
-        
-        # 방 정보
-        room_info = {
-            "room_id": updated_room.room_id,
-            "title": updated_room.title,
-            "max_players": updated_room.max_players,
-            "game_mode": updated_room.game_mode,
-            "time_limit": updated_room.time_limit
-        }
-        
-        # 비동기 호출을 스레드로 처리
-        # 동기 컨텍스트에서 비동기 함수를 안전하게 호출
-        def run_async_broadcast():
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            loop.run_until_complete(ws_manager.broadcast_room_update(room_id, "room_updated", room_info))
-            loop.close()
-        
-        # 백그라운드에서 실행
-        threading.Thread(target=run_async_broadcast).start()
-        
-        return updated_room
     
-    def delete_gameroom(self, room_id: int, request: Request) -> Dict[str, str]:
-        """게임룸을 삭제 처리합니다."""
-        guest = self.get_guest_by_cookie(request)
+    def get_gameroom(self, room_id: int) -> Optional[Gameroom]:
+        """게임룸 상세 정보를 조회합니다."""
+        return self.repository.find_by_id(room_id)
+    
+    def create_gameroom(self, data: Dict[str, Any], guest_id: int) -> Optional[Gameroom]:
+        """게임룸을 생성합니다."""
+        room, _ = self.actions.create_gameroom(data, guest_id)
+        return room
+    
+    def update_gameroom(self, room_id: int, data: Dict[str, Any]) -> Optional[Gameroom]:
+        """게임룸 정보를 업데이트합니다."""
+        return self.repository.update(room_id, data)
         
-        room = self.repository.find_by_id(room_id)
-        if not room:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, 
-                detail="게임룸을 찾을 수 없습니다"
-            )
-            
-        # 방 생성자만 삭제 가능
-        if room.created_by != guest.guest_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="방 생성자만 방을 삭제할 수 있습니다"
-            )
-        
-        self.repository.delete(room)
-        
-        # 웹소켓으로 방 삭제 알림
-        asyncio.create_task(ws_manager.broadcast_room_update(
-            room_id, 
-            "room_closed"
-        ))
-        
-        return {"detail": "게임룸이 성공적으로 종료되었습니다"}
+    def delete_gameroom(self, room_id: int) -> bool:
+        """게임룸을 삭제합니다."""
+        return self.repository.delete(room_id)
+    
+    def join_gameroom(self, room_id: int, guest_id: int) -> Optional[GameroomParticipant]:
+        """게임룸에 참가합니다."""
+        return self.actions.join_gameroom(room_id, guest_id)
+    
+    def leave_gameroom(self, room_id: int, guest_id: int) -> bool:
+        """게임룸을 떠납니다."""
+        return self.actions.leave_gameroom(room_id, guest_id)
+    
+    def toggle_ready_status(self, room_id: int, guest_id: int) -> Optional[str]:
+        """준비 상태를 토글합니다."""
+        return self.actions.toggle_ready_status(room_id, guest_id)
+    
+    def start_game(self, room_id: int, host_id: int) -> bool:
+        """게임을 시작합니다."""
+        return self.actions.start_game(room_id, host_id)
+    
+    def end_game(self, room_id: int) -> bool:
+        """게임을 종료합니다."""
+        return self.actions.end_game(room_id)
+    
+    def get_participants(self, room_id: int) -> List[GameroomParticipant]:
+        """게임룸 참가자 목록을 조회합니다."""
+        return self.repository.find_participants(room_id)
     
     def update_participant_status(self, room_id: int, guest_id: int, status: str) -> Dict[str, str]:
         """참가자 상태를 업데이트합니다. (웹소켓을 통해 호출)"""

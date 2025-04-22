@@ -21,8 +21,7 @@ class GameroomRepository:
     
     def find_by_id(self, room_id: int) -> Optional[Gameroom]:
         """ID로 게임룸을 찾습니다."""
-        room = self.db.query(Gameroom).filter(Gameroom.room_id == room_id).first()
-        return room
+        return self.db.query(Gameroom).filter(Gameroom.room_id == room_id).first()
     
     def find_active_by_creator(self, guest_id: int) -> Optional[Gameroom]:
         """특정 게스트가 생성하고 아직 종료되지 않은 게임룸을 조회합니다."""
@@ -31,86 +30,60 @@ class GameroomRepository:
             Gameroom.status != GameStatus.FINISHED
         ).first()
     
-    def create(self, data: Dict[str, Any], guest_id: int) -> Gameroom:
+    def create(self, data: Dict[str, Any]) -> Gameroom:
         """게임룸을 생성합니다."""
-        try:
-            # created_by가 없거나 None인 경우 guest_id를 사용
-            if 'created_by' not in data or data['created_by'] is None:
-                data['created_by'] = guest_id
-                
-            print(f"최종 created_by 값: {data['created_by']}")
-                
-            # 현재 시간 설정
-            now = datetime.now()
-            
-            # 새 게임룸 생성
-            new_room = Gameroom(
-                title=data["title"],
-                max_players=data["max_players"],
-                game_mode=data["game_mode"],
-                time_limit=data["time_limit"],
-                status=GameStatus.WAITING,
-                created_by=data["created_by"],
-                created_at=now,
-                updated_at=now,
-                participant_count=1,
-                room_type="normal"
-            )
-            
-            self.db.add(new_room)
-            self.db.flush()  # room_id를 얻기 위해 flush
-            
-            # 참가자 테이블에도 추가 (방장은 READY 상태로 설정)
-            participant = GameroomParticipant(
-                room_id=new_room.room_id,
-                guest_id=data["created_by"],
-                joined_at=now,
-                status=ParticipantStatus.READY  # 방장은 READY 상태로 시작
-            )
-            
-            self.db.add(participant)
-            self.db.commit()
-            
-            print(f"게임룸 생성 완료: room_id={new_room.room_id}, created_by={new_room.created_by}")
-            return new_room
-        except Exception as e:
-            self.db.rollback()
-            print(f"게임룸 생성 중 오류 발생: {str(e)}")
-            raise
+        now = datetime.now()
+        
+        new_room = Gameroom(
+            title=data.get("title", "새 게임"),
+            max_players=data.get("max_players", 8),
+            game_mode=data.get("game_mode", "standard"),
+            time_limit=data.get("time_limit", 300),
+            status=GameStatus.WAITING,
+            created_by=data.get("created_by"),
+            created_at=now,
+            updated_at=now,
+            participant_count=0,
+            room_type=data.get("room_type", "normal")
+        )
+        
+        self.db.add(new_room)
+        self.db.flush()  # room_id를 얻기 위해 flush
+        
+        return new_room
     
-    def update(self, room_id: int, title: str = None, max_players: int = None, 
-               game_mode: str = None, time_limit: int = None):
-        """게임룸 정보 업데이트"""
+    def update(self, room_id: int, data: Dict[str, Any]) -> Optional[Gameroom]:
+        """게임룸을 업데이트합니다."""
         room = self.find_by_id(room_id)
         if not room:
             return None
         
         # 값이 제공된 경우에만 업데이트
-        if title is not None:
-            room.title = title
-        if max_players is not None:
-            room.max_players = max_players
-        if game_mode is not None:
-            room.game_mode = game_mode
-        if time_limit is not None:
-            room.time_limit = time_limit
+        for key, value in data.items():
+            if hasattr(room, key) and value is not None:
+                setattr(room, key, value)
         
-        # 변경 사항 저장
+        room.updated_at = datetime.now()
         self.db.commit()
         self.db.refresh(room)
         return room
     
-    def delete(self, room: Gameroom) -> None:
-        """게임룸을 삭제 처리합니다 (상태를 FINISHED로 변경)."""
+    def delete(self, room_id: int) -> bool:
+        """게임룸을 삭제합니다 (실제로는 상태만 FINISHED로 변경)."""
+        room = self.find_by_id(room_id)
+        if not room:
+            return False
+            
         room.status = GameStatus.FINISHED
         self.db.commit()
+        return True
     
     def find_participant(self, room_id: int, guest_id: int) -> Optional[GameroomParticipant]:
         """특정 게임룸에 참여 중인 참가자를 조회합니다."""
         return self.db.query(GameroomParticipant).filter(
-            GameroomParticipant.guest_id == guest_id,
             GameroomParticipant.room_id == room_id,
-            GameroomParticipant.left_at.is_(None)  # 아직 나가지 않은 상태
+            GameroomParticipant.guest_id == guest_id,
+            GameroomParticipant.left_at.is_(None)
         ).first()
     
     def find_other_participation(self, guest_id: int, excluding_room_id: int) -> Optional[GameroomParticipant]:
@@ -121,68 +94,29 @@ class GameroomRepository:
             GameroomParticipant.left_at.is_(None)
         ).first()
     
-    def add_participant(self, room_id: int, guest_id: int) -> GameroomParticipant:
+    def add_participant(self, room_id: int, guest_id: int, is_creator: bool = False) -> Optional[GameroomParticipant]:
         """게임룸에 참가자를 추가합니다."""
-        try:
-            # 이미 참가중인지 확인
-            existing = self.db.query(GameroomParticipant).filter(
-                GameroomParticipant.room_id == room_id,
-                GameroomParticipant.guest_id == guest_id,
-                GameroomParticipant.left_at.is_(None)
-            ).first()
-            
-            if existing:
-                return existing
-            
-            # 새 참가자 추가
-            participant = GameroomParticipant(
-                room_id=room_id,
-                guest_id=guest_id,
-                joined_at=datetime.now(),
-                status=ParticipantStatus.WAITING  # 일반 참가자는 WAITING 상태로 시작
-            )
-            
-            self.db.add(participant)
-            
-            # 참가자 수 증가
-            room = self.db.query(Gameroom).filter(Gameroom.room_id == room_id).first()
-            if room:
-                room.participant_count += 1
-            
-            self.db.commit()
-            return participant
-        except Exception as e:
-            self.db.rollback()
-            print(f"참가자 추가 중 오류 발생: {str(e)}")
-            raise
+        participant = GameroomParticipant(
+            room_id=room_id,
+            guest_id=guest_id,
+            joined_at=datetime.now(),
+            is_creator=is_creator,
+            status=ParticipantStatus.READY if is_creator else ParticipantStatus.WAITING
+        )
+        
+        self.db.add(participant)
+        self.db.flush()
+        return participant
     
-    def remove_participant(self, room_id: int, guest_id: int):
-        """게임룸 참여자를 제거합니다."""
-        try:
-            participant = self.db.query(GameroomParticipant).filter(
-                GameroomParticipant.room_id == room_id,
-                GameroomParticipant.guest_id == guest_id,
-                GameroomParticipant.left_at.is_(None)
-            ).first()
-            
-            if participant:
-                # 참가자 상태 업데이트
-                participant.left_at = datetime.now()
-                participant.status = ParticipantStatus.LEFT  # 상태를 LEFT로 변경
-                
-                # 게임룸의 참가자 수 감소
-                room = self.db.query(Gameroom).filter(
-                    Gameroom.room_id == room_id
-                ).first()
-                
-                if room and room.participant_count > 0:
-                    room.participant_count -= 1
-                    
-                self.db.commit()
-            return True
-        except Exception as e:
-            self.db.rollback()  # 오류 발생 시 롤백 추가
+    def remove_participant(self, room_id: int, guest_id: int) -> bool:
+        """게임룸에서 참가자를 제거합니다."""
+        participant = self.find_participant(room_id, guest_id)
+        if not participant:
             return False
+            
+        participant.left_at = datetime.now()
+        self.db.commit()
+        return True
     
     def update_game_status(self, room: Gameroom, status: GameStatus) -> Gameroom:
         """게임 상태를 업데이트합니다."""
@@ -223,32 +157,15 @@ class GameroomRepository:
         
         return GameroomParticipant.should_redirect_to_game(self.db, guest.guest_id)
         
-    def update_participant_status(self, participant_id: int, status_str) -> GameroomParticipant:
+    def update_participant_status(self, room_id: int, guest_id: int, status: str) -> Optional[GameroomParticipant]:
         """참가자 상태를 업데이트합니다."""
-        # 파라미터가 이미 ParticipantStatus 객체인지 확인
-        if isinstance(status_str, ParticipantStatus):
-            new_status = status_str
-        else:
-            # 문자열인 경우, 열거형으로 변환
-            try:
-                new_status = ParticipantStatus[status_str.upper()]
-            except (KeyError, AttributeError):
-                raise ValueError(f"유효하지 않은 참가자 상태: {status_str}")
-        
-        # 참가자 찾기
-        participant = self.db.query(GameroomParticipant).filter(
-            GameroomParticipant.id == participant_id
-        ).first()
-        
+        participant = self.find_participant(room_id, guest_id)
         if not participant:
-            raise ValueError(f"참가자를 찾을 수 없음: {participant_id}")
-        
-        # 상태 업데이트
-        participant.status = new_status
+            return None
+            
+        participant.status = status
         self.db.commit()
         self.db.refresh(participant)
-        
-        # 업데이트된 참가자 객체 반환
         return participant
     
     def find_by_uuid(self, guest_uuid: uuid.UUID) -> Optional[Guest]:
@@ -327,4 +244,32 @@ class GameroomRepository:
             GameroomParticipant.room_id == room_id,
             GameroomParticipant.guest_id == guest_id,
             GameroomParticipant.left_at.is_(None)  # 아직 나가지 않은 상태
-        ).first() 
+        ).first()
+
+    def find_all(self, limit=10, offset=0, filter_args=None) -> Tuple[List[Gameroom], int]:
+        """
+        모든 게임룸을 조회합니다. 정렬 기능을 제거했습니다.
+        
+        Args:
+            limit (int): 페이지당 게임룸 수
+            offset (int): 오프셋 (페이지네이션용)
+            filter_args (dict): 필터링 조건
+        """
+        query = self.db.query(Gameroom)
+        
+        # 필터링 적용
+        if filter_args:
+            for key, value in filter_args.items():
+                if hasattr(Gameroom, key) and value is not None:
+                    query = query.filter(getattr(Gameroom, key) == value)
+        
+        # 총 개수 계산
+        total = query.count()
+        
+        # 기본 정렬: 생성일시 기준 내림차순
+        query = query.order_by(Gameroom.created_at.desc())
+        
+        # 페이지네이션 적용
+        rooms = query.offset(offset).limit(limit).all()
+        
+        return rooms, total 

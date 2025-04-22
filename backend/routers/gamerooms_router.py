@@ -7,7 +7,7 @@ from repositories.gameroom_repository import GameroomRepository
 from repositories.guest_repository import GuestRepository
 from services.gameroom_service import GameroomService
 from schemas.gameroom_schema import (
-    GameroomResponse, CreateGameroomRequest, GameroomUpdate
+    GameroomResponse, CreateGameroomRequest, GameroomUpdate, GameroomListResponse
 )
 from schemas.gameroom_actions_schema import GameroomDetailResponse
 
@@ -17,21 +17,23 @@ router = APIRouter(
 )
 
 def get_gameroom_service(db: Session = Depends(get_db)) -> GameroomService:
-    gameroom_repo = GameroomRepository(db)
-    guest_repo = GuestRepository(db)
-    return GameroomService(gameroom_repo, guest_repo)
+    return GameroomService(db)
 
-@router.get("/", response_model=List[GameroomResponse])
+@router.get("/", response_model=GameroomListResponse)
 def list_gamerooms(
     status: Optional[str] = None,
-    sort_by: Optional[str] = "created_at",
-    sort_order: Optional[str] = "desc",
+    limit: int = 10,
+    offset: int = 0,
     service: GameroomService = Depends(get_gameroom_service)
-) -> List[GameroomResponse]:
-    """게임룸 목록을 조회합니다. 필터링 및 정렬 옵션을 제공합니다."""
-    return service.list_gamerooms(status, sort_by, sort_order)
+) -> GameroomListResponse:
+    """게임룸 목록을 조회합니다. 필터링 옵션을 제공합니다."""
+    rooms, total = service.list_gamerooms(status=status, limit=limit, offset=offset)
+    return {
+        "rooms": rooms,
+        "total": total
+    }
 
-@router.post("/", response_model=GameroomResponse)
+@router.post("/", response_model=GameroomResponse, status_code=status.HTTP_201_CREATED)
 def create_gameroom(
     request: Request,
     create_data: CreateGameroomRequest,
@@ -42,7 +44,7 @@ def create_gameroom(
     if not guest_uuid:
         raise HTTPException(status_code=400, detail="유효한 게스트 UUID가 필요합니다")
     
-    return service.create_gameroom(create_data, guest_uuid)
+    return service.create_gameroom(create_data.dict(), guest_uuid)
 
 @router.get("/{room_id}", response_model=GameroomDetailResponse)
 def get_gameroom(
@@ -50,7 +52,15 @@ def get_gameroom(
     service: GameroomService = Depends(get_gameroom_service)
 ) -> GameroomDetailResponse:
     """게임룸 상세 정보를 조회합니다."""
-    return service.get_gameroom_detail(room_id)
+    room = service.get_gameroom(room_id)
+    if not room:
+        raise HTTPException(status_code=404, detail="게임룸을 찾을 수 없습니다")
+    
+    participants = service.get_participants(room_id)
+    return {
+        "room": room,
+        "participants": participants
+    }
 
 @router.patch("/{room_id}", response_model=GameroomResponse)
 def update_gameroom(
@@ -64,14 +74,8 @@ def update_gameroom(
     if not guest_uuid:
         raise HTTPException(status_code=400, detail="유효한 게스트 UUID가 필요합니다")
     
-    return service.update_gameroom(
-        room_id, 
-        guest_uuid, 
-        update_data.title, 
-        update_data.max_players, 
-        update_data.game_mode,
-        update_data.time_limit
-    )
+    update_dict = update_data.dict(exclude_unset=True)
+    return service.update_gameroom(room_id, update_dict)
 
 @router.delete("/{room_id}", status_code=status.HTTP_200_OK)
 def delete_gameroom(
@@ -84,4 +88,8 @@ def delete_gameroom(
     if not guest_uuid:
         raise HTTPException(status_code=400, detail="유효한 게스트 UUID가 필요합니다")
     
-    return service.delete_gameroom(room_id, guest_uuid)
+    success = service.delete_gameroom(room_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="게임룸을 찾을 수 없습니다")
+    
+    return {"message": "게임룸이 삭제되었습니다"}
