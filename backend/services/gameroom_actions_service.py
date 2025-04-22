@@ -10,7 +10,7 @@ import threading
 from repositories.gameroom_repository import GameroomRepository
 from models.gameroom_model import Gameroom, GameStatus, ParticipantStatus
 from models.guest_model import Guest
-from schemas.gameroom_schema import (
+from schemas.gameroom_actions_schema import (
     JoinGameroomResponse
 )
 from ws_manager.connection_manager import ConnectionManager

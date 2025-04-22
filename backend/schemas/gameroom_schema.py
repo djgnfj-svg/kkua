@@ -47,28 +47,6 @@ class GameroomListResponse(BaseModel):
         from_attributes = True
         orm_mode = True
 
-# 게임룸 참가 응답 스키마
-class JoinGameroomResponse(BaseModel):
-    room_id: int
-    guest_id: int
-    message: str
-
-# 게임룸 상세 응답 스키마
-class GameroomDetailResponse(BaseModel):
-    room_id: int
-    title: str
-    max_players: int
-    game_mode: str
-    created_by: int
-    created_username: Optional[str] = None
-    status: str
-    participants: List[Dict[str, Any]]
-    time_limit: int = 120
-    
-    class Config:
-        from_attributes = True
-        orm_mode = True
-
 class GameroomCreate(GameroomBase):
     created_by: int
 
@@ -77,30 +55,4 @@ class GameroomUpdate(BaseModel):
     max_players: Optional[int] = None
     game_mode: Optional[str] = None
     time_limit: Optional[int] = None
-    status: Optional[str] = None
-
-class ParticipantBase(BaseModel):
-    guest_id: int
-    status: str
-
-class ParticipantInfo(ParticipantBase):
-    id: int
-    nickname: str
-    is_creator: bool
-    joined_at: datetime.datetime
-
-    class Config:
-        from_attributes = True
-
-class GameroomParticipantsList(BaseModel):
-    participants: List[ParticipantInfo]
-
-class WebSocketMessage(BaseModel):
-    type: str
-    data: dict
-    
-class ChatMessage(BaseModel):
-    guest_id: int
-    nickname: str
-    message: str
-    timestamp: datetime.datetime 
+    status: Optional[str] = None 

@@ -6,7 +6,7 @@ from db.postgres import get_db
 from repositories.gameroom_repository import GameroomRepository
 from repositories.guest_repository import GuestRepository
 from services.gameroom_actions_service import GameroomActionsService
-from schemas.gameroom_schema import JoinGameroomResponse
+from schemas.gameroom_actions_schema import JoinGameroomResponse
 
 router = APIRouter(
     prefix="/gamerooms",
