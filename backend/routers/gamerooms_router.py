@@ -7,8 +7,9 @@ from repositories.gameroom_repository import GameroomRepository
 from repositories.guest_repository import GuestRepository
 from services.gameroom_service import GameroomService
 from schemas.gameroom_schema import (
-    GameroomResponse, CreateGameroomRequest, GameroomDetailResponse, GameroomUpdate
+    GameroomResponse, CreateGameroomRequest, GameroomUpdate
 )
+from schemas.gameroom_actions_schema import GameroomDetailResponse
 
 router = APIRouter(
     prefix="/gamerooms",

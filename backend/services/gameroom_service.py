@@ -11,9 +11,10 @@ from repositories.gameroom_repository import GameroomRepository
 from models.gameroom_model import Gameroom, GameStatus, ParticipantStatus
 from models.guest_model import Guest
 from schemas.gameroom_schema import (
-    GameroomResponse, GameroomListResponse, JoinGameroomResponse, 
-    CreateGameroomRequest, GameroomDetailResponse
+    GameroomResponse, GameroomListResponse, 
+    CreateGameroomRequest
 )
+from schemas.gameroom_actions_schema import JoinGameroomResponse, GameroomDetailResponse
 from ws_manager.connection_manager import ConnectionManager
 from repositories.guest_repository import GuestRepository
 

@@ -269,3 +269,40 @@ async def websocket_endpoint(
             await websocket.close(code=4003, reason=f"오류 발생: {str(e)}")
         except:
             pass 
+
+@router.get("/documentation", tags=["websockets"])
+def websocket_documentation():
+    """
+    # 웹소켓 API 문서
+    
+    ## 연결 URL
+    - `ws://서버주소/ws/gamerooms/{room_id}/{guest_uuid}`
+    
+    ## 메시지 형식
+    모든 메시지는 JSON 형식이며 다음 구조를 따릅니다:
+    ```json
+    {
+        "type": "메시지_타입",
+        "data": { /* 메시지별 데이터 */ }
+    }
+    ```
+    
+    ## 지원하는 메시지 유형
+    1. **chat**: 채팅 메시지
+       - 송신: `{"type": "chat", "data": {"message": "내용"}}`
+       - 수신: `{"type": "chat", "guest_id": 123, "nickname": "사용자", "message": "내용", "timestamp": "..."}`
+    
+    2. **toggle_ready**: 준비 상태 변경
+       - 송신: `{"type": "toggle_ready"}`
+       - 수신: `{"type": "ready_status_changed", "guest_id": 123, "is_ready": true}`
+    
+    3. **user_joined**: 사용자 입장 (서버에서만 전송)
+       - 수신: `{"type": "user_joined", "data": {"guest_id": 123}}`
+    
+    4. **user_left**: 사용자 퇴장 (서버에서만 전송)
+       - 수신: `{"type": "user_left", "data": {"guest_id": 123, "nickname": "사용자"}}`
+    """
+    return {
+        "message": "위 문서를 참고하세요.",
+        "websocket_url": "/ws/gamerooms/{room_id}/{guest_uuid}"
+    } 
