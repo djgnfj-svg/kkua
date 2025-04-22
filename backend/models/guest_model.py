@@ -14,6 +14,4 @@ class Guest(Base):
     last_login = Column(DateTime, nullable=True)
     device_info = Column(String, nullable=True)
     
-    # Gameroom만 유지, Room 관계 제거
-    gamerooms = relationship("Gameroom", back_populates="creator")
     participations = relationship("GameroomParticipant", back_populates="guest", cascade="all, delete-orphan")
