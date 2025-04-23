@@ -41,4 +41,9 @@ class GameroomParticipantsList(BaseModel):
 class ReadyStatusResponse(BaseModel):
     status: str
     message: str
-    is_ready: bool 
+    is_ready: bool
+
+# 게임 종료 응답 스키마
+class GameEndResponse(BaseModel):
+    message: str
+    status: str 

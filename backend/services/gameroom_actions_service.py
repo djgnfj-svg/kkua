@@ -293,7 +293,7 @@ class GameroomActionsService:
         }
     
     def end_game(self, room_id: int, request: Request) -> Dict[str, str]:
-        """게임을 종료합니다. 방장만 게임을 종료할 수 있습니다."""
+        """게임을 종료하고 대기 상태로 되돌립니다. 방장만 게임을 종료할 수 있습니다."""
         guest = self.get_guest_by_cookie(request)
         
         # 게임룸 조회
@@ -315,29 +315,35 @@ class GameroomActionsService:
         if room.status != GameStatus.PLAYING:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="게임이 시작되지 않았거나 이미 종료된 상태입니다."
+                detail="진행 중인 게임만 종료할 수 있습니다."
             )
         
-        # 게임 종료 처리
-        self.repository.end_game(room_id)
+        # 게임 종료
+        result = self.repository.end_game(room_id)
+        if not result:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="게임 종료에 실패했습니다."
+            )
         
-        # 비동기 함수를 스레드로 처리
-        def run_async_broadcast():
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            loop.run_until_complete(ws_manager.broadcast_room_update(
-                room_id, 
-                "game_ended", 
+        print(f"게임 종료 완료: 방ID={room_id}")
+        
+        # 웹소켓 이벤트 발송 (게임 종료)
+        if hasattr(self, 'ws_manager'):
+            asyncio.create_task(self.ws_manager.broadcast_room_update(
+                room_id,
+                "game_ended",
                 {
-                    "end_time": datetime.now().isoformat()
+                    "room_id": room_id,
+                    "ended_at": datetime.now().isoformat(),
+                    "message": "게임이 종료되었습니다! 다시 준비해주세요."
                 }
             ))
-            loop.close()
         
-        # 게임 종료 알림
-        threading.Thread(target=run_async_broadcast).start()
-        
-        return {"message": "게임이 종료되었습니다."}
+        return {
+            "message": "게임이 종료되었습니다! 다시 준비해주세요.",
+            "status": "WAITING"
+        }
     
     def get_participants(self, room_id: int) -> List[Dict[str, Any]]:
         """게임룸의 참가자 목록을 조회합니다."""

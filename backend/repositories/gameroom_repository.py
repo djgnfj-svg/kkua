@@ -526,4 +526,44 @@ class GameroomRepository:
             print(f"준비 상태 확인 오류: {str(e)}")
             import traceback
             traceback.print_exc()
+            return False
+
+    def end_game(self, room_id: int) -> bool:
+        """게임을 종료 상태로 변경하고 참가자들은 대기 상태로 되돌립니다."""
+        try:
+            print(f"게임 종료: 방ID={room_id}")
+            
+            # 게임룸 조회
+            room = self.find_by_id(room_id)
+            if not room:
+                print(f"게임룸 ID={room_id} 조회 실패")
+                return False
+            
+            # 게임룸 상태를 WAITING으로 변경 (새 게임을 위해)
+            room.status = GameStatus.WAITING.value if isinstance(GameStatus.WAITING.value, str) else GameStatus.WAITING
+            room.ended_at = datetime.now()
+            room.updated_at = datetime.now()
+            
+            # 모든 참가자 상태를 WAITING으로 변경
+            participants = self.db.query(GameroomParticipant).filter(
+                GameroomParticipant.room_id == room_id,
+                GameroomParticipant.left_at.is_(None)
+            ).all()
+            
+            for participant in participants:
+                # 방장은 항상 READY 상태로, 나머지는 WAITING으로
+                if participant.is_creator:
+                    participant.status = ParticipantStatus.READY.value
+                else:
+                    participant.status = ParticipantStatus.WAITING.value
+                participant.updated_at = datetime.now()
+            
+            self.db.commit()
+            print(f"게임 종료 완료: 방ID={room_id}, 참가자 수={len(participants)}")
+            return True
+        except Exception as e:
+            self.db.rollback()
+            print(f"게임 종료 오류: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return False 
