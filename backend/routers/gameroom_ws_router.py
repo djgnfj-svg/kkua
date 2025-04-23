@@ -172,6 +172,172 @@ async def process_message(
                 "type": "error",
                 "message": "상태 업데이트 실패: 참가자 정보가 없습니다"
             }, websocket)
+    
+    elif message_type == "word_chain":
+        # 끝말잇기 게임 메시지 처리
+        await process_word_chain_message(message_data, websocket, room_id, guest, participant, gameroom_repo)
+
+# 끝말잇기 메시지 처리
+async def process_word_chain_message(
+    message_data: Dict[str, Any],
+    websocket: WebSocket,
+    room_id: int,
+    guest: Guest,
+    participant: GameroomParticipant,
+    gameroom_repo: GameroomRepository
+):
+    """끝말잇기 게임 메시지 처리"""
+    action = message_data.get("action")
+    
+    if action == "initialize_game":
+        # 게임 초기화 (방장만 가능)
+        room = gameroom_repo.find_by_id(room_id)
+        if room.created_by != guest.guest_id:
+            await ws_manager.send_personal_message({
+                "type": "error",
+                "message": "방장만 게임을 초기화할 수 있습니다."
+            }, websocket)
+            return
+            
+        # 참가자 목록 조회
+        participants = gameroom_repo.find_room_participants(room_id)
+        participant_data = [
+            {
+                "guest_id": p.guest.guest_id,
+                "nickname": p.guest.nickname,
+                "status": p.status.value,
+                "is_creator": p.guest.guest_id == p.gameroom.created_by
+            }
+            for p in participants if p.left_at is None
+        ]
+        
+        # 게임 초기화
+        ws_manager.initialize_word_chain_game(room_id, participant_data)
+        
+        # 초기화 알림
+        await ws_manager.broadcast_room_update(
+            room_id,
+            "word_chain_initialized",
+            {
+                "message": "끝말잇기 게임이 초기화되었습니다.",
+                "participants": participant_data
+            }
+        )
+    
+    elif action == "start_game":
+        # 게임 시작 (방장만 가능)
+        room = gameroom_repo.find_by_id(room_id)
+        if room.created_by != guest.guest_id:
+            await ws_manager.send_personal_message({
+                "type": "error",
+                "message": "방장만 게임을 시작할 수 있습니다."
+            }, websocket)
+            return
+            
+        # 첫 단어 설정 (기본값 "끝말잇기")
+        first_word = message_data.get("first_word", "끝말잇기")
+        result = ws_manager.start_word_chain_game(room_id, first_word)
+        
+        if result:
+            # 게임 시작 알림
+            game_state = ws_manager.get_game_state(room_id)
+            if game_state:
+                await ws_manager.broadcast_room_update(
+                    room_id,
+                    "word_chain_started",
+                    {
+                        "message": "끝말잇기 게임이 시작되었습니다!",
+                        "first_word": first_word,
+                        "current_player_id": game_state["current_player_id"],
+                        "current_player_nickname": game_state["nicknames"][game_state["current_player_id"]]
+                    }
+                )
+                
+                # 게임 상태 전송
+                await ws_manager.broadcast_word_chain_state(room_id)
+                
+                # 턴 타이머 시작
+                await ws_manager.start_turn_timer(room_id, game_state.get("time_limit", 15))
+        else:
+            await ws_manager.send_personal_message({
+                "type": "error",
+                "message": "게임 시작에 실패했습니다."
+            }, websocket)
+            
+    elif action == "submit_word":
+        # 단어 제출
+        word = message_data.get("word", "").strip()
+        if not word:
+            await ws_manager.send_personal_message({
+                "type": "error",
+                "message": "단어를 입력해주세요."
+            }, websocket)
+            return
+            
+        # 단어 제출 처리
+        result = ws_manager.submit_word(room_id, word, guest.guest_id)
+        
+        if result["success"]:
+            # 단어 제출 성공 알림
+            await ws_manager.broadcast_room_update(
+                room_id,
+                "word_chain_word_submitted",
+                {
+                    "word": word,
+                    "submitted_by": {
+                        "id": guest.guest_id,
+                        "nickname": guest.nickname
+                    },
+                    "next_player": result["next_player"],
+                    "last_character": result["last_character"]
+                }
+            )
+            
+            # 게임 상태 전송
+            await ws_manager.broadcast_word_chain_state(room_id)
+            
+            # 턴 타이머 시작
+            game_state = ws_manager.get_game_state(room_id)
+            if game_state:
+                await ws_manager.start_turn_timer(room_id, game_state.get("time_limit", 15))
+        else:
+            # 단어 제출 실패 알림
+            await ws_manager.send_personal_message({
+                "type": "word_chain_error",
+                "message": result["message"]
+            }, websocket)
+            
+    elif action == "end_game":
+        # 게임 종료 (방장만 가능)
+        room = gameroom_repo.find_by_id(room_id)
+        if room.created_by != guest.guest_id:
+            await ws_manager.send_personal_message({
+                "type": "error",
+                "message": "방장만 게임을 종료할 수 있습니다."
+            }, websocket)
+            return
+            
+        # 게임 종료
+        result = ws_manager.end_word_chain_game(room_id)
+        
+        if result:
+            # 게임 종료 알림
+            await ws_manager.broadcast_room_update(
+                room_id,
+                "word_chain_game_ended",
+                {
+                    "message": "게임이 종료되었습니다.",
+                    "ended_by": {
+                        "id": guest.guest_id,
+                        "nickname": guest.nickname
+                    }
+                }
+            )
+        else:
+            await ws_manager.send_personal_message({
+                "type": "error",
+                "message": "게임 종료에 실패했습니다."
+            }, websocket)
 
 @router.websocket("/{room_id}/{guest_uuid}")
 async def websocket_endpoint(
@@ -301,6 +467,12 @@ def websocket_documentation():
     
     4. **user_left**: 사용자 퇴장 (서버에서만 전송)
        - 수신: `{"type": "user_left", "data": {"guest_id": 123, "nickname": "사용자"}}`
+       
+    5. **word_chain**: 끝말잇기 게임
+       - 초기화: `{"type": "word_chain", "action": "initialize_game"}`
+       - 시작: `{"type": "word_chain", "action": "start_game", "first_word": "끝말잇기"}`
+       - 단어 제출: `{"type": "word_chain", "action": "submit_word", "word": "단어"}`
+       - 종료: `{"type": "word_chain", "action": "end_game"}`
     """
     return {
         "message": "위 문서를 참고하세요.",
