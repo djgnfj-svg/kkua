@@ -40,11 +40,11 @@ def create_gameroom(
     service: GameroomService = Depends(get_gameroom_service)
 ) -> GameroomResponse:
     """게임룸을 생성합니다."""
-    guest_uuid = request.cookies.get("kkua_guest_uuid")
-    if not guest_uuid:
-        raise HTTPException(status_code=400, detail="유효한 게스트 UUID가 필요합니다")
+    guest = service.get_guest_by_cookie(request)
+    if not guest:
+        raise HTTPException(status_code=404, detail="게스트를 찾을 수 없습니다")
     
-    return service.create_gameroom(create_data.dict(), guest_uuid)
+    return service.create_gameroom(create_data.dict(), guest.guest_id)
 
 @router.get("/{room_id}", response_model=GameroomDetailResponse)
 def get_gameroom(
@@ -70,9 +70,9 @@ def update_gameroom(
     service: GameroomService = Depends(get_gameroom_service)
 ) -> GameroomResponse:
     """게임룸 정보를 업데이트합니다. 방장만 수정할 수 있습니다."""
-    guest_uuid = request.cookies.get("kkua_guest_uuid")
-    if not guest_uuid:
-        raise HTTPException(status_code=400, detail="유효한 게스트 UUID가 필요합니다")
+    guest = service.get_guest_by_cookie(request)
+    if not guest:
+        raise HTTPException(status_code=404, detail="게스트를 찾을 수 없습니다")
     
     update_dict = update_data.dict(exclude_unset=True)
     return service.update_gameroom(room_id, update_dict)
@@ -84,9 +84,9 @@ def delete_gameroom(
     service: GameroomService = Depends(get_gameroom_service)
 ) -> Dict[str, str]:
     """게임룸을 삭제합니다. 방장만 삭제할 수 있습니다."""
-    guest_uuid = request.cookies.get("kkua_guest_uuid")
-    if not guest_uuid:
-        raise HTTPException(status_code=400, detail="유효한 게스트 UUID가 필요합니다")
+    guest = service.get_guest_by_cookie(request)
+    if not guest:
+        raise HTTPException(status_code=404, detail="게스트를 찾을 수 없습니다")
     
     success = service.delete_gameroom(room_id)
     if not success:

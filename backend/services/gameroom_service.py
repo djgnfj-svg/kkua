@@ -105,9 +105,9 @@ class GameroomService:
         """게임을 종료합니다."""
         return self.actions.end_game(room_id)
     
-    def get_participants(self, room_id: int) -> List[GameroomParticipant]:
+    def get_participants(self, room_id: int) -> List[Dict[str, Any]]:
         """게임룸 참가자 목록을 조회합니다."""
-        return self.repository.find_participants(room_id)
+        return self.repository.get_participants(room_id)
     
     def update_participant_status(self, room_id: int, guest_id: int, status: str) -> Dict[str, str]:
         """참가자 상태를 업데이트합니다. (웹소켓을 통해 호출)"""

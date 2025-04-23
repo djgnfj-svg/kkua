@@ -100,12 +100,19 @@ class GameroomRepository:
             room_id=room_id,
             guest_id=guest_id,
             joined_at=datetime.now(),
-            is_creator=is_creator,
-            status=ParticipantStatus.READY if is_creator else ParticipantStatus.WAITING
+            status=ParticipantStatus.READY.value if is_creator else ParticipantStatus.WAITING.value,
+            is_creator=is_creator
         )
         
         self.db.add(participant)
         self.db.flush()
+        
+        # 참가자 수 업데이트
+        room = self.find_by_id(room_id)
+        if room:
+            room.participant_count += 1
+            self.db.commit()
+        
         return participant
     
     def remove_participant(self, room_id: int, guest_id: int) -> bool:
@@ -272,4 +279,12 @@ class GameroomRepository:
         # 페이지네이션 적용
         rooms = query.offset(offset).limit(limit).all()
         
-        return rooms, total 
+        return rooms, total
+
+    def find_active_participants(self, guest_id: int) -> List[GameroomParticipant]:
+        """특정 게스트가 참여 중인 활성 게임룸의 참가 정보를 조회합니다."""
+        return self.db.query(GameroomParticipant).filter(
+            GameroomParticipant.guest_id == guest_id,
+            GameroomParticipant.left_at.is_(None),
+            GameroomParticipant.status != ParticipantStatus.LEFT.value
+        ).all() 
