@@ -62,26 +62,37 @@ class GameroomActionsService:
                 detail="게임룸이 존재하지 않습니다."
             )
         
-        # 게임 상태 확인
-        if room.status != GameStatus.WAITING:
+        # 게임 상태 확인 - Enum과 문자열 모두 처리
+        room_status = room.status
+        if isinstance(room_status, str):
+            is_waiting = room_status == GameStatus.WAITING.value
+        else:
+            is_waiting = room_status == GameStatus.WAITING
+        
+        if not is_waiting:
+            print(f"게임 상태 오류: room_id={room_id}, status={room_status}, type={type(room_status)}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="게임이 이미 시작되었거나 종료된 방입니다."
             )
         
-        # 이미 참가 중인지 확인
-        if self.repository.is_participant(room_id, guest.guest_id):
+        # 이미 참가 중인지 확인 (left_at이 NULL인 참가자만 체크)
+        participant = self.repository.check_participation(room_id, guest.guest_id)
+        if participant:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="이미 해당 게임룸에 참가 중입니다."
             )
         
-        # 다른 방에 이미 참여 중인지 확인
-        should_redirect, active_room_id = self.guest_repository.check_active_game(guest.guest_id)
-        if should_redirect and active_room_id != room_id:
+        # 다른 방에 참여 중인지 확인 (left_at이 NULL인 다른 방 참가자만 체크)
+        active_participants = self.repository.find_active_participants(guest.guest_id)
+        
+        # 다른 방에 참여 중인 경우 (현재 참가하려는 방 제외)
+        other_active_rooms = [p for p in active_participants if p.room_id != room_id]
+        if other_active_rooms:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"이미 다른 게임방({active_room_id})에 참여 중입니다."
+                detail=f"이미 다른 게임방({other_active_rooms[0].room_id})에 참여 중입니다."
             )
         
         # 인원 수 확인
@@ -92,35 +103,29 @@ class GameroomActionsService:
                 detail="방이 가득 찼습니다."
             )
         
-        # 게임룸에 참가
-        participant = self.repository.add_participant(room_id, guest.guest_id)
+        # 게임룸에 참가 (새 참가자 생성)
+        new_participant = self.repository.add_participant(room_id, guest.guest_id)
         
         # 참가자 수 업데이트
         self.repository.update_participant_count(room_id)
         
-        # 비동기 함수를 스레드로 처리
-        def run_async_broadcast():
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            loop.run_until_complete(ws_manager.broadcast_room_update(
+        # 웹소켓 이벤트 발송 (게임룸 참가 알림)
+        if hasattr(self, 'ws_manager'):
+            asyncio.create_task(self.ws_manager.broadcast_room_update(
                 room_id, 
-                "user_joined", 
+                "player_joined", 
                 {
                     "guest_id": guest.guest_id,
-                    "nickname": guest.nickname
+                    "nickname": guest.nickname,
+                    "joined_at": datetime.now().isoformat(),
+                    "is_creator": False
                 }
             ))
-            loop.close()
-        
-        # 참가자 목록 브로드캐스트
-        threading.Thread(target=run_async_broadcast).start()
         
         return JoinGameroomResponse(
-            room_id=room.room_id,
-            title=room.title,
+            room_id=room_id,
             guest_id=guest.guest_id,
-            nickname=guest.nickname,
-            participant_count=current_participants + 1
+            message="게임룸에 참가했습니다."
         )
     
     def leave_gameroom(self, room_id: int, request: Request) -> Dict[str, str]:
@@ -135,67 +140,88 @@ class GameroomActionsService:
                 detail="게임룸이 존재하지 않습니다."
             )
         
-        # 참가자 확인
-        if not self.repository.is_participant(room_id, guest.guest_id):
+        # 참가자 조회
+        participant = self.repository.find_participant(room_id, guest.guest_id)
+        if not participant or participant.left_at is not None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="해당 게임룸에 참가하지 않았습니다."
+                detail="해당 게임룸에 참가 중이 아닙니다."
             )
         
-        # 방장인 경우
-        is_creator = room.created_by == guest.guest_id
+        print(f"게임룸 나가기: 방ID={room_id}, 게스트ID={guest.guest_id}, 참가자ID={participant.participant_id}")
         
-        # 게임룸에서 나가기
-        self.repository.remove_participant(room_id, guest.guest_id)
+        # 게임 진행 중인지 확인
+        if room.status == GameStatus.PLAYING:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="게임 진행 중에는 나갈 수 없습니다."
+            )
         
-        # 참가자 수 업데이트
-        remaining_participants = self.repository.update_participant_count(room_id)
+        # 방장인지 확인
+        is_creator = (room.created_by == guest.guest_id)
+        print(f"방장 여부: {is_creator}")
         
-        # 방장이 나가고 다른 참가자가 있으면 방장 권한 이전
-        if is_creator and remaining_participants > 0:
-            next_participant = self.repository.get_oldest_participant(room_id)
-            if next_participant:
-                self.repository.transfer_ownership(room_id, next_participant.guest_id)
-                
-                # 비동기 함수를 스레드로 처리
-                def run_async_broadcast_owner_change():
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                    loop.run_until_complete(ws_manager.broadcast_room_update(
-                        room_id, 
-                        "owner_changed", 
-                        {
-                            "new_owner_id": next_participant.guest_id,
-                            "new_owner_nickname": next_participant.guest.nickname
-                        }
-                    ))
-                    loop.close()
-                
-                # 방장 변경 알림
-                threading.Thread(target=run_async_broadcast_owner_change).start()
-                
-        # 남은 참가자가 없으면 방 삭제
-        elif remaining_participants == 0:
-            self.repository.delete(room)
+        # 참가자 상태 업데이트
+        # 직접 업데이트하여 확실하게 처리
+        current_time = datetime.now()
+        result = self.repository.update_participant_left(
+            participant.participant_id, 
+            current_time,
+            ParticipantStatus.LEFT.value
+        )
         
-        # 비동기 함수를 스레드로 처리
-        def run_async_broadcast_leave():
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            loop.run_until_complete(ws_manager.broadcast_room_update(
-                room_id, 
-                "user_left", 
-                {
-                    "guest_id": guest.guest_id,
-                    "nickname": guest.nickname
-                }
-            ))
-            loop.close()
+        if not result:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="참가자 상태 업데이트에 실패했습니다."
+            )
         
-        # 참가자 퇴장 알림
-        threading.Thread(target=run_async_broadcast_leave).start()
+        print(f"참가자 상태 업데이트 완료: left_at={current_time}, status=LEFT")
         
-        return {"message": "성공적으로 게임룸에서 나갔습니다."}
+        # 방장이 나간 경우 방 삭제
+        if is_creator:
+            print(f"방장(게스트ID={guest.guest_id})이 나가서 게임룸(ID={room_id})을 삭제합니다.")
+            
+            # 방 상태 업데이트 (DELETED)
+            room.status = GameStatus.DELETED.value if isinstance(GameStatus.DELETED.value, str) else GameStatus.DELETED
+            room.updated_at = current_time
+            self.repository.db.commit()
+            print(f"게임룸 상태 업데이트 완료: status=DELETED")
+            
+            # 남은 참가자들을 강제 퇴장 처리
+            self.repository.update_all_participants_left(room_id, current_time)
+            print("남은 모든 참가자 퇴장 처리 완료")
+            
+            # 웹소켓 이벤트 발송 (방 삭제)
+            if hasattr(self, 'ws_manager'):
+                asyncio.create_task(self.ws_manager.broadcast_room_update(
+                    room_id,
+                    "room_deleted",
+                    {
+                        "room_id": room_id,
+                        "message": "방장이 퇴장하여 게임룸이 삭제되었습니다."
+                    }
+                ))
+            
+            return {"message": "방장이 퇴장하여 게임룸이 삭제되었습니다."}
+        else:
+            # 일반 참가자가 나간 경우, 참가자 수만 업데이트
+            self.repository.update_participant_count(room_id)
+            print(f"참가자 수 업데이트 완료")
+            
+            # 웹소켓 이벤트 발송 (참가자 퇴장)
+            if hasattr(self, 'ws_manager'):
+                asyncio.create_task(self.ws_manager.broadcast_room_update(
+                    room_id,
+                    "player_left",
+                    {
+                        "guest_id": guest.guest_id,
+                        "nickname": guest.nickname,
+                        "left_at": current_time.isoformat()
+                    }
+                ))
+            
+            return {"message": "게임룸에서 퇴장했습니다."}
     
     def start_game(self, room_id: int, request: Request) -> Dict[str, Any]:
         """게임을 시작합니다. 방장만 게임을 시작할 수 있습니다."""
