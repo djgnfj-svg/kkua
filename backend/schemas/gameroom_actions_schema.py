@@ -35,4 +35,10 @@ class JoinGameroomResponse(BaseModel):
     message: str
 
 class GameroomParticipantsList(BaseModel):
-    participants: List[ParticipantInfo] 
+    participants: List[ParticipantInfo]
+
+# 레디 상태 변경 응답 스키마
+class ReadyStatusResponse(BaseModel):
+    status: str
+    message: str
+    is_ready: bool 

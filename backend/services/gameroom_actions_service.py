@@ -223,7 +223,7 @@ class GameroomActionsService:
             
             return {"message": "게임룸에서 퇴장했습니다."}
     
-    def start_game(self, room_id: int, request: Request) -> Dict[str, Any]:
+    def start_game(self, room_id: int, request: Request) -> Dict[str, str]:
         """게임을 시작합니다. 방장만 게임을 시작할 수 있습니다."""
         guest = self.get_guest_by_cookie(request)
         
@@ -246,46 +246,50 @@ class GameroomActionsService:
         if room.status != GameStatus.WAITING:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="이미 게임이 시작되었거나 종료된 상태입니다."
+                detail="대기 중인 게임방만 시작할 수 있습니다."
             )
         
-        # 참가자 상태 확인 (모든 참가자가 READY 상태인지)
-        participants = self.repository.find_room_participants(room_id)
-        not_ready_participants = [p for p in participants if p.status != ParticipantStatus.READY]
-        
-        if not_ready_participants:
+        # 최소 2명 이상 확인
+        participant_count = self.repository.count_participants(room_id)
+        if participant_count < 2:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="모든 참가자가 준비 상태가 아닙니다."
+                detail="게임을 시작하려면 최소 2명의 참가자가 필요합니다."
             )
         
-        # 게임 시작 처리
-        self.repository.start_game(room_id)
+        # 모든 참가자 준비 상태 확인
+        all_ready = self.repository.check_all_ready(room_id)
+        if not all_ready:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="모든 참가자가 준비 상태여야 게임을 시작할 수 있습니다."
+            )
         
-        # 게임 시작 시간
-        start_time = datetime.now().isoformat()
+        # 게임 시작
+        result = self.repository.start_game(room_id)
+        if not result:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="게임 시작에 실패했습니다."
+            )
         
-        # 비동기 함수를 스레드로 처리
-        def run_async_broadcast():
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            loop.run_until_complete(ws_manager.broadcast_room_update(
-                room_id, 
-                "game_started", 
+        print(f"게임 시작 완료: 방ID={room_id}")
+        
+        # 웹소켓 이벤트 발송 (게임 시작)
+        if hasattr(self, 'ws_manager'):
+            asyncio.create_task(self.ws_manager.broadcast_room_update(
+                room_id,
+                "game_started",
                 {
-                    "start_time": start_time,
-                    "time_limit": room.time_limit
+                    "room_id": room_id,
+                    "started_at": datetime.now().isoformat(),
+                    "message": "게임이 시작되었습니다!"
                 }
             ))
-            loop.close()
-        
-        # 게임 시작 알림
-        threading.Thread(target=run_async_broadcast).start()
         
         return {
-            "message": "게임이 시작되었습니다.",
-            "start_time": start_time,
-            "time_limit": room.time_limit
+            "message": "게임이 시작되었습니다!",
+            "status": "PLAYING"
         }
     
     def end_game(self, room_id: int, request: Request) -> Dict[str, str]:
@@ -408,4 +412,83 @@ class GameroomActionsService:
             
             return {"is_owner": is_owner}
         except HTTPException:
-            return {"is_owner": False} 
+            return {"is_owner": False}
+    
+    def toggle_ready_status(self, room_id: int, request: Request) -> Dict[str, Any]:
+        """참가자의 준비 상태를 토글합니다."""
+        guest = self.get_guest_by_cookie(request)
+        
+        # 게임룸 조회
+        room = self.repository.find_by_id(room_id)
+        if not room:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="게임룸이 존재하지 않습니다."
+            )
+        
+        # 참가자 조회
+        participant = self.repository.find_participant(room_id, guest.guest_id)
+        if not participant or participant.left_at is not None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="해당 게임룸에 참가 중이 아닙니다."
+            )
+        
+        # 게임 상태 확인
+        if room.status != GameStatus.WAITING:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="대기 중인 게임방에서만 준비 상태를 변경할 수 있습니다."
+            )
+        
+        # 방장 확인 - 방장은 항상 준비 상태
+        is_creator = (room.created_by == guest.guest_id)
+        if is_creator:
+            return {
+                "status": ParticipantStatus.READY.value,
+                "message": "방장은 항상 준비 상태입니다.",
+                "is_ready": True
+            }
+        
+        # 현재 상태 확인 및 새 상태 설정
+        current_status = participant.status
+        print(f"현재 참가자 상태: {current_status}")
+        
+        new_status = None
+        if current_status == ParticipantStatus.WAITING.value or current_status == ParticipantStatus.WAITING:
+            new_status = ParticipantStatus.READY.value
+            is_ready = True
+            message = "준비 완료!"
+        else:
+            new_status = ParticipantStatus.WAITING.value
+            is_ready = False
+            message = "준비 취소!"
+        
+        # 상태 업데이트
+        result = self.repository.update_participant_status(participant.participant_id, new_status)
+        if not result:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="참가자 상태 업데이트에 실패했습니다."
+            )
+        
+        print(f"참가자 상태 업데이트 완료: {current_status} -> {new_status}")
+        
+        # 웹소켓 이벤트 발송 (참가자 상태 변경)
+        if hasattr(self, 'ws_manager'):
+            asyncio.create_task(self.ws_manager.broadcast_room_update(
+                room_id,
+                "player_ready_changed",
+                {
+                    "guest_id": guest.guest_id,
+                    "nickname": guest.nickname,
+                    "status": new_status,
+                    "is_ready": is_ready
+                }
+            ))
+        
+        return {
+            "status": new_status,
+            "message": message,
+            "is_ready": is_ready
+        } 

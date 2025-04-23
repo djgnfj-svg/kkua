@@ -78,4 +78,13 @@ def check_if_owner(
     service: GameroomActionsService = Depends(get_gameroom_actions_service)
 ):
     """현재 게스트가 특정 게임룸의 방장인지 확인합니다."""
-    return service.check_if_owner(room_id, request) 
+    return service.check_if_owner(room_id, request)
+
+@router.post("/{room_id}/ready", status_code=status.HTTP_200_OK)
+def toggle_ready_status(
+    room_id: int, 
+    request: Request, 
+    service: GameroomActionsService = Depends(get_gameroom_actions_service)
+):
+    """참가자의 준비 상태를 토글합니다."""
+    return service.toggle_ready_status(room_id, request) 

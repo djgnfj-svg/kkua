@@ -209,16 +209,33 @@ class GameroomRepository:
         
         return GameroomParticipant.should_redirect_to_game(self.db, guest.guest_id)
         
-    def update_participant_status(self, room_id: int, guest_id: int, status: str) -> Optional[GameroomParticipant]:
-        """참가자 상태를 업데이트합니다."""
-        participant = self.find_participant(room_id, guest_id)
-        if not participant:
-            return None
+    def update_participant_status(self, participant_id: int, status: str) -> bool:
+        """참가자의 상태를 업데이트합니다."""
+        try:
+            print(f"참가자 상태 업데이트: 참가자ID={participant_id}, 새 상태={status}")
             
-        participant.status = status
-        self.db.commit()
-        self.db.refresh(participant)
-        return participant
+            # 참가자 조회
+            participant = self.db.query(GameroomParticipant).filter(
+                GameroomParticipant.participant_id == participant_id
+            ).first()
+            
+            if not participant:
+                print(f"참가자 ID={participant_id} 조회 실패")
+                return False
+            
+            # 상태 업데이트
+            participant.status = status
+            participant.updated_at = datetime.now()
+            
+            self.db.commit()
+            print(f"참가자 상태 업데이트 완료: 참가자ID={participant_id}, 상태={status}")
+            return True
+        except Exception as e:
+            self.db.rollback()
+            print(f"참가자 상태 업데이트 오류: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return False
     
     def find_by_uuid(self, guest_uuid: uuid.UUID) -> Optional[Guest]:
         """UUID로 게스트를 조회합니다."""
@@ -436,6 +453,77 @@ class GameroomRepository:
         except Exception as e:
             self.db.rollback()
             print(f"참가자 퇴장 처리 오류: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def start_game(self, room_id: int) -> bool:
+        """게임을 시작 상태로 변경합니다."""
+        try:
+            print(f"게임 시작: 방ID={room_id}")
+            
+            # 게임룸 조회
+            room = self.find_by_id(room_id)
+            if not room:
+                print(f"게임룸 ID={room_id} 조회 실패")
+                return False
+            
+            # 게임 상태 변경
+            room.status = GameStatus.PLAYING.value if isinstance(GameStatus.PLAYING.value, str) else GameStatus.PLAYING
+            room.started_at = datetime.now()
+            room.updated_at = datetime.now()
+            
+            # 모든 참가자 상태를 PLAYING으로 변경
+            participants = self.db.query(GameroomParticipant).filter(
+                GameroomParticipant.room_id == room_id,
+                GameroomParticipant.left_at.is_(None)
+            ).all()
+            
+            for participant in participants:
+                participant.status = ParticipantStatus.PLAYING.value
+                participant.updated_at = datetime.now()
+            
+            self.db.commit()
+            print(f"게임 시작 완료: 방ID={room_id}, 참가자 수={len(participants)}")
+            return True
+        except Exception as e:
+            self.db.rollback()
+            print(f"게임 시작 오류: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def check_all_ready(self, room_id: int) -> bool:
+        """모든 참가자가 준비 상태인지 확인합니다."""
+        try:
+            print(f"모든 참가자 준비 상태 확인: 방ID={room_id}")
+            
+            # 방장 정보 조회
+            room = self.find_by_id(room_id)
+            if not room:
+                return False
+            
+            creator_id = room.created_by
+            
+            # 참가자 조회 (방장 제외)
+            participants = self.db.query(GameroomParticipant).filter(
+                GameroomParticipant.room_id == room_id,
+                GameroomParticipant.guest_id != creator_id,
+                GameroomParticipant.left_at.is_(None)
+            ).all()
+            
+            # 참가자가 없으면 시작 불가
+            if not participants:
+                print(f"방ID={room_id}에 방장 외 참가자가 없습니다.")
+                return False
+            
+            # 모든 참가자가 READY 상태인지 확인
+            all_ready = all(p.status == ParticipantStatus.READY.value for p in participants)
+            
+            print(f"모든 참가자 준비 상태: {all_ready}")
+            return all_ready
+        except Exception as e:
+            print(f"준비 상태 확인 오류: {str(e)}")
             import traceback
             traceback.print_exc()
             return False 
