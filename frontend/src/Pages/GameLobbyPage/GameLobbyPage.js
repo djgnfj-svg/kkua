@@ -17,6 +17,7 @@ function GameLobbyPage() {
   const [userInfo, setUserInfo] = useState([]);
   const [isOwner, setIsOwner] = useState(false);
   const [redirectingToGame, setRedirectingToGame] = useState(false);
+  const [hasShownAlert, setHasShownAlert] = useState(false);
   const navigate = useNavigate();
 
   /* Guest Check */
@@ -61,15 +62,19 @@ function GameLobbyPage() {
             guest_id: response.data.guest_id
           });
         } catch (error) {
-          alert("서버 연결에 문제가 있습니다");
-          navigate("/");
+          if (!hasShownAlert) {
+            alert("서버 연결에 문제가 있습니다\n로비로 이동합니다...");
+            setHasShownAlert(true);
+            setRedirectingToGame(true);
+            setTimeout(() => navigate(lobbyUrl), 1000);
+          }
         }
       }
     };
     checkGuest();
-  }, [navigate]);
+  }, [navigate, hasShownAlert]);
 
-  /* USER INFO */
+  /* 참가자 정보 */
   const fetchParticipants = async () => {
     try {
       const response = await axiosInstance.get(ROOM_API.get_ROOMSUSER(roomId));
@@ -93,9 +98,11 @@ function GameLobbyPage() {
         }
       }
     } catch (error) {
-      console.error("참가자 정보 가져오기 실패:", error);
+      console.error("참가자 정보 가져오기 실패:", error)
       // 오류 발생 시 빈 배열로 설정하여 UI 에러 방지
       setUserInfo([]);
+      setRedirectingToGame(true); // 로딩 UI 표시
+      setTimeout(() => navigate(lobbyUrl), 3000); // 1초 뒤 이동
     }
   };
 
@@ -211,7 +218,6 @@ function GameLobbyPage() {
 
   const handleSendMessage = () => {
     if (chatMessage.trim() === '') return;
-
     if (sendMessage) {
       sendMessage(chatMessage);
       setChatMessage('');
@@ -251,36 +257,6 @@ function GameLobbyPage() {
     }
   }, [messages]);
 
-  useEffect(() => {
-    // UUID 확인 로직 추가
-    const checkUuidConsistency = async () => {
-      const { uuid } = guestStore.getState();
-
-      if (!uuid) {
-        // UUID가 없는 경우 로그인 API 호출
-        try {
-          const response = await axiosInstance.post('/guests/login');
-          console.log("로그인 응답:", response.data);
-
-          // 응답 데이터로 게스트 정보 업데이트
-          guestStore.getState().setGuestInfo({
-            uuid: response.data.uuid,
-            nickname: response.data.nickname,
-            guest_id: response.data.guest_id
-          });
-
-          console.log("게스트 스토어 업데이트 완료:", guestStore.getState());
-        } catch (error) {
-          console.error("로그인 실패:", error);
-          alert("서버 연결에 문제가 있습니다");
-          navigate("/");
-        }
-      }
-    };
-
-    checkUuidConsistency();
-  }, [navigate]);
-
   // 웹소켓 관련 useEffect 수정/추가
   useEffect(() => {
     // participants나 connected 상태가 변경될 때 API 다시 호출
@@ -301,11 +277,13 @@ function GameLobbyPage() {
       setRoomUpdated(false);
     }
   }, [roomUpdated]);
+
+  
   if (redirectingToGame) {
     return (
       <div className="w-full h-screen flex items-center justify-center bg-white">
         <div className="text-center text-2xl font-extrabold text-red-600 animate-pulse leading-relaxed">
-          게임을 이미 시작하셨습니다.<br />게임페이지로 이동 중입니다...
+          잘못된 정보입니다. <br />페이지를 이동합니다.
         </div>
       </div>
     );
@@ -462,7 +440,7 @@ function GameLobbyPage() {
                 <div key={i} className="mb-2">
                   <span className="font-bold text-blue-600">
                     {msg.nickname || (msg.guest_id ? `게스트_${msg.guest_id}` : `게스트_${i}`)}
-                  </span>: <span>{msg.message || ''}</span>
+                  </span>: <span>{typeof msg.message === 'string' ? msg.message : JSON.stringify(msg.message)}</span>
                 </div>
               );
             })
