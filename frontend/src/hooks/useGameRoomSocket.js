@@ -41,24 +41,25 @@ export default function useGameRoomSocket(roomId) {
 
                 if (data.type === 'chat') {
                   const { guest_id } = guestStore.getState();
-                  console.log("내 guest_id:", guest_id);
-                  console.log("받은 메시지 guest_id:", data.guest_id);
+                  console.log('내 guest_id:', guest_id);
+                  console.log('수신 guest_id:', data.guest_id);
+                  console.log('수신 message_id:', data.message_id);
 
-                  const isOwnMessage = data.guest_id === guest_id;
+                  const isOwnMessage =
+                    data.guest_id === guest_id || data.message_id?.startsWith(`${guest_id}-`);
+
                   const alreadyExists = messages.some(
-                    msg =>
-                      msg.message === data.message &&
-                      msg.guest_id === data.guest_id &&
-                      msg.timestamp === data.timestamp
+                    msg => msg.message_id === data.message_id
                   );
 
                   if (!isOwnMessage && !alreadyExists) {
                     setMessages(prev => [...prev, {
                       nickname: data.nickname,
-                      message: data.message,
+                      message: typeof data.message === 'string' ? data.message : JSON.stringify(data.message),
                       guest_id: data.guest_id,
                       timestamp: data.timestamp,
-                      type: data.type
+                      type: data.type,
+                      message_id: data.message_id
                     }]);
                   }
                 } else if (data.type === 'participants_update') {
@@ -92,6 +93,10 @@ export default function useGameRoomSocket(roomId) {
                     if (data.guest_id === guest_id) {
                         setIsReady(data.is_ready);
                     }
+                    // 참가자 목록에서 해당 참가자의 is_ready 상태를 업데이트
+                    setParticipants(prev => prev.map(p =>
+                        p.guest_id === data.guest_id ? { ...p, is_ready: data.is_ready } : p
+                    ));
 
                     // 방 업데이트 플래그 설정 - 참가자 목록 갱신 트리거
                     setRoomUpdated(true);
@@ -130,19 +135,20 @@ export default function useGameRoomSocket(roomId) {
 
     // 메시지 전송 함수
     const sendMessage = (message) => {
-      if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-        const { guest_id } = guestStore.getState();
-        const messageData = {
-          type: 'chat',
-          message: message,
-          guest_id: guest_id,
-          timestamp: new Date().toISOString()
-        };
-        socketRef.current.send(JSON.stringify(messageData));
-      } else {
-        console.error("웹소켓이 연결되지 않았습니다");
-      }
-    };
+        if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+          const { guest_id } = guestStore.getState();
+          const messageData = {
+            type: 'chat',
+            message: message,
+            guest_id: guest_id,
+            timestamp: new Date().toISOString(),
+            message_id: `${guest_id}-${Date.now()}`
+          };
+          socketRef.current.send(JSON.stringify(messageData));
+        } else {
+          console.error("웹소켓이 연결되지 않았습니다");
+        }
+      };
 
     // 준비 상태 토글 함수 추가
     const toggleReady = () => {

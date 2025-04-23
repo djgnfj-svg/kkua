@@ -224,9 +224,15 @@ function GameLobbyPage() {
     }
   };
 
-  /* 준비 상태 업데이트 핸들러 수정 */
+  // 준비 상태 핸들러: 서버에 상태 전달 후 약간의 지연을 두고 참가자 정보 갱신
   const handleReady = () => {
-    toggleReady(); // 새로운 toggleReady 함수 사용
+    toggleReady(); // 서버에 상태 전달
+
+    // 상태 갱신을 위해 참여자 정보를 수동으로 최신화
+    setTimeout(() => {
+      fetchParticipants();
+      setRoomUpdated(true);
+    }, 300); // 약간의 지연을 줘서 서버 처리 반영 기다림
   };
 
   /* 게임 시작 후 자동 이동 */
@@ -265,6 +271,11 @@ function GameLobbyPage() {
       fetchParticipants();
     }
   }, [connected, participants]);
+  useEffect(() => {
+    const handleParticipantUpdate = () => fetchParticipants();
+    window.addEventListener("participantStatusUpdated", handleParticipantUpdate);
+    return () => window.removeEventListener("participantStatusUpdated", handleParticipantUpdate);
+  }, []);
 
   // 더 확실한 방법으로, 방 상태 업데이트 웹소켓 메시지를 추가로 처리하기 위해
   // useGameRoomSocket 훅 수정 후, 해당 훅에서 다음 효과를 추가
@@ -278,7 +289,7 @@ function GameLobbyPage() {
     }
   }, [roomUpdated]);
 
-  
+
   if (redirectingToGame) {
     return (
       <div className="w-full h-screen flex items-center justify-center bg-white">
@@ -289,196 +300,240 @@ function GameLobbyPage() {
     );
   }
 
-  return (
-    <div className="w-full min-h-screen bg-white flex flex-col items-center pt-5 relative overflow-y-auto">
-      {/* Close button */}
-      {isOwner ? (
-        <button
-          onClick={handleClickExit}
-          className="absolute top-5 right-5 px-4 py-2 bg-red-600 text-white rounded-lg shadow hover:bg-red-700 transition-all"
-        >
-          방 삭제
-        </button>
-      ) : (
-        <button
-          onClick={handleClickExit}
-          className="absolute top-5 right-5 px-4 py-2 bg-red-500 text-white rounded-lg shadow hover:bg-red-600 transition-all"
-        >
-          나가기
-        </button>
-      )}
+  // 상단 정보 바 추가
+  // (이 바는 main return 바로 위에 위치해야 함)
+  // 아래의 return문 바로 위에 삽입
 
-      {/* Title */}
-      <div className="text-center mb-5">
-        <div className="font-bold text-lg">{roomsData.title}</div>
-        <div className="font-bold text-base">
-          {roomsData?.game_mode} [{roomsData?.participant_count} / {roomsData?.max_players}]
+  return (
+    <>
+      {/* 상단 정보 바 */}
+      <div className="w-full bg-gray-100 py-2 px-4 flex justify-around items-center border-b border-gray-300 mb-4">
+        <div className="text-sm font-semibold text-gray-700">
+          게임 모드: 아케이드
+        </div>
+        <div className="text-sm font-semibold text-gray-700">
+          방 제목: {roomsData?.title || '---'}
+        </div>
+        <div className="text-sm font-semibold text-gray-700">
+          인원: {userInfo.length} / {roomsData?.max_players || '-'}
         </div>
       </div>
-
-      {/* Players */}
-      <div className="flex flex-col gap-5 mb-auto">
-        {(participants.length > 0 ? participants : userInfo)?.map((item, index) => (
-          <div
-            key={index}
-            className="min-w-[100px] h-[160px] px-4 bg-gray-300 rounded-2xl shadow-md flex flex-col items-center justify-center"
+      <div className="w-full min-h-screen bg-white flex flex-col items-center pt-5 relative overflow-y-auto">
+        {/* Close button */}
+        {isOwner ? (
+          <button
+            onClick={handleClickExit}
+            className="absolute top-5 right-5 px-4 py-2 bg-red-600 text-white rounded-lg shadow hover:bg-red-700 transition-all"
           >
-            <div className="flex flex-col items-center pt-2">
-              <div className="w-[80px] h-[80px] bg-white rounded-2xl"></div>
+            방 삭제
+          </button>
+        ) : (
+          <button
+            onClick={handleClickExit}
+            className="absolute top-5 right-5 px-4 py-2 bg-red-500 text-white rounded-lg shadow hover:bg-red-600 transition-all"
+          >
+            나가기
+          </button>
+        )}
 
-              {/* 참가자 닉네임 표시 */}
-              <div className="font-bold mt-2 mb-1 text-sm">
-                {item.nickname || (item.guest?.nickname) || `게스트_${item.guest_id || index}`}
-              </div>
-
-              {/* 참가자 상태 표시 - 토글 상태 반영 */}
-              <div className="text-xs">
-                {item.status === 'READY' || item.status === 'ready' ||
-                  item.participant?.status === 'ready' ||
-                  (item.is_ready === true) ? (
-                  <span className="text-green-600">준비완료</span>
-                ) : item.status === 'PLAYING' || item.status === 'playing' ||
-                  item.participant?.status === 'playing' ? (
-                  <span className="text-blue-600">게임중</span>
-                ) : (
-                  <span className="text-gray-600">대기중</span>
-                )}
-              </div>
-
-              {/* 방장 표시 */}
-              {(item.is_owner || item.is_creator ||
-                (item.guest && item.guest.guest_id === roomsData.created_by)) && (
-                  <div className="text-xs text-red-500 font-bold mt-1">방장</div>
-                )}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Owner button */}
-      {isOwner && (
-        <div className="w-full text-center mt-4">
-          <div className="relative inline-block group">
-            <button
-              onClick={() => {
-                // 디버깅을 위한 콘솔 로그 추가
-                console.log("참가자 전체 목록:", participants);
-
-                // 각 참가자별 준비 상태 확인 로그
-                participants.forEach((player, index) => {
-                  console.log(`참가자 ${index} 정보:`, {
-                    닉네임: player.nickname || (player.guest?.nickname) || `게스트_${player.guest_id || index}`,
-                    방장여부: player.is_owner ? "방장" : "일반 참가자",
-                    준비상태: player.is_owner ? "방장(준비체크 제외)" :
-                      (player.status === 'READY' || player.status === 'ready' || player.is_ready === true ?
-                        "준비완료" : "미준비")
-                  });
-                });
-
-                // 모든 플레이어가 준비되었는지 확인 (방장 제외)
-                const allNonOwnerPlayersReady = participants.every(player =>
-                  player.is_owner || // 방장은 준비 상태 확인에서 제외
-                  player.status === 'READY' ||
-                  player.status === 'ready' ||
-                  player.is_ready === true
-                );
-
-                console.log("모든 비방장 참가자 준비 완료?", allNonOwnerPlayersReady);
-                console.log("참가자 수:", participants.length);
-
-                if (participants.length >= 2 && allNonOwnerPlayersReady) {
-                  console.log("✅ 게임 시작 조건 충족: 게임을 시작합니다");
-                  handleClickStartBtn();
-                } else if (participants.length < 2) {
-                  console.log("❌ 게임 시작 실패: 참가자 수 부족");
-                  alert('게임 시작을 위해 최소 2명의 플레이어가 필요합니다.');
-                } else {
-                  console.log("❌ 게임 시작 실패: 모든 플레이어가 준비되지 않음");
-                  alert('모든 플레이어가 준비 상태여야 합니다.');
-                }
-              }}
-              className={`px-6 py-2 rounded-lg shadow transition-all font-bold ${participants.length >= 2
-                ? 'bg-blue-600 text-white hover:bg-blue-700'
-                : 'bg-gray-400 text-white cursor-not-allowed'
+        {/* Players */}
+        <div className="flex flex-row flex-wrap justify-center gap-4 w-full px-4">
+          {participants.map((item, index) => (
+            <div
+              key={index}
+              className={`w-[140px] h-[180px] rounded-2xl shadow-lg flex flex-col items-center justify-start pt-4 gap-1 border participant-card ${(item.is_owner || item.is_creator || (item.guest && item.guest.guest_id === roomsData.created_by))
+                  ? 'bg-white'
+                  : (item.status === 'READY' || item.status === 'ready' || item.is_ready === true)
+                    ? 'bg-[rgb(115,200,255)]'
+                    : 'bg-[rgb(203,203,203)]'
                 }`}
             >
-              게임 시작
-            </button>
-            {participants.length < 2 && (
-              <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-black text-white text-sm px-4 py-2 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 shadow-md">
-                2인 이상일 때 게임을 시작할 수 있습니다
+              {/* 프로필 원 */}
+              <div className="w-[60px] h-[60px] bg-[#fde2e4] rounded-full flex items-center justify-center text-xl font-bold text-gray-700 shadow">
+                {item.nickname?.charAt(0)?.toUpperCase() || 'G'}
               </div>
+
+              {/* 닉네임 */}
+              <div className="mt-1 font-bold text-sm text-gray-800">
+                {item.nickname || (item.guest?.nickname) || `Guest_${item.guest_id || index}`}
+              </div>
+
+              {/* 상태 뱃지 */}
+              {!(item.is_owner || item.is_creator || (item.guest && item.guest.guest_id === roomsData.created_by)) && (
+                <div
+                  className="text-xs mt-0.5 px-2 py-0.5 rounded-full font-semibold text-white"
+                  style={{
+                    backgroundColor:
+                      (item.status === 'READY' || item.status === 'ready' || item.is_ready === true) ? '#e9b306' : // green
+                        (item.status === 'PLAYING' || item.status === 'playing') ? '#3b82f6' : // blue
+                          '#d1d5db' // gray
+                  }}
+                >
+                  {(item.status === 'READY' || item.status === 'ready' || item.is_ready === true)
+                    ? '준비완료'
+                    : (item.status === 'PLAYING' || item.status === 'playing')
+                      ? '게임중'
+                      : '대기중'}
+                </div>
+              )}
+
+              {/* 방장 뱃지 */}
+              {(item.is_owner || item.is_creator || (item.guest && item.guest.guest_id === roomsData.created_by)) && (
+                <div className="text-xs mt-1 px-2 py-0.5 bg-red-500 text-white rounded-full font-semibold">
+                  방장
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+        {/* 준비 버튼 - 상태에 따라 텍스트와 색상 변경 (참가자 카드 아래로 이동) */}
+        {!isOwner && (
+          <button
+            onClick={handleReady}
+            className={`mt-4 px-6 py-2 ${isReady
+              ? 'bg-green-500 hover:bg-green-600'
+              : 'bg-yellow-500 hover:bg-yellow-600'
+              } text-white rounded-lg shadow transition-all`}
+          >
+            {isReady ? '준비취소' : '준비하기'}
+          </button>
+        )}
+
+        {/* Owner button */}
+        {isOwner && (
+          <div className="w-full text-center mt-4">
+            <div className="relative inline-block group">
+              <button
+                onClick={() => {
+                  // 디버깅을 위한 콘솔 로그 추가
+                  console.log("참가자 전체 목록:", participants);
+
+                  // 각 참가자별 준비 상태 확인 로그
+                  participants.forEach((player, index) => {
+                    console.log(`참가자 ${index} 정보:`, {
+                      닉네임: player.nickname || (player.guest?.nickname) || `게스트_${player.guest_id || index}`,
+                      방장여부: player.is_owner ? "방장" : "일반 참가자",
+                      준비상태: player.is_owner ? "방장(준비체크 제외)" :
+                        (player.status === 'READY' || player.status === 'ready' || player.is_ready === true ?
+                          "준비완료" : "미준비")
+                    });
+                  });
+
+                  // 모든 플레이어가 준비되었는지 확인 (방장 제외)
+                  const allNonOwnerPlayersReady = participants.every(player =>
+                    player.is_owner || // 방장은 준비 상태 확인에서 제외
+                    player.status === 'READY' ||
+                    player.status === 'ready' ||
+                    player.is_ready === true
+                  );
+
+                  console.log("모든 비방장 참가자 준비 완료?", allNonOwnerPlayersReady);
+                  console.log("참가자 수:", participants.length);
+
+                  if (participants.length >= 2 && allNonOwnerPlayersReady) {
+                    console.log("✅ 게임 시작 조건 충족: 게임을 시작합니다");
+                    handleClickStartBtn();
+                  } else if (participants.length < 2) {
+                    console.log("❌ 게임 시작 실패: 참가자 수 부족");
+                    alert('게임 시작을 위해 최소 2명의 플레이어가 필요합니다.');
+                  } else {
+                    console.log("❌ 게임 시작 실패: 모든 플레이어가 준비되지 않음");
+                    alert('모든 플레이어가 준비 상태여야 합니다.');
+                  }
+                }}
+                className={`px-6 py-2 rounded-lg shadow transition-all font-bold ${participants.length >= 2
+                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                  : 'bg-gray-400 text-white cursor-not-allowed'
+                  }`}
+              >
+                게임 시작
+              </button>
+              {participants.length < 2 && (
+                <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-black text-white text-sm px-4 py-2 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 shadow-md">
+                  2인 이상일 때 게임을 시작할 수 있습니다
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+
+        {/* 접속 상태 표시 */}
+        <div className={`absolute top-5 left-5 w-3 h-3 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+
+        {/* 채팅 섹션 (리뉴얼) */}
+        <div className="w-full mt-4 border border-gray-300 rounded-lg bg-white flex flex-col h-[300px] overflow-hidden shadow-md">
+          {/* 채팅 상단 바 */}
+          <div className="bg-slate-900 text-white text-center py-2 font-bold">
+            채팅
+          </div>
+
+          {/* 채팅 메시지 목록 */}
+          <div className="flex-1 overflow-y-auto px-4 py-2 bg-gray-50 text-sm" ref={chatContainerRef}>
+            {messages.length > 0 ? (
+              messages.map((msg, i) => {
+                const isSystem = msg.type === 'system';
+                // guest_id 판별 로직 보강 및 디버깅 로그 추가
+                const myGuestId = String(guestStore.getState().guest_id);
+                const messageGuestId = String(msg.guest_id || (msg.guest && msg.guest.guest_id) || '');
+
+                console.log('내 guest_id:', myGuestId);
+                console.log('메시지 guest_id:', messageGuestId);
+                console.log('같은 사람인가?', messageGuestId === myGuestId);
+
+                const isSelf = messageGuestId === myGuestId;
+
+                // Listen for participantStatusUpdated event and refresh participants
+
+                return (
+                  <div key={i} className={`mb-2 ${isSystem ? 'text-center text-gray-600' : ''}`}>
+                    {isSystem ? (
+                      <div>
+                        <span className="text-blue-500 font-semibold">시스템</span>{' '}
+                        <span className="text-xs text-gray-400 ml-1">{new Date(msg.timestamp).toLocaleTimeString()}</span>
+                        <div>{msg.message}</div>
+                      </div>
+                    ) : (
+                      <div className={`w-full flex mb-2 ${isSelf ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`flex flex-col items-start max-w-[80%] text-sm ${isSelf ? 'items-end text-right' : 'items-start text-left'}`}>
+                          <span className={`font-bold mb-1 ${isSelf ? 'text-orange-500' : 'text-blue-600'}`}>
+                            {msg.nickname || `게스트_${msg.guest_id}`}
+                          </span>
+                          <div className="bg-white border rounded px-2 py-1 shadow text-black break-words">
+                            {msg.message || ''}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            ) : (
+              <div className="text-center text-gray-400">아직 메시지가 없습니다</div>
             )}
           </div>
-        </div>
-      )}
 
-      {/* Bottom button list */}
-      <div className="flex justify-between w-full bg-gray-200 pb-4 mt-auto">
-        {Array.from({ length: 5 }).map((_, idx) => (
-          <div
-            key={idx}
-            className="flex-1 py-4 text-center font-bold"
-          >
-            입티
+          {/* 채팅 입력창 */}
+          <div className="flex border-t border-gray-300 p-2 bg-white">
+            <input
+              type="text"
+              value={chatMessage}
+              onChange={(e) => setChatMessage(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+              placeholder="채팅 메시지를 입력하세요..."
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none"
+            />
+            <button
+              onClick={handleSendMessage}
+              className="bg-blue-500 text-white px-4 py-2 rounded-r-md hover:bg-blue-600"
+            >
+              전송
+            </button>
           </div>
-        ))}
-      </div>
-
-      {/* 접속 상태 표시 */}
-      <div className={`absolute top-5 left-5 w-3 h-3 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-
-      {/* 채팅 섹션 수정 */}
-      <div className="w-full max-w-md mt-4 border border-gray-300 rounded-lg">
-        <div className="h-40 overflow-y-auto p-3 bg-gray-100" ref={chatContainerRef}>
-          {messages.length > 0 ? (
-            messages.map((msg, i) => {
-              // 디버깅용 콘솔 로그
-              console.log(`메시지 ${i} 상세:`, JSON.stringify(msg));
-
-              return (
-                <div key={i} className="mb-2">
-                  <span className="font-bold text-blue-600">
-                    {msg.nickname || (msg.guest_id ? `게스트_${msg.guest_id}` : `게스트_${i}`)}
-                  </span>: <span>{typeof msg.message === 'string' ? msg.message : JSON.stringify(msg.message)}</span>
-                </div>
-              );
-            })
-          ) : (
-            <div className="text-center text-gray-500 py-2">아직 메시지가 없습니다</div>
-          )}
         </div>
-        <div className="flex border-t p-2">
-          <input
-            type="text"
-            value={chatMessage}
-            onChange={(e) => setChatMessage(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-            placeholder="메시지 입력..."
-            className="flex-1 px-2 py-1 border rounded-l-md focus:outline-none"
-          />
-          <button
-            onClick={handleSendMessage}
-            className="bg-blue-500 text-white px-3 py-1 rounded-r-md"
-          >
-            전송
-          </button>
-        </div>
-      </div>
 
-      {/* 준비 버튼 - 상태에 따라 텍스트와 색상 변경 */}
-      {!isOwner && (
-        <button
-          onClick={handleReady}
-          className={`mt-4 px-6 py-2 ${isReady
-            ? 'bg-green-500 hover:bg-green-600'
-            : 'bg-yellow-500 hover:bg-yellow-600'
-            } text-white rounded-lg shadow transition-all`}
-        >
-          {isReady ? '준비완료' : '준비하기'}
-        </button>
-      )}
-    </div>
+      </div>
+    </>
   )
 }
 
