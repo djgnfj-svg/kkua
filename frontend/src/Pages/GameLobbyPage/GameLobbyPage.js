@@ -39,15 +39,15 @@ function GameLobbyPage() {
         if (!uuid || uuid !== guestUuid) {
           console.log("UUID 불일치, 스토어 업데이트");
           guestStore.getState().setGuestInfo({
-            ...guestStore.getState(),
-            uuid: guestUuid
+            uuid: guestUuid,
+            guest_uuid: guestUuid // Swagger indicates both may be used
           });
         }
 
         // userIsTrue 호출
         const result = await userIsTrue();
         if (!result) {
-          alert("어멋 어딜들어오세요 Get Out !");
+          alert("비정상적인 접근입니다. 홈페이지로 이동합니다.");
           navigate("/");
           return;
         }
@@ -58,6 +58,7 @@ function GameLobbyPage() {
 
           guestStore.getState().setGuestInfo({
             uuid: response.data.uuid,
+            guest_uuid: response.data.uuid,
             nickname: response.data.nickname,
             guest_id: response.data.guest_id
           });

@@ -7,10 +7,15 @@ const guestStore = create(
     (set) => ({
       uuid: null,
       nickname: null,
-      guest_id: null,
+      guest_uuid: null,
       setGuestInfo: (guestInfo) => {
         console.log("guestStore setGuestInfo 호출:", guestInfo);
-        set(guestInfo);
+        set((state) => ({
+          uuid: guestInfo.uuid ?? state.uuid,
+          guest_id: guestInfo.guest_id ?? state.guest_id,
+          nickname: guestInfo.nickname ?? state.nickname,
+          guest_uuid: guestInfo.guest_uuid ?? state.guest_uuid
+        }));
       },
       clearGuestInfo: () => {
         console.log("guestStore clearGuestInfo 호출");

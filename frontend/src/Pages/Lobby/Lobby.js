@@ -36,7 +36,6 @@ function Lobby() {
       // 쿠키에서 UUID 가져오기
       const guestUuid = Cookies.get('kkua_guest_uuid');
 
-
       // 쿠키에 UUID가 있으면 로그인 시도
       if (guestUuid) {
         try {
@@ -107,6 +106,8 @@ function Lobby() {
   }
   // uuid가 변경될 때마다 상태 확인 로직 실행되도록 의존성 추가
   useEffect(() => {
+    if (!uuid) return;
+
     const fetchGuestStatus = async () => {
       // 유효한 UUID가 있을 때만 API 호출
       const guestUuid = Cookies.get('kkua_guest_uuid');
@@ -114,7 +115,7 @@ function Lobby() {
         try {
           const res = await axiosInstance.get(USER_API.GET_GUEST_STATUS, {
             headers: {
-              'uuid': guestUuid
+              'guest_uuid_str': guestUuid
             }
           });
           const roomId = res?.data?.room_id;
@@ -259,7 +260,7 @@ function Lobby() {
           </button>
         </div>
         {/* 방 목록 */}
-        {roomsData.length === 0 || roomsData[0].title === "" ? (
+        {roomsData.length === 0 || !roomsData[0] || roomsData[0].title === "" ? (
           <>
             <div className="flex items-center justify-center bg-white min-h-[20vh] border rounded-md mx-4 mt-6 mb-2 shadow-md">
               <p className="text-gray-500 text-center text-lg">방을 생성해주세요.</p>
