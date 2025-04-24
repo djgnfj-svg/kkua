@@ -9,12 +9,9 @@ import useGameRoomSocket from '../../hooks/useGameRoomSocket';
 
 function GameLobbyPage() {
   const { roomId } = useParams();
-  const [roomsData, setRoomsData] = useState({
-    title: "",
-    game_mode: "",
-    max_players: 0
-  });
-  const [userInfo, setUserInfo] = useState([]);
+  const [roomInfo, setRoomInfo] = useState(null);
+  const [participants, setParticipants] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isOwner, setIsOwner] = useState(false);
   const [redirectingToGame, setRedirectingToGame] = useState(false);
   const [hasShownAlert, setHasShownAlert] = useState(false);
@@ -78,24 +75,23 @@ function GameLobbyPage() {
   /* 참가자 정보 */
   const fetchParticipants = async () => {
     try {
-      const response = await axiosInstance.get(ROOM_API.get_ROOMSUSER(roomId));
+      setIsLoading(true);
+      const response = await axiosInstance.get(`/gamerooms/${roomId}`);
+      console.log("방 정보 API 응답:", response.data);
 
-      // 응답 형식 로깅
-      console.log("참가자 API 응답:", response.data);
-
-      // 새로운 응답 구조 처리
+      // API 응답 구조 처리
       if (response.data) {
-        // 참가자 정보 설정 (participants 배열)
-        if (response.data.participants && Array.isArray(response.data.participants)) {
-          setUserInfo(response.data.participants);
+        // room 객체 저장
+        if (response.data.room) {
+          setRoomInfo(response.data.room);
         } else {
-          console.error("참가자 정보가 올바른 형식이 아닙니다:", response.data);
-          setUserInfo([]);
+          // 직접 객체가 room 정보인 경우 (이전 API 호환)
+          setRoomInfo(response.data);
         }
 
-        // 방 정보 설정 (room_info 객체)
-        if (response.data.room_info) {
-          setRoomsData(response.data.room_info);
+        // participants 배열 저장
+        if (response.data.participants && Array.isArray(response.data.participants)) {
+          setParticipants(response.data.participants);
         }
       }
     } catch (error) {
@@ -108,43 +104,75 @@ function GameLobbyPage() {
   };
 
   /* 방장 확인 */
-  const checkIfOwner = async () => {
-    try {
-      const response = await axiosInstance.get(`/gamerooms/${roomId}/is-owner`);
-      console.log("방장 확인 응답:", response.data);
+  const checkIfOwnerFromParticipants = () => {
+    // 현재 사용자의 guest_id 가져오기
+    const { guest_id } = guestStore.getState();
 
-      if (response.data.is_owner) {
-        console.log("✅ 방장 확인: 현재 사용자는 방장입니다!");
-        setIsOwner(true);
-      } else {
-        console.log("❌ 방장 확인: 현재 사용자는 방장이 아닙니다.");
-        setIsOwner(false);
-      }
-    } catch (error) {
-      console.error("방장 여부 확인 실패:", error);
-      setIsOwner(false);
-    }
+    // 참가자 목록에서 현재 사용자가 방장인지 확인
+    const currentUser = participants.find(p => p.guest_id === guest_id);
+    return currentUser?.is_creator === true;
   };
 
   useEffect(() => {
-    fetchParticipants();
-    checkIfOwner(); // 방장 여부 확인 추가
-    // 30초마다 참가자 정보 갱신
-    const interval = setInterval(fetchParticipants, 30000);
+    fetchRoomData();
+
+    // 주기적으로 방 정보 갱신 (옵션)
+    const interval = setInterval(fetchRoomData, 30000);
     return () => clearInterval(interval);
   }, [roomId]);
 
-  /* LEAVE ROOM */
-  const handleClickExit = async () => {
+  // 방장 여부 확인 useEffect - fetchRoomData에서 가져온 데이터 사용
+  useEffect(() => {
+    // 참가자 정보로 방장 여부 확인
+    const isOwnerFromParticipants = checkIfOwnerFromParticipants();
+    if (isOwnerFromParticipants !== undefined) {
+      setIsOwner(isOwnerFromParticipants);
+      return;
+    }
+
+    // 기존 API 호출 방식으로 확인 (백업)
+    const checkIfOwner = async () => {
+      try {
+        const response = await axiosInstance.get(`/gamerooms/${roomId}/is-owner`);
+        console.log("방장 확인 응답:", response.data);
+
+        if (response.data.is_owner) {
+          console.log("✅ 방장 확인: 현재 사용자는 방장입니다!");
+          setIsOwner(true);
+        } else {
+          console.log("❌ 방장 확인: 현재 사용자는 방장이 아닙니다.");
+          setIsOwner(false);
+        }
+      } catch (error) {
+        console.error("방장 여부 확인 실패:", error);
+        setIsOwner(false);
+      }
+    };
+
+    checkIfOwner();
+  }, [roomId, participants]);
+
+  /* Exit from Room BTN */
+  const handleClickExit = () => {
+    const lobbyUrl = "/lobby";
+    
     if (isOwner) {
-      let confirmDelete = window.confirm("방을 삭제 하시겟습니까?")
+      let confirmDelete = window.confirm("정말로 방을 삭제하시겠습니까?");
       if (confirmDelete) {
         try {
-          await axiosInstance.delete(ROOM_API.DELET_ROOMSID(roomId))
-          navigate(lobbyUrl)
+          // 방 삭제 API 직접 호출
+          axiosInstance.delete(ROOM_API.DELET_ROOMSID(roomId))
+            .then(() => {
+              alert("방이 삭제되었습니다.");
+              navigate(lobbyUrl);
+            })
+            .catch((error) => {
+              alert("당신은 나갈수 없어요. 끄아지옥 ON....");
+              console.log(error);
+            });
         } catch (error) {
           alert("당신은 나갈수 없어요. 끄아지옥 ON.... Create User");
-          console.log(error)
+          console.log(error);
         }
       }
     } else {
@@ -155,19 +183,24 @@ function GameLobbyPage() {
           const { uuid } = guestStore.getState();
 
           // 요청 본문에 게스트 UUID 추가
-          await axiosInstance.post(ROOM_API.LEAVE_ROOMS(roomId), {
+          axiosInstance.post(ROOM_API.LEAVE_ROOMS(roomId), {
             guest_uuid: uuid
+          })
+          .then(() => {
+            alert("방에서 나갑니다!");
+            navigate(lobbyUrl);
+          })
+          .catch((error) => {
+            console.error("방 나가기 실패:", error);
+            alert("당신은 나갈수 없어요. 끄아지옥 ON....");
           });
-
-          alert("방에서 나갑니다!");
-          navigate(lobbyUrl);
         } catch (error) {
           console.error("방 나가기 실패:", error);
           alert("당신은 나갈수 없어요. 끄아지옥 ON....");
         }
       }
     }
-  }
+  };
 
   /* Start BTN */
   const handleClickStartBtn = async (id) => {
@@ -192,18 +225,20 @@ function GameLobbyPage() {
     }
   }
 
-  /* 웹소켓 연결 사용 */
+  /* 웹소켓 연결 사용 부분 개선 */
   const {
     connected,
     messages,
-    participants,
+    participants: socketParticipants,
     gameStatus,
     isReady,
     sendMessage,
     toggleReady,
     updateStatus,
     roomUpdated,
-    setRoomUpdated
+    setRoomUpdated,
+    connect, // 연결 메서드 추가
+    disconnect // 연결 종료 메서드 추가
   } = useGameRoomSocket(roomId);
 
   /* 채팅 메시지 상태 및 핸들러 추가 */
@@ -278,13 +313,42 @@ function GameLobbyPage() {
     return () => window.removeEventListener("participantStatusUpdated", handleParticipantUpdate);
   }, []);
 
-  // 더 확실한 방법으로, 방 상태 업데이트 웹소켓 메시지를 추가로 처리하기 위해
-  // useGameRoomSocket 훅 수정 후, 해당 훅에서 다음 효과를 추가
+    // 연결이 안 되어 있으면 명시적으로 연결 시도
+    if (!connected && connect) {
+      console.log("웹소켓 연결 시도...");
+      connect();
+    }
+
+    // 컴포넌트 언마운트 시 연결 종료
+    return () => {
+      console.log("컴포넌트 언마운트: 웹소켓 연결 종료");
+      if (disconnect) disconnect();
+    };
+  }, [connected, connect, disconnect]);
+
+  // 웹소켓 참가자 정보와 API 참가자 정보 동기화
   useEffect(() => {
-    // roomUpdated가 true이면 참가자 정보를 다시 가져옴
+    if (connected && socketParticipants && socketParticipants.length > 0) {
+      console.log("소켓에서 받은 참가자 정보:", socketParticipants);
+      setParticipants(socketParticipants);
+    }
+  }, [connected, socketParticipants]);
+
+  // 게임 상태 변경 시 처리 (playing으로 변경되면 게임 페이지로 이동)
+  useEffect(() => {
+    console.log("현재 게임 상태:", gameStatus);
+    if (gameStatus === 'playing') {
+      console.log("게임 상태가 'playing'으로 변경됨 -> 게임 페이지로 이동");
+      navigate(gameUrl(roomId));
+    }
+  }, [gameStatus, roomId, navigate]);
+
+  // roomUpdated 이벤트 처리 수정
+  useEffect(() => {
+    // roomUpdated가 true이면 방 정보를 다시 가져옴
     if (roomUpdated) {
-      console.log('방 업데이트 트리거 감지, 참가자 정보 새로고침');
-      fetchParticipants();
+      console.log('방 업데이트 트리거 감지, 방 정보 새로고침');
+      fetchRoomData();
       // 정보를 가져온 후 상태 초기화
       setRoomUpdated(false);
     }

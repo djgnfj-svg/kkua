@@ -182,21 +182,29 @@ class GameroomActionsService:
         if is_creator:
             print(f"방장(게스트ID={guest.guest_id})이 나가서 게임룸(ID={room_id})을 삭제합니다.")
             
-            # 방 상태 업데이트 (DELETED)
-            room.status = GameStatus.DELETED.value if isinstance(GameStatus.DELETED.value, str) else GameStatus.DELETED
+            # 방 상태 업데이트 (FINISHED)
+            room.status = GameStatus.FINISHED.value if isinstance(room.status, str) else GameStatus.FINISHED
             room.updated_at = current_time
             self.repository.db.commit()
-            print(f"게임룸 상태 업데이트 완료: status=DELETED")
+            print(f"게임룸 상태 업데이트 완료: status=FINISHED")
             
             # 남은 참가자들을 강제 퇴장 처리
-            self.repository.update_all_participants_left(room_id, current_time)
+            # 방의 모든 참가자 조회
+            active_participants = self.repository.find_room_participants(room_id)
+            for participant in active_participants:
+                if participant.guest_id != guest.guest_id and participant.left_at is None:  # 이미 나간 방장 제외
+                    self.repository.update_participant_left(
+                        participant.participant_id,
+                        current_time,
+                        ParticipantStatus.LEFT.value
+                    )
             print("남은 모든 참가자 퇴장 처리 완료")
             
             # 웹소켓 이벤트 발송 (방 삭제)
             if hasattr(self, 'ws_manager'):
                 asyncio.create_task(self.ws_manager.broadcast_room_update(
                     room_id,
-                    "room_deleted",
+                    "room_FINISHED",
                     {
                         "room_id": room_id,
                         "message": "방장이 퇴장하여 게임룸이 삭제되었습니다."

@@ -157,13 +157,14 @@ async def process_message(
             updated = gameroom_repo.update_participant_status(participant.id, status_enum)
             
             # 상태 변경 알림
+            status_value = updated.status.value if hasattr(updated.status, 'value') else updated.status
             await ws_manager.broadcast_room_update(
                 room_id,
                 "status_changed",
                 {
                     "guest_id": guest.guest_id,
                     "nickname": guest.nickname,
-                    "status": updated.status.value
+                    "status": status_value
                 }
             )
         else:
@@ -205,7 +206,7 @@ async def process_word_chain_message(
             {
                 "guest_id": p.guest.guest_id,
                 "nickname": p.guest.nickname,
-                "status": p.status.value,
+                "status": p.status.value if hasattr(p.status, 'value') else p.status,
                 "is_creator": p.guest.guest_id == p.gameroom.created_by
             }
             for p in participants if p.left_at is None
@@ -371,7 +372,7 @@ async def websocket_endpoint(
             {
                 "guest_id": p.guest.guest_id,
                 "nickname": p.guest.nickname,
-                "status": p.status.value,
+                "status": p.status.value if hasattr(p.status, 'value') else p.status,
                 "is_owner": p.guest.guest_id == p.gameroom.created_by
             }
             for p in participants
