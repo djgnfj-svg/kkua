@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Response, Request, Cookie
 from sqlalchemy.orm import Session
 from typing import Optional
+from config.cookie import GUEST_AUTH_COOKIE, GUEST_UUID_COOKIE
 
 from db.postgres import get_db
 from repositories.guest_repository import GuestRepository
@@ -23,8 +24,8 @@ def guest_login(
     login_data: GuestLoginRequest,
     service: GuestService = Depends(get_guest_service)
 ) -> GuestResponse:
-    # 두 쿠키 모두 확인 (auth가 우선)
-    guest_uuid = request.cookies.get("kkua_guest_auth") or request.cookies.get("kkua_guest_uuid")
+    # 두 쿠키 중 하나 가져오기 (auth가 우선)
+    guest_uuid = request.cookies.get(GUEST_AUTH_COOKIE) or request.cookies.get(GUEST_UUID_COOKIE)
     nickname = login_data.nickname
     device_info = login_data.device_info or request.headers.get("User-Agent", "")
     
