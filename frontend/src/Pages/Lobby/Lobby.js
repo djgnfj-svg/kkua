@@ -28,7 +28,7 @@ function Lobby() {
   const [isLoading, setIsLoading] = useState(false);
   const [isEntering, setIsEntering] = useState(false);
 
-  const { uuid, nickname } = guestStore.getState();
+  const { uuid, nickname,guest_id } = guestStore.getState();
 
   // 페이지 로드 시 게스트 정보 확인
   useEffect(() => {

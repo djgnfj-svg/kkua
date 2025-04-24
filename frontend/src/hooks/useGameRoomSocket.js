@@ -136,11 +136,12 @@ export default function useGameRoomSocket(roomId) {
     // 메시지 전송 함수
     const sendMessage = (message) => {
         if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-          const { guest_id } = guestStore.getState();
+          const { guest_id, nickname } = guestStore.getState();
           const messageData = {
             type: 'chat',
             message: message,
             guest_id: guest_id,
+            nickname: nickname,
             timestamp: new Date().toISOString(),
             message_id: `${guest_id}-${Date.now()}`
           };
@@ -156,6 +157,7 @@ export default function useGameRoomSocket(roomId) {
             socketRef.current.send(JSON.stringify({
                 type: 'toggle_ready'
             }));
+            console.log("레디는 하였으나 레디될수없다")
         } else {
             console.error("웹소켓이 연결되지 않았습니다");
         }
