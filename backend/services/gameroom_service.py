@@ -17,7 +17,7 @@ from schemas.gameroom_schema import (
 from schemas.gameroom_actions_schema import JoinGameroomResponse, GameroomDetailResponse
 from ws_manager.connection_manager import ConnectionManager
 from repositories.guest_repository import GuestRepository
-from actions.gameroom_actions import GameroomActions
+from repositories.gameroom_actions import GameroomActions
 
 # 웹소켓 연결 관리자
 ws_manager = ConnectionManager()
