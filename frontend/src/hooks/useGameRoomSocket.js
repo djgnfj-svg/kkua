@@ -86,11 +86,12 @@ export default function useGameRoomSocket(roomId) {
                     setGameStatus(data.status);
                 } else if (data.type === 'ready_status_changed') {
                     // 준비 상태 변경 처리
-                    console.log('준비 상태 변경 메시지:', data);
+                    console.log("🔥 준비 상태 변경 수신:", data);
 
                     // 현재 사용자의 준비 상태인 경우 상태 업데이트
                     const { guest_id } = guestStore.getState();
-                    if (data.guest_id === guest_id) {
+                    if (String(data.guest_id) === String(guest_id)) {
+                        console.log("📌 내 준비 상태 업데이트:", data.is_ready);
                         setIsReady(data.is_ready);
                     }
                     // 참가자 목록에서 해당 참가자의 is_ready 상태를 업데이트
@@ -175,6 +176,11 @@ export default function useGameRoomSocket(roomId) {
         }
     };
 
+    // isReady 상태 디버깅용 useEffect 추가
+    useEffect(() => {
+        console.log("🟢 현재 isReady 상태:", isReady);
+    }, [isReady]);
+
     return {
         connected,
         messages,
@@ -187,4 +193,4 @@ export default function useGameRoomSocket(roomId) {
         roomUpdated,
         setRoomUpdated
     };
-} 
+}

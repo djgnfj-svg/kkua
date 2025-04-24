@@ -75,11 +75,12 @@ function Lobby() {
 
       // API 응답 구조 확인 - rooms 배열에 접근
       if (res.data && Array.isArray(res.data.rooms)) {
-        setRoomsData(res.data.rooms);
+        setRoomsData(res.data.rooms.filter(room => room.status !== "finished"));
       } else {
         console.error("API 응답 형식이 예상과 다릅니다:", res.data);
         setRoomsData([]);
       }
+      console.log(res.data)
     } catch (error) {
       console.log("방 요청 실패 " + error);
       setRoomsData([]);
