@@ -9,12 +9,9 @@ import useGameRoomSocket from '../../hooks/useGameRoomSocket';
 
 function GameLobbyPage() {
   const { roomId } = useParams();
-  const [roomsData, setRoomsData] = useState({
-    title: "",
-    game_mode: "",
-    max_players: 0
-  });
-  const [userInfo, setUserInfo] = useState([]);
+  const [roomInfo, setRoomInfo] = useState(null);
+  const [participants, setParticipants] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isOwner, setIsOwner] = useState(false);
   const [redirectingToGame, setRedirectingToGame] = useState(false);
   const navigate = useNavigate();
@@ -70,73 +67,104 @@ function GameLobbyPage() {
   }, [navigate]);
 
   /* USER INFO */
-  const fetchParticipants = async () => {
+  const fetchRoomData = async () => {
     try {
-      const response = await axiosInstance.get(ROOM_API.get_ROOMSUSER(roomId));
+      setIsLoading(true);
+      const response = await axiosInstance.get(`/gamerooms/${roomId}`);
+      console.log("방 정보 API 응답:", response.data);
 
-      // 응답 형식 로깅
-      console.log("참가자 API 응답:", response.data);
-
-      // 새로운 응답 구조 처리
+      // API 응답 구조 처리
       if (response.data) {
-        // 참가자 정보 설정 (participants 배열)
-        if (response.data.participants && Array.isArray(response.data.participants)) {
-          setUserInfo(response.data.participants);
+        // room 객체 저장
+        if (response.data.room) {
+          setRoomInfo(response.data.room);
         } else {
-          console.error("참가자 정보가 올바른 형식이 아닙니다:", response.data);
-          setUserInfo([]);
+          // 직접 객체가 room 정보인 경우 (이전 API 호환)
+          setRoomInfo(response.data);
         }
 
-        // 방 정보 설정 (room_info 객체)
-        if (response.data.room_info) {
-          setRoomsData(response.data.room_info);
+        // participants 배열 저장
+        if (response.data.participants && Array.isArray(response.data.participants)) {
+          setParticipants(response.data.participants);
         }
       }
     } catch (error) {
-      console.error("참가자 정보 가져오기 실패:", error);
-      // 오류 발생 시 빈 배열로 설정하여 UI 에러 방지
-      setUserInfo([]);
+      console.error("방 정보 가져오기 실패:", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   /* 방장 확인 */
-  const checkIfOwner = async () => {
-    try {
-      const response = await axiosInstance.get(`/gamerooms/${roomId}/is-owner`);
-      console.log("방장 확인 응답:", response.data);
+  const checkIfOwnerFromParticipants = () => {
+    // 현재 사용자의 guest_id 가져오기
+    const { guest_id } = guestStore.getState();
 
-      if (response.data.is_owner) {
-        console.log("✅ 방장 확인: 현재 사용자는 방장입니다!");
-        setIsOwner(true);
-      } else {
-        console.log("❌ 방장 확인: 현재 사용자는 방장이 아닙니다.");
-        setIsOwner(false);
-      }
-    } catch (error) {
-      console.error("방장 여부 확인 실패:", error);
-      setIsOwner(false);
-    }
+    // 참가자 목록에서 현재 사용자가 방장인지 확인
+    const currentUser = participants.find(p => p.guest_id === guest_id);
+    return currentUser?.is_creator === true;
   };
 
   useEffect(() => {
-    fetchParticipants();
-    checkIfOwner(); // 방장 여부 확인 추가
-    // 30초마다 참가자 정보 갱신
-    const interval = setInterval(fetchParticipants, 30000);
+    fetchRoomData();
+
+    // 주기적으로 방 정보 갱신 (옵션)
+    const interval = setInterval(fetchRoomData, 30000);
     return () => clearInterval(interval);
   }, [roomId]);
 
-  /* LEAVE ROOM */
-  const handleClickExit = async () => {
+  // 방장 여부 확인 useEffect - fetchRoomData에서 가져온 데이터 사용
+  useEffect(() => {
+    // 참가자 정보로 방장 여부 확인
+    const isOwnerFromParticipants = checkIfOwnerFromParticipants();
+    if (isOwnerFromParticipants !== undefined) {
+      setIsOwner(isOwnerFromParticipants);
+      return;
+    }
+
+    // 기존 API 호출 방식으로 확인 (백업)
+    const checkIfOwner = async () => {
+      try {
+        const response = await axiosInstance.get(`/gamerooms/${roomId}/is-owner`);
+        console.log("방장 확인 응답:", response.data);
+
+        if (response.data.is_owner) {
+          console.log("✅ 방장 확인: 현재 사용자는 방장입니다!");
+          setIsOwner(true);
+        } else {
+          console.log("❌ 방장 확인: 현재 사용자는 방장이 아닙니다.");
+          setIsOwner(false);
+        }
+      } catch (error) {
+        console.error("방장 여부 확인 실패:", error);
+        setIsOwner(false);
+      }
+    };
+
+    checkIfOwner();
+  }, [roomId, participants]);
+
+  /* Exit from Room BTN */
+  const handleClickExit = () => {
+    const lobbyUrl = "/lobby";
+    
     if (isOwner) {
-      let confirmDelete = window.confirm("방을 삭제 하시겟습니까?")
+      let confirmDelete = window.confirm("정말로 방을 삭제하시겠습니까?");
       if (confirmDelete) {
         try {
-          await axiosInstance.delete(ROOM_API.DELET_ROOMSID(roomId))
-          navigate(lobbyUrl)
+          // 방 삭제 API 직접 호출
+          axiosInstance.delete(ROOM_API.DELET_ROOMSID(roomId))
+            .then(() => {
+              alert("방이 삭제되었습니다.");
+              navigate(lobbyUrl);
+            })
+            .catch((error) => {
+              alert("당신은 나갈수 없어요. 끄아지옥 ON....");
+              console.log(error);
+            });
         } catch (error) {
           alert("당신은 나갈수 없어요. 끄아지옥 ON.... Create User");
-          console.log(error)
+          console.log(error);
         }
       }
     } else {
@@ -147,19 +175,24 @@ function GameLobbyPage() {
           const { uuid } = guestStore.getState();
 
           // 요청 본문에 게스트 UUID 추가
-          await axiosInstance.post(ROOM_API.LEAVE_ROOMS(roomId), {
+          axiosInstance.post(ROOM_API.LEAVE_ROOMS(roomId), {
             guest_uuid: uuid
+          })
+          .then(() => {
+            alert("방에서 나갑니다!");
+            navigate(lobbyUrl);
+          })
+          .catch((error) => {
+            console.error("방 나가기 실패:", error);
+            alert("당신은 나갈수 없어요. 끄아지옥 ON....");
           });
-
-          alert("방에서 나갑니다!");
-          navigate(lobbyUrl);
         } catch (error) {
           console.error("방 나가기 실패:", error);
           alert("당신은 나갈수 없어요. 끄아지옥 ON....");
         }
       }
     }
-  }
+  };
 
   /* Start BTN */
   const handleClickStartBtn = async (id) => {
@@ -184,18 +217,20 @@ function GameLobbyPage() {
     }
   }
 
-  /* 웹소켓 연결 사용 */
+  /* 웹소켓 연결 사용 부분 개선 */
   const {
     connected,
     messages,
-    participants,
+    participants: socketParticipants,
     gameStatus,
     isReady,
     sendMessage,
     toggleReady,
     updateStatus,
     roomUpdated,
-    setRoomUpdated
+    setRoomUpdated,
+    connect, // 연결 메서드 추가
+    disconnect // 연결 종료 메서드 추가
   } = useGameRoomSocket(roomId);
 
   /* 채팅 메시지 상태 및 핸들러 추가 */
@@ -281,31 +316,84 @@ function GameLobbyPage() {
     checkUuidConsistency();
   }, [navigate]);
 
-  // 웹소켓 관련 useEffect 수정/추가
+  // 웹소켓 연결 상태 모니터링 및 재연결 로직 추가
   useEffect(() => {
-    // participants나 connected 상태가 변경될 때 API 다시 호출
-    if (connected) {
-      console.log("웹소켓 연결 상태 변경 또는 참가자 목록 업데이트. 참가자 정보 새로고침");
-      fetchParticipants();
-    }
-  }, [connected, participants]);
+    console.log("웹소켓 연결 상태:", connected ? "연결됨" : "연결 안됨");
 
-  // 더 확실한 방법으로, 방 상태 업데이트 웹소켓 메시지를 추가로 처리하기 위해
-  // useGameRoomSocket 훅 수정 후, 해당 훅에서 다음 효과를 추가
+    // 연결이 안 되어 있으면 명시적으로 연결 시도
+    if (!connected && connect) {
+      console.log("웹소켓 연결 시도...");
+      connect();
+    }
+
+    // 컴포넌트 언마운트 시 연결 종료
+    return () => {
+      console.log("컴포넌트 언마운트: 웹소켓 연결 종료");
+      if (disconnect) disconnect();
+    };
+  }, [connected, connect, disconnect]);
+
+  // 웹소켓 참가자 정보와 API 참가자 정보 동기화
   useEffect(() => {
-    // roomUpdated가 true이면 참가자 정보를 다시 가져옴
+    if (connected && socketParticipants && socketParticipants.length > 0) {
+      console.log("소켓에서 받은 참가자 정보:", socketParticipants);
+      setParticipants(socketParticipants);
+    }
+  }, [connected, socketParticipants]);
+
+  // 게임 상태 변경 시 처리 (playing으로 변경되면 게임 페이지로 이동)
+  useEffect(() => {
+    console.log("현재 게임 상태:", gameStatus);
+    if (gameStatus === 'playing') {
+      console.log("게임 상태가 'playing'으로 변경됨 -> 게임 페이지로 이동");
+      navigate(gameUrl(roomId));
+    }
+  }, [gameStatus, roomId, navigate]);
+
+  // roomUpdated 이벤트 처리 수정
+  useEffect(() => {
+    // roomUpdated가 true이면 방 정보를 다시 가져옴
     if (roomUpdated) {
-      console.log('방 업데이트 트리거 감지, 참가자 정보 새로고침');
-      fetchParticipants();
+      console.log('방 업데이트 트리거 감지, 방 정보 새로고침');
+      fetchRoomData();
       // 정보를 가져온 후 상태 초기화
       setRoomUpdated(false);
     }
   }, [roomUpdated]);
+
+  // 추가: 주기적으로 웹소켓 연결 상태 확인
+  useEffect(() => {
+    const checkWebSocketConnection = () => {
+      console.log("웹소켓 연결 상태 주기적 확인:", connected ? "연결됨" : "연결 안됨");
+
+      // 연결이 끊어진 경우 재연결 시도
+      if (!connected && connect) {
+        console.log("웹소켓 연결 끊김 감지, 재연결 시도...");
+        connect();
+      }
+    };
+
+    // 10초마다 연결 상태 확인
+    const intervalId = setInterval(checkWebSocketConnection, 10000);
+
+    return () => clearInterval(intervalId);
+  }, [connected, connect]);
+
   if (redirectingToGame) {
     return (
       <div className="w-full h-screen flex items-center justify-center bg-white">
         <div className="text-center text-2xl font-extrabold text-red-600 animate-pulse leading-relaxed">
           게임을 이미 시작하셨습니다.<br />게임페이지로 이동 중입니다...
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="w-full h-screen flex items-center justify-center bg-white">
+        <div className="text-center text-2xl font-bold animate-pulse">
+          로딩 중...
         </div>
       </div>
     );
@@ -332,17 +420,19 @@ function GameLobbyPage() {
 
       {/* Title */}
       <div className="text-center mb-5">
-        <div className="font-bold text-lg">{roomsData.title}</div>
+        <div className="font-bold text-lg">
+          {roomInfo?.title || "로딩 중..."}
+        </div>
         <div className="font-bold text-base">
-          {roomsData?.game_mode} [{roomsData?.participant_count} / {roomsData?.max_players}]
+          {roomInfo?.game_mode || "표준"} [{participants.length} / {roomInfo?.max_players || 8}]
         </div>
       </div>
 
       {/* Players */}
       <div className="flex flex-col gap-5 mb-auto">
-        {(participants.length > 0 ? participants : userInfo)?.map((item, index) => (
+        {participants.map((player, index) => (
           <div
-            key={index}
+            key={player.guest_id || index}
             className="min-w-[100px] h-[160px] px-4 bg-gray-300 rounded-2xl shadow-md flex flex-col items-center justify-center"
           >
             <div className="flex flex-col items-center pt-2">
@@ -350,17 +440,14 @@ function GameLobbyPage() {
 
               {/* 참가자 닉네임 표시 */}
               <div className="font-bold mt-2 mb-1 text-sm">
-                {item.nickname || (item.guest?.nickname) || `게스트_${item.guest_id || index}`}
+                {player.nickname || `게스트_${player.guest_id}`}
               </div>
 
-              {/* 참가자 상태 표시 - 토글 상태 반영 */}
+              {/* 참가자 상태 표시 */}
               <div className="text-xs">
-                {item.status === 'READY' || item.status === 'ready' ||
-                  item.participant?.status === 'ready' ||
-                  (item.is_ready === true) ? (
+                {player.status === 'READY' || player.status === 'ready' ? (
                   <span className="text-green-600">준비완료</span>
-                ) : item.status === 'PLAYING' || item.status === 'playing' ||
-                  item.participant?.status === 'playing' ? (
+                ) : player.status === 'PLAYING' || player.status === 'playing' ? (
                   <span className="text-blue-600">게임중</span>
                 ) : (
                   <span className="text-gray-600">대기중</span>
@@ -368,10 +455,9 @@ function GameLobbyPage() {
               </div>
 
               {/* 방장 표시 */}
-              {(item.is_owner || item.is_creator ||
-                (item.guest && item.guest.guest_id === roomsData.created_by)) && (
-                  <div className="text-xs text-red-500 font-bold mt-1">방장</div>
-                )}
+              {player.is_creator && (
+                <div className="text-xs text-red-500 font-bold mt-1">방장</div>
+              )}
             </div>
           </div>
         ))}
@@ -384,34 +470,33 @@ function GameLobbyPage() {
             <button
               onClick={() => {
                 // 디버깅을 위한 콘솔 로그 추가
-                console.log("참가자 전체 목록:", participants);
+                console.log("참가자 전체 목록:", socketParticipants);
 
                 // 각 참가자별 준비 상태 확인 로그
-                participants.forEach((player, index) => {
+                socketParticipants.forEach((player, index) => {
                   console.log(`참가자 ${index} 정보:`, {
-                    닉네임: player.nickname || (player.guest?.nickname) || `게스트_${player.guest_id || index}`,
-                    방장여부: player.is_owner ? "방장" : "일반 참가자",
-                    준비상태: player.is_owner ? "방장(준비체크 제외)" :
-                      (player.status === 'READY' || player.status === 'ready' || player.is_ready === true ?
+                    닉네임: player.nickname || `게스트_${player.guest_id}`,
+                    방장여부: player.is_creator ? "방장" : "일반 참가자",
+                    준비상태: player.is_creator ? "방장(준비체크 제외)" :
+                      (player.status === 'READY' || player.status === 'ready' ?
                         "준비완료" : "미준비")
                   });
                 });
 
                 // 모든 플레이어가 준비되었는지 확인 (방장 제외)
-                const allNonOwnerPlayersReady = participants.every(player =>
-                  player.is_owner || // 방장은 준비 상태 확인에서 제외
+                const allNonOwnerPlayersReady = socketParticipants.every(player =>
+                  player.is_creator || // 방장은 준비 상태 확인에서 제외
                   player.status === 'READY' ||
-                  player.status === 'ready' ||
-                  player.is_ready === true
+                  player.status === 'ready'
                 );
 
                 console.log("모든 비방장 참가자 준비 완료?", allNonOwnerPlayersReady);
-                console.log("참가자 수:", participants.length);
+                console.log("참가자 수:", socketParticipants.length);
 
-                if (participants.length >= 2 && allNonOwnerPlayersReady) {
+                if (socketParticipants.length >= 2 && allNonOwnerPlayersReady) {
                   console.log("✅ 게임 시작 조건 충족: 게임을 시작합니다");
                   handleClickStartBtn();
-                } else if (participants.length < 2) {
+                } else if (socketParticipants.length < 2) {
                   console.log("❌ 게임 시작 실패: 참가자 수 부족");
                   alert('게임 시작을 위해 최소 2명의 플레이어가 필요합니다.');
                 } else {
@@ -419,14 +504,14 @@ function GameLobbyPage() {
                   alert('모든 플레이어가 준비 상태여야 합니다.');
                 }
               }}
-              className={`px-6 py-2 rounded-lg shadow transition-all font-bold ${participants.length >= 2
+              className={`px-6 py-2 rounded-lg shadow transition-all font-bold ${socketParticipants.length >= 2
                 ? 'bg-blue-600 text-white hover:bg-blue-700'
                 : 'bg-gray-400 text-white cursor-not-allowed'
                 }`}
             >
               게임 시작
             </button>
-            {participants.length < 2 && (
+            {socketParticipants.length < 2 && (
               <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-black text-white text-sm px-4 py-2 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 shadow-md">
                 2인 이상일 때 게임을 시작할 수 있습니다
               </div>

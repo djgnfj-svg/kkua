@@ -71,10 +71,21 @@ function Lobby() {
 
   const fetchRoom = async () => {
     try {
+      setIsLoading(true);
       const res = await axiosInstance.get(ROOM_API.get_ROOMS);
-      setRoomsData(res.data)
+
+      // API 응답 구조 확인 - rooms 배열에 접근
+      if (res.data && Array.isArray(res.data.rooms)) {
+        setRoomsData(res.data.rooms);
+      } else {
+        console.error("API 응답 형식이 예상과 다릅니다:", res.data);
+        setRoomsData([]);
+      }
     } catch (error) {
       console.log("방 요청 실패 " + error);
+      setRoomsData([]);
+    } finally {
+      setIsLoading(false);
     }
   }
 
@@ -259,41 +270,70 @@ function Lobby() {
           </button>
         </div>
         {/* 방 목록 */}
-        {roomsData.length === 0 || roomsData[0].title === "" ? (
-          <>
-            <div className="flex items-center justify-center bg-white min-h-[20vh] border rounded-md mx-4 mt-6 mb-2 shadow-md">
-              <p className="text-gray-500 text-center text-lg">방을 생성해주세요.</p>
-            </div>
-            <div className="flex-1" />
-          </>
-        ) : null}
-        {roomsData.length > 0 && roomsData[0].title !== "" && (
+        {isLoading ? (
+          <div className="flex items-center justify-center bg-white min-h-[20vh] border rounded-md mx-4 mt-6 mb-2 shadow-md">
+            <p className="text-gray-500 text-center text-lg">로딩 중...</p>
+          </div>
+        ) : roomsData.length === 0 ? (
+          <div className="flex items-center justify-center bg-white min-h-[20vh] border rounded-md mx-4 mt-6 mb-2 shadow-md">
+            <p className="text-gray-500 text-center text-lg">방을 생성해주세요.</p>
+          </div>
+        ) : (
           <div className="flex-1 overflow-y-auto text-left space-y-4 px-2 md:px-10 md:pt-16 pb-24">
-            {[...roomsData].reverse().map((room, index) => (
-              <div key={index} className="bg-white p-4 md:p-8 min-h-[12vh] md:min-h-[16vh] border-b shadow-md md:shadow-lg flex items-center justify-between">
+            {roomsData.map((room, index) => (
+              <div key={room.room_id || index} className="bg-white p-4 md:p-8 min-h-[12vh] md:min-h-[16vh] border-b shadow-md md:shadow-lg flex items-center justify-between">
                 <div>
-                  <h3 className="font-bold mb-0.5 tracking-widest text-lg md:text-xl">{room.title}</h3>
-                  <p className="text-sm md:text-lg font-bold">{room.game_mode} [ {room.participant_count} / {room.max_players} ]</p>
+                  <h3 className="font-bold mb-0.5 tracking-widest text-lg md:text-xl">{room?.title || '제목 없음'}</h3>
+                  <p className="text-sm md:text-lg font-bold">{room?.game_mode || '알 수 없음'} [ {room?.participant_count || 0} / {room?.max_players || 0} ]</p>
                 </div>
                 {room.status === 'waiting' ? (
-                  room.people === room.max_players ? (
+                  room.participant_count >= room.max_players ? (
                     <button className="text-white px-3 py-1 rounded bg-gray-500 cursor-not-allowed" disabled>
                       인원 초과
                     </button>
                   ) : (
                     <button
                       className="text-white px-3 py-1 rounded bg-red-500 hover:bg-red-600"
-                      onClick={async (e) => {
-                        await fetchRoom(); // 최신 데이터 반영
+                      onClick={async () => {
+                        try {
+                          // 최신 방 데이터 가져오기
+                          const response = await axiosInstance.get(ROOM_API.get_ROOMS);
+                          console.log("방 정보 확인:", response.data);
 
-                        const updatedRoom = (await axiosInstance.get(ROOM_API.get_ROOMS)).data.find(r => r.room_id === room.room_id);
+                          // API 응답 구조 확인
+                          let rooms = [];
+                          if (response.data && Array.isArray(response.data.rooms)) {
+                            rooms = response.data.rooms;
+                          } else if (Array.isArray(response.data)) {
+                            rooms = response.data;
+                          } else {
+                            console.error("예상과 다른 API 응답 형식:", response.data);
+                            alert("방 정보를 가져오는 중 오류가 발생했습니다.");
+                            return;
+                          }
 
-                        if (!updatedRoom || updatedRoom.people === updatedRoom.max_players) {
-                          alert('인원이 초과되었습니다.');
-                          return;
+                          // 현재 방 ID와 일치하는 방 찾기
+                          const updatedRoom = rooms.find(r => r.room_id === room.room_id);
+
+                          // 방이 없거나 인원이 가득 찼는지 확인
+                          if (!updatedRoom) {
+                            alert('존재하지 않는 방입니다.');
+                            await fetchRoom(); // 방 목록 새로고침
+                            return;
+                          }
+
+                          if (updatedRoom.participant_count >= updatedRoom.max_players) {
+                            alert('인원이 초과되었습니다.');
+                            await fetchRoom(); // 방 목록 새로고침
+                            return;
+                          }
+
+                          // 모든 검증 통과 시 입장
+                          handleClickEnterGame(room.room_id);
+                        } catch (error) {
+                          console.error("방 입장 전 검증 실패:", error);
+                          alert("요청 처리 중 오류가 발생했습니다.");
                         }
-
-                        handleClickEnterGame(room.room_id);
                       }}
                     >
                       입장하기
@@ -304,16 +344,9 @@ function Lobby() {
                     끄아 중
                   </button>
                 )}
-              </div >
-            ))
-            }
-            {
-              roomsData.length > 5 && (
-                <div className="bg-white p-4 min-h-[10vh] border-b shadow-md flex items-center justify-between">
-                </div>
-              )
-            }
-          </div >
+              </div>
+            ))}
+          </div>
         )}
 
         {/* 모바일: 방 생성하기 버튼 */}
