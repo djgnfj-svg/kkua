@@ -14,7 +14,13 @@ function GameLobbyPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isOwner, setIsOwner] = useState(false);
   const [redirectingToGame, setRedirectingToGame] = useState(false);
+  const [loadingDelay, setLoadingDelay] = useState(true);
   const navigate = useNavigate();
+  // 최소 로딩 시간 2.5초 타이머
+  useEffect(() => {
+    const timer = setTimeout(() => setLoadingDelay(false), 2500); // 2.5 seconds
+    return () => clearTimeout(timer);
+  }, []);
 
   /* Guest Check */
   useEffect(() => {
@@ -289,7 +295,7 @@ function GameLobbyPage() {
       setTimeout(() => {
         console.log("🕹️ navigate 실행");
         navigate(gameUrl(roomId));
-      }, 500);
+      }, 2500);
     }
   }, [gameStatus, roomId, navigate]);
 
@@ -374,15 +380,15 @@ function GameLobbyPage() {
     }
   }, [connected, socketParticipants]);
 
-  // 게임 상태 변경 시 처리 (playing 상태면 게임 페이지로 500ms 후 이동)
+  // 게임 상태 변경 시 처리 (playing 상태면 게임 페이지로 2.5초 후 이동)
   useEffect(() => {
     console.log("✅ gameStatus 감지됨:", gameStatus);
     if (gameStatus === 'playing') {
-      console.log("게임 상태가 'playing' -> 게임 페이지로 500ms 후 이동 예정");
+      console.log("게임 상태가 'playing' -> 게임 페이지로 2500ms 후 이동 예정");
       setTimeout(() => {
         console.log("🕹️ navigate(game) 실행됨");
         navigate(gameUrl(roomId));
-      }, 500);
+      }, 2500);
     }
   }, [gameStatus, roomId, navigate]);
 
@@ -419,17 +425,17 @@ function GameLobbyPage() {
     return (
       <div className="w-full h-screen flex items-center justify-center bg-white">
         <div className="text-center text-2xl font-extrabold text-red-600 animate-pulse leading-relaxed">
-          게임을 이미 시작하셨습니다.<br />게임페이지로 이동 중입니다...
+          게임을 로딩중입니다 ... <br /><strong>끄아하러가요</strong>
         </div>
       </div>
     );
   }
 
-  if (isLoading) {
+  if (isLoading || loadingDelay) {
     return (
       <div className="w-full h-screen flex items-center justify-center bg-white">
         <div className="text-center text-2xl font-bold animate-pulse">
-          로딩 중...
+          로비로 이동합니다 <br />
         </div>
       </div>
     );
