@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import TopMsgAni from './TopMsg_Ani';
 import Timer from './Timer';
 import msgData from './MsgData';
-import { workingCatImg } from '../../Component/imgUrl';
+import { workingCatImg } from '../../../Component/imgUrl';
 
 function Layout({
   quizMsg, 
@@ -32,11 +32,6 @@ function Layout({
     <div className="w-screen flex justify-center bg-white lg:pb-[100px] px-4">
       <div className="min-h-screen py-4 flex flex-col md:flex-row md:space-x-8 md:justify-center md:items-start w-full max-w-[1920px]">
 
-        {/* 왼쪽 고양이 */}
-        <div className="hidden md:flex flex-col items-start mt-[220px] pl-4 space-y-6 w-[170px] shrink-0">
-          <div className="text-sm font-bold ml-1">ㅋㅋ 그것도 모름?</div>
-          <img src="/imgs/icon/AddIconA.png" alt="고양이" className="w-24 ml-2" />
-        </div>
 
         {/* 중앙 타이핑 영역 */}
       <div className="w-full flex flex-col items-center space-y-4 px-[5%]">
@@ -109,7 +104,7 @@ function Layout({
                 {index === players.length - 1 && (
                   <div className="text-center mt-4">
                     <div className="text-base text-orange-500 font-bold mb-2">내 아이템</div>
-                    <div className="grid grid-cols-2 gap-4 px-2">
+                    <div className="grid grid-cols-2 gap-4 px-4 max-[393px]:grid-cols-1 max-[393px]:place-items-center max-[393px]:gap-3">
                       {[0, 1, 2, 3].map((slot) => (
                         <div
                           key={slot}

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import TopMsgAni from './TopMsg_Ani';
-import useTopMsg from './TopMsg';
-import Layout from './Layout';
-import Timer from './Timer';
+import TopMsgAni from './Section/TopMsg_Ani';
+import useTopMsg from './Section/TopMsg';
+import Layout from './Section/Layout';
+import Timer from './Section/Timer';
 import userIsTrue from '../../Component/userIsTrue';
 import { useNavigate, useParams } from 'react-router-dom';
 import axiosInstance from '../../Api/axiosInstance';
@@ -44,7 +44,6 @@ function InGame() {
   const [timeOver, setTimeOver] = useState(false);
   const [frozenTime, setFrozenTime] = useState(null);
   const [inputTimeLeft, setInputTimeLeft] = useState(12);
-  const [catActive, setCatActive] = useState(true);
 
   const { timeLeft, resetTimer } = Timer(120, () => {
     setMessage('게임종료!');
@@ -109,7 +108,6 @@ function InGame() {
     setTypingText('');
     setPendingItem(null);
     setInputTimeLeft(12);
-    setCatActive(true); // resume cat
   };
 
   useEffect(() => {
@@ -135,7 +133,6 @@ function InGame() {
         setMessage('게임종료!');
         setFrozenTime(timeLeft);
         setRandomQuizWord();
-        setCatActive(false); // 고양이 정지
         resetTimer(); // 상단 타이머 종료
       }, 500); // Wait for gauge and cat animation to visibly finish
     }
@@ -179,8 +176,6 @@ function InGame() {
         time_gauge={time_gauge}
         inputTimeLeft={inputTimeLeft}
         setInputTimeLeft={setInputTimeLeft}
-        catActive={catActive}
-        frozenTime={frozenTime} // add this line
       />
       <div className="fixed bottom-4 left-4 z-50">
         <button
