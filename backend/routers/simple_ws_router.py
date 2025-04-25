@@ -1,7 +1,8 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from typing import Dict, List
+from typing import Dict, List, Optional, Set
 import json
 from datetime import datetime
+import random
 
 router = APIRouter(
     prefix="/simple-ws",
@@ -17,6 +18,14 @@ class SimpleConnectionManager:
         self.user_names: Dict[str, str] = {}
         # 다음 클라이언트 ID
         self.next_client_id = 1
+        
+        # 게임 관련 상태
+        self.game_in_progress = False
+        self.game_players: List[str] = []  # 게임 참여자 client_id 목록
+        self.current_player_index = 0  # 현재 차례 인덱스
+        self.current_word: Optional[str] = None  # 현재 단어
+        self.used_words: Set[str] = set()  # 사용된 단어들
+        self.game_turn_timeout = None  # 턴 타임아웃 추적용
     
     def generate_client_id(self) -> str:
         """새 클라이언트 ID 생성"""
@@ -83,6 +92,89 @@ class SimpleConnectionManager:
             {"client_id": client_id, "username": self.get_username(client_id)}
             for client_id in self.active_connections.keys()
         ]
+    
+    async def start_game(self):
+        """끝말잇기 게임 시작"""
+        if self.game_in_progress:
+            return False, "게임이 이미 진행 중입니다."
+            
+        # 최소 2명 이상의 플레이어가 필요
+        if len(self.active_connections) < 2:
+            return False, "게임을 시작하려면 최소 2명 이상의 플레이어가 필요합니다."
+            
+        # 게임 상태 초기화
+        self.game_in_progress = True
+        self.game_players = list(self.active_connections.keys())
+        random.shuffle(self.game_players)  # 플레이어 순서 랜덤화
+        self.current_player_index = 0
+        self.current_word = None
+        self.used_words.clear()
+        
+        return True, "게임이 시작되었습니다."
+    
+    def end_game(self, reason: str = "게임 종료"):
+        """끝말잇기 게임 종료"""
+        self.game_in_progress = False
+        self.game_players = []
+        self.current_word = None
+        return reason
+    
+    def get_current_player(self) -> Optional[str]:
+        """현재 차례인 플레이어의 client_id 반환"""
+        if not self.game_in_progress or not self.game_players:
+            return None
+        return self.game_players[self.current_player_index]
+    
+    def next_player_turn(self) -> str:
+        """다음 플레이어로 턴 넘기기"""
+        if not self.game_in_progress or not self.game_players:
+            return None
+            
+        self.current_player_index = (self.current_player_index + 1) % len(self.game_players)
+        return self.game_players[self.current_player_index]
+    
+    def validate_word(self, word: str) -> tuple[bool, str]:
+        """단어 유효성 검증"""
+        # 이미 사용된 단어인지 확인
+        if word in self.used_words:
+            return False, "이미 사용된 단어입니다."
+            
+        # 첫 단어는 항상 유효
+        if self.current_word is None:
+            self.current_word = word
+            self.used_words.add(word)
+            return True, "첫 단어가 등록되었습니다."
+            
+        # 끝말잇기 규칙 검증: 이전 단어의 마지막 글자로 시작하는지
+        if self.current_word[-1] != word[0]:
+            return False, f"'{self.current_word}'의 마지막 글자 '{self.current_word[-1]}'로 시작하는 단어여야 합니다."
+            
+        # 유효한 단어
+        self.current_word = word
+        self.used_words.add(word)
+        return True, "단어가 승인되었습니다."
+    
+    def get_game_status(self) -> dict:
+        """현재 게임 상태 정보 반환"""
+        if not self.game_in_progress:
+            return {
+                "game_in_progress": False
+            }
+            
+        current_player_id = self.get_current_player()
+        return {
+            "game_in_progress": True,
+            "current_player": {
+                "client_id": current_player_id,
+                "username": self.get_username(current_player_id)
+            },
+            "current_word": self.current_word,
+            "used_words": list(self.used_words),
+            "players": [
+                {"client_id": player_id, "username": self.get_username(player_id)}
+                for player_id in self.game_players
+            ]
+        }
 
 # 연결 관리자 인스턴스 생성
 connection_manager = SimpleConnectionManager()
@@ -155,9 +247,109 @@ async def websocket_endpoint(websocket: WebSocket):
                     "timestamp": datetime.utcnow().isoformat()
                 }, client_id)
                 
+            elif message_type == "start_game":
+                # 게임 시작 처리
+                success, message = await connection_manager.start_game()
+                
+                if success:
+                    # 게임 시작 알림
+                    current_player = connection_manager.get_current_player()
+                    await connection_manager.broadcast({
+                        "type": "game_started",
+                        "message": "끝말잇기 게임이 시작되었습니다!",
+                        "game_status": connection_manager.get_game_status()
+                    })
+                else:
+                    # 게임 시작 실패 알림
+                    await connection_manager.send_personal_message({
+                        "type": "game_error",
+                        "message": message
+                    }, client_id)
+            
+            elif message_type == "submit_word":
+                # 단어 제출 처리
+                if not connection_manager.game_in_progress:
+                    await connection_manager.send_personal_message({
+                        "type": "game_error",
+                        "message": "게임이 진행 중이 아닙니다."
+                    }, client_id)
+                    continue
+                    
+                # 플레이어 턴 확인
+                current_player = connection_manager.get_current_player()
+                if client_id != current_player:
+                    await connection_manager.send_personal_message({
+                        "type": "game_error",
+                        "message": "당신의 차례가 아닙니다."
+                    }, client_id)
+                    continue
+                
+                word = message_data.get("word", "").strip()
+                if not word:
+                    await connection_manager.send_personal_message({
+                        "type": "game_error",
+                        "message": "단어를 입력해주세요."
+                    }, client_id)
+                    continue
+                
+                # 단어 유효성 검증
+                is_valid, reason = connection_manager.validate_word(word)
+                
+                if is_valid:
+                    # 다음 플레이어로 턴 넘기기
+                    next_player = connection_manager.next_player_turn()
+                    
+                    await connection_manager.broadcast({
+                        "type": "word_accepted",
+                        "client_id": client_id,
+                        "username": connection_manager.get_username(client_id),
+                        "word": word,
+                        "message": reason,
+                        "next_player": {
+                            "client_id": next_player,
+                            "username": connection_manager.get_username(next_player)
+                        },
+                        "game_status": connection_manager.get_game_status()
+                    })
+                else:
+                    # 단어 거부 알림
+                    await connection_manager.broadcast({
+                        "type": "word_rejected",
+                        "client_id": client_id,
+                        "username": connection_manager.get_username(client_id),
+                        "word": word,
+                        "reason": reason,
+                        "game_status": connection_manager.get_game_status()
+                    })
+            
+            elif message_type == "end_game":
+                # 게임 종료 처리
+                if connection_manager.game_in_progress:
+                    reason = connection_manager.end_game("게임이 종료되었습니다.")
+                    
+                    await connection_manager.broadcast({
+                        "type": "game_over",
+                        "message": reason,
+                        "requester": {
+                            "client_id": client_id,
+                            "username": connection_manager.get_username(client_id)
+                        }
+                    })
+                
     except WebSocketDisconnect:
         # 연결 종료 처리
         username = connection_manager.get_username(client_id)
+        
+        # 게임 중인 경우 처리
+        if connection_manager.game_in_progress and client_id in connection_manager.game_players:
+            reason = connection_manager.end_game(f"{username}님이 연결을 종료하여 게임이 취소되었습니다.")
+            
+            # 남은 사용자들에게 게임 종료 알림
+            await connection_manager.broadcast({
+                "type": "game_over",
+                "message": reason
+            })
+        
         connection_manager.disconnect(client_id)
         
         # 사용자 퇴장 알림
