@@ -26,9 +26,10 @@ class GameroomRepository:
             
             # 디버깅 로그 추가
             if room:
-                print(f"게임룸 조회: ID={room.room_id}, 제목={room.title}, 상태={room.status}")
+                # print(f"게임룸 조회: ID={room.room_id}, 제목={room.title}, 상태={room.status}")
                 if isinstance(room.status, str):
-                    print(f"상태 타입: 문자열, 값: {room.status}")
+                    # print(f"상태 타입: 문자열, 값: {room.status}")
+                    pass
                 else:
                     print(f"상태 타입: Enum, 값: {room.status.value if hasattr(room.status, 'value') else room.status}")
             else:
@@ -277,9 +278,9 @@ class GameroomRepository:
         # 생성자 ID
         creator_id = gameroom.created_by
         
-        # 참가자 정보 조회 쿼리
+        # 참가자 정보 조회 쿼리 - status 필드 추가
         query = """
-            SELECT gp.guest_id, g.nickname, gp.joined_at
+            SELECT gp.guest_id, g.nickname, gp.joined_at, gp.status
             FROM gameroom_participants gp
             JOIN guests g ON gp.guest_id = g.guest_id
             WHERE gp.room_id = :room_id AND gp.left_at IS NULL
@@ -289,13 +290,14 @@ class GameroomRepository:
         try:
             result = self.db.execute(text(query), {"room_id": room_id}).fetchall()
             
-            # 결과를 딕셔너리 리스트로 변환
+            # 결과를 딕셔너리 리스트로 변환 - status 필드 추가
             participants = [
                 {
                     "guest_id": row[0],
                     "nickname": row[1],
                     "is_creator": (row[0] == creator_id),
-                    "joined_at": row[2]
+                    "joined_at": row[2],
+                    "status": row[3]  # 상태 정보 추가
                 }
                 for row in result
             ]
