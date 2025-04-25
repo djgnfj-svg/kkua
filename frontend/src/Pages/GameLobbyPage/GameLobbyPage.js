@@ -450,7 +450,13 @@ function GameLobbyPage() {
         {participants.map((player, index) => (
           <div
             key={player.guest_id || index}
-            className="w-[200px] h-[240px] bg-white rounded-xl shadow flex flex-col items-center justify-center gap-2 p-4 border"
+            className={`w-[200px] h-[240px] ${
+              player.is_creator
+                ? 'bg-white'
+                : player.status === 'READY' || player.status === 'ready'
+                ? 'bg-[#fff0e0]'
+                : 'bg-gray-100'
+            } rounded-xl shadow flex flex-col items-center justify-center gap-2 p-4 border`}
           >
             <div className="w-[70px] h-[70px] bg-[#fde2e4] rounded-full flex items-center justify-center text-xl font-bold text-gray-700">
               {player.nickname?.charAt(0)?.toUpperCase() || 'G'}
@@ -468,11 +474,9 @@ function GameLobbyPage() {
                     : 'bg-gray-200 text-gray-700'
                 }`}
               >
-                {player.status === 'READY' || player.status === 'ready'
-                  ? '대기중'
-                  : player.status === 'PLAYING' || player.status === 'playing'
-                  ? '게임중'
-                  : '대기중'}
+                {(player.status === 'READY' || player.status === 'ready') && '준비완료'}
+                {(player.status === 'PLAYING' || player.status === 'playing') && '게임중'}
+                {(!player.status || player.status === 'WAITING' || player.status === 'waiting') && '대기중'}
               </div>
             )}
             {player.is_creator && (

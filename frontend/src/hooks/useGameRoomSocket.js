@@ -1,9 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import guestStore from '../store/guestStore';
 
-// 웹소켓 URL
-const GAMEROOM_SOCKET_URL = (roomId, guestId) => `ws://localhost:8000/ws/gamerooms/${roomId}/${guestId}`;
-
 export default function useGameRoomSocket(roomId) {
     const [connected, setConnected] = useState(false);
     const [messages, setMessages] = useState([]);
@@ -38,19 +35,17 @@ export default function useGameRoomSocket(roomId) {
             socket.onmessage = (event) => {
                 const data = JSON.parse(event.data);
                 console.log('소켓 메시지 수신:', data);
-
                 if (data.type === 'chat') {
                   const { guest_id } = guestStore.getState();
                   console.log('내 guest_id:', guest_id);
                   console.log('수신 guest_id:', data.guest_id);
                   console.log('수신 message_id:', data.message_id);
 
-                  const isOwnMessage =
-                    data.guest_id === guest_id || data.message_id?.startsWith(`${guest_id}-`);
+                  const isOwnMessage = false;
 
-                  const alreadyExists = messages.some(
-                    msg => msg.message_id === data.message_id
-                  );
+                  const alreadyExists = data.message_id
+                    ? messages.some(msg => msg.message_id === data.message_id)
+                    : false;
 
                   if (!isOwnMessage && !alreadyExists) {
                     setMessages(prev => [...prev, {
@@ -59,7 +54,7 @@ export default function useGameRoomSocket(roomId) {
                       guest_id: data.guest_id,
                       timestamp: data.timestamp,
                       type: data.type,
-                      message_id: data.message_id
+                      message_id: data.message_id || `${data.guest_id}-${Date.now()}`
                     }]);
                   }
                 } else if (data.type === 'participants_update') {
@@ -179,7 +174,7 @@ export default function useGameRoomSocket(roomId) {
     // isReady 상태 디버깅용 useEffect 추가
     useEffect(() => {
         console.log("🟢 현재 isReady 상태:", isReady);
-    }, [isReady]);
+    }, [isReady, messages]);
 
     return {
         connected,
