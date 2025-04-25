@@ -382,9 +382,7 @@ class GameroomRepository:
     def remove_all_participants(self, room_id: int) -> bool:
         """게임룸의 모든 참가자를 퇴장 처리합니다."""
         try:
-            print(f"게임룸(ID={room_id})의 모든 참가자 퇴장 처리")
-            
-            # 현재 시간 설정
+            print(f"모든 참가자 퇴장 처리: 방ID={room_id}")
             now = datetime.now()
             
             # 모든 활성 참가자 퇴장 처리
@@ -395,20 +393,27 @@ class GameroomRepository:
             
             for participant in participants:
                 participant.left_at = now
-                participant.status = ParticipantStatus.LEFT.value
+                participant.status = ParticipantStatus.LEFT.value if isinstance(ParticipantStatus.LEFT.value, str) else ParticipantStatus.LEFT
+                participant.updated_at = now
+            
+            # 참가자 수 업데이트
+            room = self.find_by_id(room_id)
+            if room:
+                room.participant_count = 0
+                room.updated_at = now
             
             self.db.commit()
-            print(f"{len(participants)}명의 참가자가 퇴장 처리되었습니다.")
+            print(f"모든 참가자 퇴장 처리 완료: 방ID={room_id}, 처리된 참가자 수={len(participants)}")
             return True
         except Exception as e:
             self.db.rollback()
-            print(f"참가자 일괄 퇴장 오류: {str(e)}")
+            print(f"참가자 일괄 퇴장 처리 오류: {str(e)}")
             import traceback
             traceback.print_exc()
             return False
 
     def delete_gameroom(self, room_id: int) -> bool:
-        """게임룸을 삭제합니다. (소프트 삭제 - 상태만 변경)"""
+        """게임룸을 삭제합니다 (상태를 FINISHED로 변경)."""
         try:
             print(f"게임룸 삭제: ID={room_id}")
             
@@ -418,8 +423,9 @@ class GameroomRepository:
                 print(f"게임룸 ID={room_id} 조회 실패")
                 return False
             
-            # 게임룸 상태를 DELETED로 변경
-            room.status = GameStatus.DELETED.value if isinstance(GameStatus.DELETED.value, str) else GameStatus.DELETED
+            # 상태를 FINISHED로 변경 (DELETED가 아닌 FINISHED 사용)
+            room.status = GameStatus.FINISHED.value if isinstance(GameStatus.FINISHED.value, str) else GameStatus.FINISHED
+            room.ended_at = datetime.now()
             room.updated_at = datetime.now()
             
             self.db.commit()
