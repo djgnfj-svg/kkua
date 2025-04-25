@@ -7,3 +7,4 @@ pytest
 httpx
 websockets>=10.0,<11.0
 asyncio
+pytest-asyncio
