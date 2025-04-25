@@ -8,6 +8,7 @@ import { lobbyUrl } from '../../Component/urls';
 import { USER_API } from '../../Api/userApi';
 import Cookies from 'js-cookie';
 import userIsTrue from '../../Component/userIsTrue';
+import guestStore from '../../store/guestStore';
 
 function Loading() {
   console.log("Loading 컴포넌트 렌더링");
@@ -34,6 +35,8 @@ function Loading() {
       });
 
       const data = response.data;
+
+      guestStore.getState().setGuestInfo(data);
 
       alert(`게스트 ${data.nickname}님으로 로그인되었습니다!`);
 
