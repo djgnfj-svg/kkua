@@ -1,12 +1,14 @@
+import React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import guestStore from '../store/guestStore';
+
+export const socketRef = React.createRef();
 
 export default function useGameRoomSocket(roomId) {
     const [connected, setConnected] = useState(false);
     const [messages, setMessages] = useState([]);
     const [participants, setParticipants] = useState([]);
-    const [gameStatus, setGameStatus] = useState('waiting');
-    const socketRef = useRef(null);
+    const [gameStatus, setGameStatus] = useState();
     const [roomUpdated, setRoomUpdated] = useState(false);
     const [isReady, setIsReady] = useState(false);
 
@@ -35,6 +37,7 @@ export default function useGameRoomSocket(roomId) {
             socket.onmessage = (event) => {
                 const data = JSON.parse(event.data);
                 console.log('소켓 메시지 수신:', data);
+                console.log('🧾 [소켓 전체 수신 로그] 받은 데이터:', data);
                 if (data.type === 'chat') {
                   const { guest_id } = guestStore.getState();
                   console.log('내 guest_id:', guest_id);
@@ -57,6 +60,16 @@ export default function useGameRoomSocket(roomId) {
                       message_id: data.message_id || `${data.guest_id}-${Date.now()}`
                     }]);
                   }
+
+                  // Detect word_chain -> start_game in chat message
+                  if (
+                    typeof data.message === 'object' &&
+                    data.message.type === 'word_chain' &&
+                    data.message.action === 'start_game'
+                  ) {
+                    console.log("🎯 word_chain -> start_game 감지됨: 상태 'playing'으로 설정");
+                    setGameStatus('playing');
+                  }
                 } else if (data.type === 'participants_update') {
                     // 참가자 목록 직접 업데이트 (API 호출 없음)
                     console.log('웹소켓으로 참가자 목록 업데이트:', data.participants);
@@ -77,8 +90,36 @@ export default function useGameRoomSocket(roomId) {
                         // 방 업데이트 플래그 설정 - GameLobbyPage에서 감지하도록
                         setRoomUpdated(true);
                     }
-                } else if (data.type === 'game_status') {
-                    setGameStatus(data.status);
+                } else if (data.type === 'status_update' || data.type === 'game_status') {
+                    console.log("✅ status_update 수신 후 처리 시작");
+                    console.log("📥 게임 상태 메시지 수신:", data);
+                    setGameStatus(prev => {
+                        console.log("🔁 이전 상태:", prev, "➡️ 새로운 상태:", data.status);
+                        return data.status;
+                    });
+                    console.log("✅ setGameStatus 실행됨:", data.status);
+                    console.log("📡 [게임 상태 수신] 타입: status_update, 상태:", data.status);
+
+                    if (data.status === 'playing') {
+                        // ✅ 참가자 상태 일괄 업데이트
+                        setParticipants(prev =>
+                            prev.map(p => ({
+                                ...p,
+                                status: 'PLAYING'
+                            }))
+                        );
+                    }
+                } else if (data.type === 'word_chain_started') {
+                    console.log("🎯 끝말잇기 게임 시작 알림 수신");
+                    setGameStatus('playing');
+
+                    // 👉 참가자 상태를 모두 'PLAYING'으로 변경
+                    setParticipants(prev =>
+                      prev.map(p => ({
+                        ...p,
+                        status: 'PLAYING'
+                      }))
+                    );
                 } else if (data.type === 'ready_status_changed') {
                     // 준비 상태 변경 처리
                     console.log("🔥 준비 상태 변경 수신:", data);
@@ -89,9 +130,9 @@ export default function useGameRoomSocket(roomId) {
                         console.log("📌 내 준비 상태 업데이트:", data.is_ready);
                         setIsReady(data.is_ready);
                     }
-                    // 참가자 목록에서 해당 참가자의 is_ready 상태를 업데이트
+                    // 참가자 목록에서 해당 참가자의 status를 업데이트 (is_ready → status: 'READY' | 'WAITING')
                     setParticipants(prev => prev.map(p =>
-                        p.guest_id === data.guest_id ? { ...p, is_ready: data.is_ready } : p
+                        p.guest_id === data.guest_id ? { ...p, status: data.is_ready ? 'READY' : 'WAITING' } : p
                     ));
 
                     // 방 업데이트 플래그 설정 - 참가자 목록 갱신 트리거
@@ -153,7 +194,6 @@ export default function useGameRoomSocket(roomId) {
             socketRef.current.send(JSON.stringify({
                 type: 'toggle_ready'
             }));
-            console.log("레디는 하였으나 레디될수없다")
         } else {
             console.error("웹소켓이 연결되지 않았습니다");
         }
@@ -163,14 +203,13 @@ export default function useGameRoomSocket(roomId) {
     const updateStatus = (status) => {
         if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
             socketRef.current.send(JSON.stringify({
-                type: 'status',
+                action: 'start_game',
                 status
             }));
         } else {
             console.error("웹소켓이 연결되지 않았습니다");
         }
     };
-
     // isReady 상태 디버깅용 useEffect 추가
     useEffect(() => {
         console.log("🟢 현재 isReady 상태:", isReady);

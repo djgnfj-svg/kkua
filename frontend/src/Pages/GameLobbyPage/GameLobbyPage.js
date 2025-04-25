@@ -119,6 +119,7 @@ function GameLobbyPage() {
       console.warn("⚠️ 현재 사용자 정보를 참가자 목록에서 찾을 수 없습니다. guest_id:", guest_id);
     }
     console.log("현재 사용자 정보:", currentUser);
+
     return currentUser?.is_creator === true;
   };
 
@@ -129,7 +130,7 @@ function GameLobbyPage() {
     const interval = setInterval(fetchRoomData, 30000);
     return () => clearInterval(interval);
   }, [roomId]);
-
+  
   // 방장 여부 확인 useEffect - fetchRoomData에서 가져온 데이터 사용
   useEffect(() => {
     // 참가자 정보로 방장 여부 확인
@@ -214,18 +215,20 @@ function GameLobbyPage() {
   /* Start BTN */
   const handleClickStartBtn = async (id) => {
     try {
-      // 여기서 백엔드의 게임 시작 엔드포인트 호출
       const response = await axiosInstance.post(ROOM_API.PLAY_ROOMS(roomId));
-
-      // 응답 로깅하여 디버깅 지원
       console.log("게임 시작 응답:", response.data);
 
-      alert("게임이 시작됩니다!");
-      navigate(gameUrl(roomId));
+      if (sendMessage) {
+        sendMessage({
+          type: 'word_chain',
+          action: 'start_game',
+          first_word: '끝말잇기'
+        });
+        console.log("🔔 start_game 액션 소켓 전송 완료");
+      }
+
     } catch (error) {
       console.error("게임 시작 오류:", error);
-
-      // 오류 메시지 상세하게 표시
       if (error.response && error.response.data && error.response.data.detail) {
         alert(`게임 시작 실패: ${error.response.data.detail}`);
       } else {
@@ -275,12 +278,25 @@ function GameLobbyPage() {
     toggleReady(); // 새로운 toggleReady 함수 사용
   };
 
+
   /* 게임 시작 후 자동 이동 */
   useEffect(() => {
-    if (gameStatus === 'playing') {
-      navigate(gameUrl(roomId));
+    console.log("🧭 gameStatus 변화 감지:", gameStatus);
+
+    if (gameStatus && typeof gameStatus === 'string' && gameStatus.toLowerCase() === 'playing') {
+      console.log("🎮 게임 상태가 'playing'으로 감지됨 -> 게임페이지 이동 준비 중");
+      setRedirectingToGame(true);
+      setTimeout(() => {
+        console.log("🕹️ navigate 실행");
+        navigate(gameUrl(roomId));
+      }, 500);
     }
-  }, [gameStatus, roomId]);
+  }, [gameStatus, roomId, navigate]);
+
+  // socketParticipants 변경 모니터링
+  useEffect(() => {
+    console.log("👥 socketParticipants 변경됨:", socketParticipants);
+  }, [socketParticipants]);
 
   useEffect(() => {
     if (messages.length > 0) {
@@ -346,7 +362,7 @@ function GameLobbyPage() {
     // 컴포넌트 언마운트 시 연결 종료
     return () => {
       console.log("컴포넌트 언마운트: 웹소켓 연결 종료");
-      if (disconnect) disconnect();
+      // if (disconnect) disconnect();
     };
   }, [connected, connect, disconnect]);
 
@@ -358,12 +374,15 @@ function GameLobbyPage() {
     }
   }, [connected, socketParticipants]);
 
-  // 게임 상태 변경 시 처리 (playing으로 변경되면 게임 페이지로 이동)
+  // 게임 상태 변경 시 처리 (playing 상태면 게임 페이지로 500ms 후 이동)
   useEffect(() => {
-    console.log("현재 게임 상태:", gameStatus);
+    console.log("✅ gameStatus 감지됨:", gameStatus);
     if (gameStatus === 'playing') {
-      console.log("게임 상태가 'playing'으로 변경됨 -> 게임 페이지로 이동");
-      navigate(gameUrl(roomId));
+      console.log("게임 상태가 'playing' -> 게임 페이지로 500ms 후 이동 예정");
+      setTimeout(() => {
+        console.log("🕹️ navigate(game) 실행됨");
+        navigate(gameUrl(roomId));
+      }, 500);
     }
   }, [gameStatus, roomId, navigate]);
 
