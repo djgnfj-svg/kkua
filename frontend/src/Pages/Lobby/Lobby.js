@@ -27,14 +27,14 @@ function Lobby() {
   ])
   const [isLoading, setIsLoading] = useState(false);
   const [isEntering, setIsEntering] = useState(false);
-  const { uuid, nickname } = guestStore.getState();
+
+  const { uuid, nickname,guest_id } = guestStore.getState();
 
   // 페이지 로드 시 게스트 정보 확인
   useEffect(() => {
     const checkGuestInfo = async () => {
       // 쿠키에서 UUID 가져오기
       const guestUuid = Cookies.get('kkua_guest_uuid');
-
 
       // 쿠키에 UUID가 있으면 로그인 시도
       if (guestUuid) {
@@ -75,11 +75,12 @@ function Lobby() {
 
       // API 응답 구조 확인 - rooms 배열에 접근
       if (res.data && Array.isArray(res.data.rooms)) {
-        setRoomsData(res.data.rooms);
+        setRoomsData(res.data.rooms.filter(room => room.status !== "finished"));
       } else {
         console.error("API 응답 형식이 예상과 다릅니다:", res.data);
         setRoomsData([]);
       }
+      console.log(res.data)
     } catch (error) {
       console.log("방 요청 실패 " + error);
       setRoomsData([]);
@@ -117,6 +118,8 @@ function Lobby() {
   }
   // uuid가 변경될 때마다 상태 확인 로직 실행되도록 의존성 추가
   useEffect(() => {
+    if (!uuid) return;
+
     const fetchGuestStatus = async () => {
       // 유효한 UUID가 있을 때만 API 호출
       const guestUuid = Cookies.get('kkua_guest_uuid');
@@ -124,7 +127,7 @@ function Lobby() {
         try {
           const res = await axiosInstance.get(USER_API.GET_GUEST_STATUS, {
             headers: {
-              'uuid': guestUuid
+              'guest_uuid_str': guestUuid
             }
           });
           const roomId = res?.data?.room_id;
@@ -269,15 +272,15 @@ function Lobby() {
           </button>
         </div>
         {/* 방 목록 */}
-        {isLoading ? (
-          <div className="flex items-center justify-center bg-white min-h-[20vh] border rounded-md mx-4 mt-6 mb-2 shadow-md">
-            <p className="text-gray-500 text-center text-lg">로딩 중...</p>
-          </div>
-        ) : roomsData.length === 0 ? (
-          <div className="flex items-center justify-center bg-white min-h-[20vh] border rounded-md mx-4 mt-6 mb-2 shadow-md">
-            <p className="text-gray-500 text-center text-lg">방을 생성해주세요.</p>
-          </div>
-        ) : (
+        {roomsData.length === 0 || !roomsData[0] || roomsData[0].title === "" ? (
+          <>
+            <div className="flex items-center justify-center bg-white min-h-[20vh] border rounded-md mx-4 mt-6 mb-2 shadow-md">
+              <p className="text-gray-500 text-center text-lg">방을 생성해주세요.</p>
+            </div>
+            <div className="flex-1" />
+          </>
+        ) : null}
+        {roomsData.length > 0 && roomsData[0].title !== "" && (
           <div className="flex-1 overflow-y-auto text-left space-y-4 px-2 md:px-10 md:pt-16 pb-24">
             {roomsData.map((room, index) => (
               <div key={room.room_id || index} className="bg-white p-4 md:p-8 min-h-[12vh] md:min-h-[16vh] border-b shadow-md md:shadow-lg flex items-center justify-between">

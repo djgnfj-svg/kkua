@@ -1,30 +1,37 @@
-import { devtools } from 'zustand/middleware'
-import { create } from 'zustand'
+import {create} from 'zustand';
+import { persist } from 'zustand/middleware';
 
-// persist 미들웨어 제거하고 메모리에만 상태 유지
 const guestStore = create(
-  devtools(
+  persist(
     (set) => ({
       uuid: null,
-      nickname: null,
+      nickname: '',
       guest_id: null,
-      setGuestInfo: (guestInfo) => {
-        console.log("guestStore setGuestInfo 호출:", guestInfo);
-        set(guestInfo);
-      },
-      clearGuestInfo: () => {
-        console.log("guestStore clearGuestInfo 호출");
-        set({ uuid: null, guest_id: null, nickname: null });
-      },
-    })
+      guest_uuid: null,
+      setGuestInfo: ({ uuid, nickname, guest_id, guest_uuid }) => set(() => ({
+        uuid,
+        nickname,
+        guest_id,
+        guest_uuid,
+      })),
+      resetGuestInfo: () => set(() => ({
+        uuid: null,
+        nickname: '',
+        guest_id: null,
+        guest_uuid: null,
+      }))
+    }),
+    {
+      name: 'guest-storage',
+      getStorage: () => localStorage,
+      partialize: (state) => ({
+        uuid: state.uuid,
+        nickname: state.nickname,
+        guest_id: state.guest_id,
+        guest_uuid: state.guest_uuid
+      }),
+    }
   )
-)
+);
 
-// 개발용 디버깅: 상태 변경 감지
-if (process.env.NODE_ENV === 'development') {
-  guestStore.subscribe((state) => {
-    console.log('guestStore 상태 변경:', state);
-  });
-}
-
-export default guestStore
+export default guestStore;

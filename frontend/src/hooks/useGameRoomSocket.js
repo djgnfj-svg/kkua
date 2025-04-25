@@ -40,14 +40,28 @@ export default function useGameRoomSocket(roomId) {
                 console.log('소켓 메시지 수신:', data);
 
                 if (data.type === 'chat') {
-                    // 채팅 메시지 처리
-                    setMessages((prev) => [...prev, {
-                        nickname: data.nickname,
-                        message: data.message,
-                        guest_id: data.guest_id,
-                        timestamp: data.timestamp,
-                        type: data.type
+                  const { guest_id } = guestStore.getState();
+                  console.log('내 guest_id:', guest_id);
+                  console.log('수신 guest_id:', data.guest_id);
+                  console.log('수신 message_id:', data.message_id);
+
+                  const isOwnMessage =
+                    data.guest_id === guest_id || data.message_id?.startsWith(`${guest_id}-`);
+
+                  const alreadyExists = messages.some(
+                    msg => msg.message_id === data.message_id
+                  );
+
+                  if (!isOwnMessage && !alreadyExists) {
+                    setMessages(prev => [...prev, {
+                      nickname: data.nickname,
+                      message: typeof data.message === 'string' ? data.message : JSON.stringify(data.message),
+                      guest_id: data.guest_id,
+                      timestamp: data.timestamp,
+                      type: data.type,
+                      message_id: data.message_id
                     }]);
+                  }
                 } else if (data.type === 'participants_update') {
                     // 참가자 목록 직접 업데이트 (API 호출 없음)
                     console.log('웹소켓으로 참가자 목록 업데이트:', data.participants);
@@ -72,13 +86,18 @@ export default function useGameRoomSocket(roomId) {
                     setGameStatus(data.status);
                 } else if (data.type === 'ready_status_changed') {
                     // 준비 상태 변경 처리
-                    console.log('준비 상태 변경 메시지:', data);
+                    console.log("🔥 준비 상태 변경 수신:", data);
 
                     // 현재 사용자의 준비 상태인 경우 상태 업데이트
                     const { guest_id } = guestStore.getState();
-                    if (data.guest_id === guest_id) {
+                    if (String(data.guest_id) === String(guest_id)) {
+                        console.log("📌 내 준비 상태 업데이트:", data.is_ready);
                         setIsReady(data.is_ready);
                     }
+                    // 참가자 목록에서 해당 참가자의 is_ready 상태를 업데이트
+                    setParticipants(prev => prev.map(p =>
+                        p.guest_id === data.guest_id ? { ...p, is_ready: data.is_ready } : p
+                    ));
 
                     // 방 업데이트 플래그 설정 - 참가자 목록 갱신 트리거
                     setRoomUpdated(true);
@@ -118,16 +137,20 @@ export default function useGameRoomSocket(roomId) {
     // 메시지 전송 함수
     const sendMessage = (message) => {
         if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-            const messageData = {
-                type: 'chat',
-                message: message,
-                timestamp: new Date().toISOString()
-            };
-            socketRef.current.send(JSON.stringify(messageData));
+          const { guest_id, nickname } = guestStore.getState();
+          const messageData = {
+            type: 'chat',
+            message: message,
+            guest_id: guest_id,
+            nickname: nickname,
+            timestamp: new Date().toISOString(),
+            message_id: `${guest_id}-${Date.now()}`
+          };
+          socketRef.current.send(JSON.stringify(messageData));
         } else {
-            console.error("웹소켓이 연결되지 않았습니다");
+          console.error("웹소켓이 연결되지 않았습니다");
         }
-    };
+      };
 
     // 준비 상태 토글 함수 추가
     const toggleReady = () => {
@@ -135,6 +158,7 @@ export default function useGameRoomSocket(roomId) {
             socketRef.current.send(JSON.stringify({
                 type: 'toggle_ready'
             }));
+            console.log("레디는 하였으나 레디될수없다")
         } else {
             console.error("웹소켓이 연결되지 않았습니다");
         }
@@ -152,6 +176,11 @@ export default function useGameRoomSocket(roomId) {
         }
     };
 
+    // isReady 상태 디버깅용 useEffect 추가
+    useEffect(() => {
+        console.log("🟢 현재 isReady 상태:", isReady);
+    }, [isReady]);
+
     return {
         connected,
         messages,
@@ -164,4 +193,4 @@ export default function useGameRoomSocket(roomId) {
         roomUpdated,
         setRoomUpdated
     };
-} 
+}
