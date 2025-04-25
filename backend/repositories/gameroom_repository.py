@@ -320,16 +320,17 @@ class GameroomRepository:
 
     def find_all(self, limit=10, offset=0, filter_args=None) -> Tuple[List[Gameroom], int]:
         """
-        모든 게임룸을 조회합니다. 정렬 기능을 제거했습니다.
+        모든 게임룸을 조회합니다. 종료된 방은 항상 제외합니다.
         
         Args:
             limit (int): 페이지당 게임룸 수
             offset (int): 오프셋 (페이지네이션용)
             filter_args (dict): 필터링 조건
         """
-        query = self.db.query(Gameroom)
+        # 기본 쿼리 생성
+        query = self.db.query(Gameroom).filter(Gameroom.status != GameStatus.FINISHED)
         
-        # 필터링 적용
+        # 추가 필터링 적용
         if filter_args:
             for key, value in filter_args.items():
                 if hasattr(Gameroom, key) and value is not None:
