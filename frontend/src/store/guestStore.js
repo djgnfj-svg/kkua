@@ -1,26 +1,37 @@
-import { devtools, persist } from 'zustand/middleware'
-import {create} from 'zustand'
+import {create} from 'zustand';
+import { persist } from 'zustand/middleware';
 
 const guestStore = create(
-  devtools(
-    persist(
-      (set) => ({
+  persist(
+    (set) => ({
+      uuid: null,
+      nickname: '',
+      guest_id: null,
+      guest_uuid: null,
+      setGuestInfo: ({ uuid, nickname, guest_id, guest_uuid }) => set(() => ({
+        uuid,
+        nickname,
+        guest_id,
+        guest_uuid,
+      })),
+      resetGuestInfo: () => set(() => ({
         uuid: null,
-        nickname: null,
+        nickname: '',
         guest_id: null,
-        setGuestInfo: (data) => set(data),
-        clearGuestInfo: () =>
-          set({
-            uuid: null,
-            nickname: null,
-            guest_id: null,
-          }),
+        guest_uuid: null,
+      }))
+    }),
+    {
+      name: 'guest-storage',
+      getStorage: () => localStorage,
+      partialize: (state) => ({
+        uuid: state.uuid,
+        nickname: state.nickname,
+        guest_id: state.guest_id,
+        guest_uuid: state.guest_uuid
       }),
-      {
-        name: 'guest-storage', // localStorage key 이름
-      }
-    )
+    }
   )
-)
+);
 
-export default guestStore
+export default guestStore;

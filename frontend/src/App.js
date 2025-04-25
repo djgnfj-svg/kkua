@@ -1,7 +1,7 @@
 import './App.css';
 import { BrowserRouter as Router, Route, Routes, useNavigate } from 'react-router-dom'; //루트
 import Loading from './Pages/Loading/Loading';
-import InGame from './InGame/InGame';
+import InGame from './Pages/InGame/InGame';
 import Lobby from './Pages/Lobby/Lobby';
 import GameLobbyPage from './Pages/GameLobbyPage/GameLobbyPage';
 import { useEffect } from 'react';

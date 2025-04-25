@@ -10,11 +10,22 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      redis:
-        condition: service_started
     restart: on-failure
+
+  # 테스트 서비스 추가
+  backend-test:
+    build: ./backend
+    volumes:
+      - ./backend:/app
     environment:
-      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql://postgres:mysecretpassword@db:5432/mydb
+      - TESTING=true
+    depends_on:
+      db:
+        condition: service_healthy
+    # 테스트 실행 명령으로 덮어씀
+    command: python -m pytest tests/ -v
+
   frontend:
     build: ./frontend
     ports:
@@ -39,19 +50,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
-  redis:
-    image: redis:6
-    ports:
-      - "6379:6379"
-    healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-    volumes:
-      - redis_data:/data
 
 volumes:
   postgres_data:
-  redis_data:
