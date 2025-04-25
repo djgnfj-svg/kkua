@@ -209,7 +209,7 @@ class GameroomRepository:
         
         return GameroomParticipant.should_redirect_to_game(self.db, guest.guest_id)
         
-    def update_participant_status(self, participant_id: int, status: str) -> bool:
+    def update_participant_status(self, room_id:int, participant_id: int, status: str) :
         """참가자의 상태를 업데이트합니다."""
         try:
             print(f"참가자 상태 업데이트: 참가자ID={participant_id}, 새 상태={status}")
@@ -229,7 +229,7 @@ class GameroomRepository:
             
             self.db.commit()
             print(f"참가자 상태 업데이트 완료: 참가자ID={participant_id}, 상태={status}")
-            return True
+            return participant
         except Exception as e:
             self.db.rollback()
             print(f"참가자 상태 업데이트 오류: {str(e)}")
