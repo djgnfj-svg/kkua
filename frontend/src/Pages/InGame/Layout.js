@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import TopMsgAni from './TopMsg_Ani';
 import Timer from './Timer';
 import msgData from './MsgData';
+import { workingCatImg } from '../../Component/imgUrl';
 
 function Layout({
   quizMsg, 
@@ -138,7 +139,7 @@ function Layout({
               }}
             ></div>
             <img
-              src={process.env.PUBLIC_URL + '/imgs/cat_workingA.gif'}
+              src={workingCatImg}
               alt="고양이"
               className={`absolute top-1/2 w-6 h-6 z-10 ${inputTimeLeft === 12 ? '' : 'transition-[left] ease-linear duration-1000'}`}
               style={{
