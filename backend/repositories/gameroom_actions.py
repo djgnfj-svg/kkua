@@ -64,12 +64,9 @@ class GameroomActions:
             if room.participant_count >= room.max_players:
                 return None
             
-            # 참가자 추가
+            # 참가자 추가, 참가자 수 증가
             participant = self.gameroom_repo.add_participant(room_id, guest_id)
-            
-            # 참가자 수 증가
-            room.participant_count += 1
-            
+
             self.db.commit()
             self.db.refresh(participant)
             return participant
@@ -159,7 +156,7 @@ class GameroomActions:
                 return False
                 
             # 모든 참가자가 준비 상태인지 확인
-            participants = self.gameroom_repo.find_participants(room_id)
+            participants = self.gameroom_repo.find_room_participants(room_id)
             all_ready = all(p.status == ParticipantStatus.READY or p.is_creator for p in participants)
             
             if not all_ready:
