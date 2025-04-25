@@ -27,7 +27,6 @@ function Lobby() {
   ])
   const [isLoading, setIsLoading] = useState(false);
   const [isEntering, setIsEntering] = useState(false);
-
   const { uuid, nickname } = guestStore.getState();
 
   // 페이지 로드 시 게스트 정보 확인
@@ -352,7 +351,7 @@ function Lobby() {
         {/* 모바일: 방 생성하기 버튼 */}
         <div className="w-full flex justify-center py-4 bg-gray-200 border-gray-300 relative" onClick={(e) => handleClickOpenModal(e)} >
           <button className="w-full md:w-[80%] flex items-center justify-center gap-2 text-red-400 border-2 border-[#4178ED] rounded-full px-4 py-2 shadow-lg bg-white">
-            <img src={`${process.env.PUBLIC_URL || ''}/imgs/icon/AddIcon.png`} className="w-8 h-8" />
+            <img src={`${process.env.PUBLIC_URL || ''}/imgs/icon/AddIconA.png`}className="w-8 h-8" />
             방 생성하기
           </button>
         </div>
