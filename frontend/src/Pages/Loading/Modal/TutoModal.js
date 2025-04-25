@@ -4,14 +4,15 @@ import { lobbyUrl } from '../../../Component/urls';
 
 function TutoModal({ showModal, setShowModal, guideSections }) {
 
-  const navigate = useNavigate();
-  
   if (!showModal) return null;
-  
-  const handleClickStart = () => {
-    setShowModal(false)
-    navigate(lobbyUrl)
-  }
+
+  const handleCloseModal = () => {
+    setShowModal(false);
+  };
+
+  const handleConfirmButton = () => {
+    handleCloseModal();
+  };
 
   return (
     <>
@@ -30,7 +31,7 @@ function TutoModal({ showModal, setShowModal, guideSections }) {
               {section.text && <p className="text-sm text-left">{section.text}</p>}
             </div>
           ))}
-          <button onClick={() => handleClickStart()} className="block w-full bg-[#89EC89] text-white text-[25px] font-bold py-2 rounded-full mt-6">
+          <button onClick={handleConfirmButton} className="block w-full bg-[#89EC89] text-white text-[25px] font-bold py-2 rounded-full mt-6">
             시작하기
           </button>
         </div>

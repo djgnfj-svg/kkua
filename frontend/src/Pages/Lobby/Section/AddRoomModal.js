@@ -3,56 +3,58 @@ import Modal from 'react-modal';
 import './AddRoomModal.css';
 import axiosInstance from '../../../Api/axiosInstance';
 import { ROOM_API } from '../../../Api/roomApi';
+import { gameLobbyUrl, gameUrl } from '../../../Component/urls';
 import { useNavigate } from 'react-router-dom';
 import Cookies from 'js-cookie';
-import { gameLobbyUrl, gameUrl } from '../../../Component/urls';
 import guestStore from '../../../store/guestStore';
 
 Modal.setAppElement('#root');
 
 function AddRoomModal({ isOpen, isClose }) {
     const navigate = useNavigate();
-  
-    const [makeRoom, setMakeRoom] = useState({
-        title: "",
-        game_mode: "arcade",
-        max_players: 2,
-        time_limit: 120,
-    });
-    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [roomTitle, setRoomTitle] = useState('');
+    const [maxPlayers, setMaxPlayers] = useState(2);
+    const [gameMode, setGameMode] = useState('arcade');
+    const [timeLimit, setTimeLimit] = useState(120);
 
-    const handleSubmitBtn = async () => {
-        const { title, max_players, game_mode, time_limit } = makeRoom;
+    const handleSubmit = async (e) => {
+        e.preventDefault();
 
-        if (isSubmitting) return;
-        if (title.trim().length < 2) {
-            alert("방 제목은 최소 2자 이상 입력해주세요.");
+        // 쿠키에서 UUID 가져오기
+        const guestUuid = Cookies.get('kkua_guest_uuid');
+
+        // UUID가 없으면 로그인 페이지로 이동
+        if (!guestUuid) {
+            alert("로그인이 필요합니다");
+            navigate('/');
             return;
         }
 
         try {
-            setIsSubmitting(true);
-            const res = await axiosInstance.post(
-                `${ROOM_API.CREATE_ROOMS}?title=${title}&max_players=${max_players}&game_mode=${game_mode}&time_limit=${time_limit}`
-            );
-            navigate(`${gameLobbyUrl(res.data.room_id)}`);
+            console.log("방 생성 요청 경로:", ROOM_API.CREATE_ROOM);
+            console.log("전송 데이터:", {
+                title: roomTitle,
+                max_players: maxPlayers,
+                game_mode: gameMode,
+                time_limit: timeLimit
+            });
+
+            const response = await axiosInstance.post('/gamerooms/', {
+                title: roomTitle,
+                max_players: maxPlayers,
+                game_mode: gameMode,
+                time_limit: timeLimit
+            });
+
+            console.log("방 생성 응답:", response.data);
+            alert("방이 생성되었습니다!");
+            navigate(gameLobbyUrl(response.data.room_id));
         } catch (error) {
-            if (!error.response) {
-                alert("네트워크 오류입니다. 연결을 확인해주세요.");
-            } else if (error.response.status === 403) {
-                alert("인증이 만료되었습니다. 다시 접속해주세요.");
-                guestStore.getState().clearGuestInfo();
-                navigate("/");
-            } else if (error.response.status === 400) {
-                alert("이미 플레이중인 게임이 존재합니다.");
-            } else {
-                alert("방 생성에 실패했습니다. 다시 시도해주세요.");
-            }
-            console.log(error);
-        } finally {
-            setIsSubmitting(false);
+            console.error("방 생성 오류:", error);
+            console.error("오류 상세:", error.response?.data);
+            alert("방 생성에 실패했습니다.");
         }
-    }
+    };
 
     return (
         <div className="modal-app">
@@ -63,7 +65,8 @@ function AddRoomModal({ isOpen, isClose }) {
                 style={{
                     overlay: { backgroundColor: 'rgba(0, 0, 0, 0.5)' },
                     content: { border: 'none', background: 'none', padding: 0 }
-                }}>
+                }}
+            >
                 <div className="modal-container">
                     <div className="modal-ears">
                         <div className="ear left"></div>
@@ -76,11 +79,9 @@ function AddRoomModal({ isOpen, isClose }) {
                         {/* 방 제목 입력 */}
                         <input
                             type="text"
-                            placeholder="방 제목 (최대 10자)"
-                            value={makeRoom.title}
-                            onChange={(e) =>
-                                setMakeRoom({ ...makeRoom, title: e.target.value.slice(0, 10) })
-                            }
+                            placeholder="방 제목"
+                            value={roomTitle}
+                            onChange={(e) => setRoomTitle(e.target.value)}
                             className="room-title-input"
                         />
 
@@ -91,7 +92,7 @@ function AddRoomModal({ isOpen, isClose }) {
                                 <div className="mode-buttons">
                                     <button
                                         className={`mode-btn active`}
-                                        onClick={() => setMakeRoom({ ...makeRoom, game_mode: 'arcade' })}
+                                        onClick={() => setGameMode('arcade')}
                                     >
                                         아케이드
                                     </button>
@@ -113,8 +114,8 @@ function AddRoomModal({ isOpen, isClose }) {
                                                 type="radio"
                                                 name="size"
                                                 value={num}
-                                                checked={makeRoom.max_players === num}
-                                                onChange={() => setMakeRoom({ ...makeRoom, max_players: num })}
+                                                checked={maxPlayers === num}
+                                                onChange={() => setMaxPlayers(num)}
                                             />{' '}
                                             {num}인
                                         </label>
@@ -123,22 +124,20 @@ function AddRoomModal({ isOpen, isClose }) {
                             </div>
                         </div>
 
-                        {/* 생성 및 취소 버튼 */}
-                        <div className="create-btn-wrapper">
-                          <button
-                            className={makeRoom.title.length >= 2 && makeRoom.game_mode !== "" && !isSubmitting ? 'create-btn' : 'create-btn-fasle'}
-                            onClick={handleSubmitBtn}
-                            disabled={makeRoom.title.length >= 2 && makeRoom.game_mode !== "" && !isSubmitting ? false : true}
-                          >
+                        {/* 생성 버튼 */}
+                        <button
+                            className={roomTitle.length >= 2 && gameMode !== "" ? 'create-btn' : 'create-btn-fasle'}
+                            onClick={handleSubmit}
+                            disabled={roomTitle.length >= 2 && gameMode !== "" ? false : true}
+                        >
                             생성하기
-                          </button>
-                          <button
+                        </button>
+                        <button
                             className="cancel-btn"
                             onClick={() => isClose(false)}
-                          >
+                        >
                             취소하기
-                          </button>
-                        </div>
+                        </button>
                     </div>
                 </div>
             </Modal>
