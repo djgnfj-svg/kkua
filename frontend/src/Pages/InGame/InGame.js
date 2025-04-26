@@ -8,6 +8,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import axiosInstance from '../../Api/axiosInstance';
 import { ROOM_API } from '../../Api/roomApi';
 import { gameLobbyUrl, gameUrl } from '../../Component/urls';
+import useGameRoomSocket from '../../hooks/useGameRoomSocket';
 
 const time_gauge = 40;
 
@@ -18,6 +19,19 @@ function InGame() {
   const [quizMsg, setQuizMsg] = useState('햄'); // 초기 시작 단어
 
   const {gameid} = useParams();
+
+  const {
+    participants: socketParticipants,
+    gameStatus,
+    isReady,
+    sendMessage,
+    toggleReady,
+    updateStatus,
+    roomUpdated,
+    setRoomUpdated,
+    finalResults,
+    setFinalResults
+  } = useGameRoomSocket(gameid);
 
   const setRandomQuizWord = () => {
     if (itemList.length > 0) {
@@ -54,7 +68,6 @@ function InGame() {
   });
 
   const [usedLog, setUsedLog] = useState([]);
-  const [players, setPlayers] = useState(['하우두유', '부러', '김밥', '후러']);
   const [specialPlayer, setSpecialPlayer] = useState('부러');
   const navigate = useNavigate()
 
@@ -65,6 +78,8 @@ function InGame() {
   // 애니메이션 상태
   const [typingText, setTypingText] = useState('');
   const [pendingItem, setPendingItem] = useState(null);
+
+  const [reactionTimes, setReactionTimes] = useState([]);
 
   const { crashMessage } = useTopMsg({
     inputValue,
@@ -100,14 +115,16 @@ function InGame() {
     setQuizMsg(pendingItem.word.charAt(pendingItem.word.length - 1));
  
     setSpecialPlayer(prev => {
-      const currentIndex = players.indexOf(prev);
-      const nextIndex = (currentIndex + 1) % players.length;
-      return players[nextIndex];
+      const currentIndex = socketParticipants.map(p => p.nickname).indexOf(prev);
+      const nextIndex = (currentIndex + 1) % socketParticipants.length;
+      return socketParticipants[nextIndex]?.nickname || prev;
     });
  
     setTypingText('');
     setPendingItem(null);
     setInputTimeLeft(12);
+
+    setReactionTimes(prev => [...prev, 12 - inputTimeLeft]);
   };
 
   useEffect(() => {
@@ -166,7 +183,7 @@ function InGame() {
         timeOver={timeOver}
         itemList={itemList}
         showCount={showCount}
-        players={players}
+        players={socketParticipants.map(p => p.nickname)}
         specialPlayer={specialPlayer}
         setSpecialPlayer={setSpecialPlayer}
         inputValue={inputValue}
@@ -176,6 +193,10 @@ function InGame() {
         time_gauge={time_gauge}
         inputTimeLeft={inputTimeLeft}
         setInputTimeLeft={setInputTimeLeft}
+        socketParticipants={socketParticipants}
+        finalResults={finalResults}
+        usedLog={usedLog}
+        reactionTimes={reactionTimes}
       />
       <div className="fixed bottom-4 left-4 z-50">
         <button

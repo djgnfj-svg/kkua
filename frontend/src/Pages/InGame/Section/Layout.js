@@ -3,6 +3,7 @@ import TopMsgAni from './TopMsg_Ani';
 import Timer from './Timer';
 import msgData from './MsgData';
 import { workingCatImg } from '../../../Component/imgUrl';
+import EndPointModal from './EndPointModal';
 
 function Layout({
   quizMsg, 
@@ -25,8 +26,12 @@ function Layout({
   setPendingItem, // Added setter here
   catActive, // Added catActive prop
   frozenTime, // add this line
+  socketParticipants, // Added socketParticipants prop
+  finalResults, // Added finalResults prop
+  usedLog, // Added usedLog prop
+  reactionTimes, // Added reactionTimes prop
 }) {
-  
+  const [showEndPointModal, setShowEndPointModal] = useState(false);
 
   return (
     <div className="w-screen flex justify-center bg-white lg:pb-[100px] px-4">
@@ -121,6 +126,30 @@ function Layout({
 
         <div style={{ height: "70" }}></div>
         <br /><br /><br />
+
+        {/* 테스트용 결과 보기 버튼 */}
+        <div className="fixed top-4 right-4 z-50">
+          <button
+            onClick={() => {
+              setShowEndPointModal(false);
+              setTimeout(() => setShowEndPointModal(true), 100); // 항상 새로 띄우게 강제 리셋
+            }}
+            className="px-4 py-2 bg-orange-400 text-white font-bold rounded-lg shadow-md"
+          >
+            결과 보기
+          </button>
+        </div>
+
+        {showEndPointModal && (
+          <div className="absolute top-0 left-0 w-full flex justify-center items-center z-50">
+            <EndPointModal
+              players={(socketParticipants.length > 0 ? socketParticipants.map(p => p.nickname) : players)}
+              onClose={() => setShowEndPointModal(false)}
+              usedLog={usedLog}
+              reactionTimes={reactionTimes}
+            />
+          </div>
+        )}
 
         {/* 하단 입력창 */}
         <div className="w-full fixed bottom-0 bg-white z-50 border-t border-gray">

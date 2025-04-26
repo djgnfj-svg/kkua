@@ -11,6 +11,7 @@ export default function useGameRoomSocket(roomId) {
     const [gameStatus, setGameStatus] = useState();
     const [roomUpdated, setRoomUpdated] = useState(false);
     const [isReady, setIsReady] = useState(false);
+    const [finalResults, setFinalResults] = useState([]);
 
     useEffect(() => {
         if (roomId) {
@@ -148,6 +149,11 @@ export default function useGameRoomSocket(roomId) {
                 } else if (data.type === 'ready_status_updated') {
                     // 자신의 준비 상태 업데이트 응답
                     setIsReady(data.is_ready);
+                } else if (data.type === 'final_results') {
+                    console.log("🏁 최종 결과 수신:", data.results);
+                    if (Array.isArray(data.results)) {
+                      setFinalResults(data.results);
+                    }
                 }
             };
 
@@ -225,6 +231,8 @@ export default function useGameRoomSocket(roomId) {
         toggleReady,
         updateStatus,
         roomUpdated,
-        setRoomUpdated
+        setRoomUpdated,
+        finalResults,
+        setFinalResults
     };
 }
