@@ -169,19 +169,6 @@ function InGame() {
   }, [gameid, navigate]);
   
 
-  /*
-  useEffect(() => {
-    setReceiveWordHandler((data) => {
-      console.log("서버에서 받은 단어 데이터:", data);
-  
-      if (data && data.word) {
-        setTypingText(data.word);            // '햄스터' 같은 글자 뜨게
-        setPendingItem({ word: data.word });  // 다음 행동 준비 (예: 리스트 추가)
-      }
-    });
-  }, []);*/
-  
-
   // 나머지 게임 로직은 기존 그대로 ↓↓↓
 
   const handleTypingDone = () => {
