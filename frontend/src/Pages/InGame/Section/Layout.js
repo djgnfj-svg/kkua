@@ -1,3 +1,4 @@
+import guestStore from '../../../store/guestStore';
 import './Layout.css';
 import { useEffect, useState } from 'react';
 import TopMsgAni from './TopMsg_Ani';
@@ -88,42 +89,41 @@ function Layout({
         {/* 오른쪽 유저들 */}
         <div className="flex justify-center md:justify-end mt-[100px] pr-4">
           <div className="grid grid-cols-2 md:grid-cols-1 gap-6 place-items-center max-w-fit">
-            {players.map((player, index) => (
-              <div key={index} className="flex flex-col items-center space-y-2">
-                <div
-                  className={`w-[220px] h-[60px] px-2 rounded-lg border-[3px] flex items-center justify-between font-bold text-base space-x-3 ${
+            {players.map((player, index) => {
+              const currentGuest = guestStore.getState();
+              const isMyself = currentGuest.nickname === player;
+              return (
+                <div key={index} className="flex flex-col items-center space-y-2">
+                  <div className={`flex flex-col items-center w-[220px] px-2 py-2 rounded-lg border-[3px] font-bold text-base space-y-2 ${
                     player === specialPlayer
                       ? 'bg-orange-100 border-orange-400 text-orange-500'
                       : 'bg-gray-100 border-gray-300 text-black'
-                  }`}
-                >
-                  <div className="ml-2">{player}</div>
-                  <div className="flex gap-1 mr-1">
-                    {[0, 1, 2, 3].map((slot) => (
-                      <div
-                        key={slot}
-                        className="w-5 h-5 rounded-[6px] border-2 border-orange-300 shadow-md"
-                      ></div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* 아이템리스트를 마지막 유저 아래에만 출력 */}
-                {index === players.length - 1 && (
-                  <div className="text-center mt-4">
-                    <div className="text-base text-orange-500 font-bold mb-2">내 아이템</div>
-                    <div className="grid grid-cols-2 gap-4 px-4 max-[393px]:grid-cols-1 max-[393px]:place-items-center max-[393px]:gap-3">
+                  }`}>
+                    <div className="flex flex-col items-center space-y-2">
+                      <div className="relative w-[50px] h-[50px]">
+                        <div className="w-full h-full bg-gray-300 rounded-full"></div> {/* Circle image placeholder */}
+                        {isMyself && (
+                          <div className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white text-xs flex items-center justify-center rounded-full border-2 border-white shadow-md">
+                            나
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-center">
+                        {player}
+                      </div>
+                    </div>
+                    <div className="flex gap-2 justify-center">
                       {[0, 1, 2, 3].map((slot) => (
                         <div
                           key={slot}
-                          className="w-16 h-16 rounded-[16px] border-[4px] border-orange-300 shadow-md bg-white"
+                          className="w-6 h-6 rounded-[6px] border-2 border-orange-300 shadow-md"
                         ></div>
                       ))}
                     </div>
                   </div>
-                )}
-              </div>
-            ))}
+                </div>
+              );
+            })}
           </div>
         </div>
 
