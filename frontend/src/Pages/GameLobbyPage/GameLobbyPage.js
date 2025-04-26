@@ -16,9 +16,10 @@ function GameLobbyPage() {
   const [redirectingToGame, setRedirectingToGame] = useState(false);
   const [loadingDelay, setLoadingDelay] = useState(true);
   const navigate = useNavigate();
+  const [showRedirectMessage, setShowRedirectMessage] = useState(false);
   // 최소 로딩 시간 2.5초 타이머
   useEffect(() => {
-    const timer = setTimeout(() => setLoadingDelay(false), 2500); // 2.5 seconds
+    const timer = setTimeout(() => setLoadingDelay(false), 1000); // 2.5 seconds
     return () => clearTimeout(timer);
   }, []);
 
@@ -221,8 +222,7 @@ function GameLobbyPage() {
   /* Start BTN */
   const handleClickStartBtn = async (id) => {
     try {
-      const response = await axiosInstance.post(ROOM_API.PLAY_ROOMS(roomId));
-      console.log("게임 시작 응답:", response.data);
+      await axiosInstance.post(ROOM_API.PLAY_ROOMS(roomId));
 
       if (sendMessage) {
         sendMessage({
@@ -238,7 +238,7 @@ function GameLobbyPage() {
       if (error.response && error.response.data && error.response.data.detail) {
         alert(`게임 시작 실패: ${error.response.data.detail}`);
       } else {
-        alert("게임을 시작할 수 없습니다. 모든 플레이어가 준비되었는지 확인하세요.");
+        alert("네트워크 오류입니다.");
       }
     }
   }
@@ -252,7 +252,6 @@ function GameLobbyPage() {
     isReady,
     sendMessage,
     toggleReady,
-    updateStatus,
     roomUpdated,
     setRoomUpdated,
     connect, // 연결 메서드 추가
@@ -303,6 +302,23 @@ function GameLobbyPage() {
   useEffect(() => {
     console.log("👥 socketParticipants 변경됨:", socketParticipants);
   }, [socketParticipants]);
+
+  // socketParticipants에서 'playing' 상태 감지 시 2초 안내 후 게임 페이지로 이동
+  useEffect(() => {
+    if (socketParticipants && socketParticipants.length > 0) {
+      const anyPlaying = socketParticipants.some(
+        participant => participant.status && participant.status.toLowerCase() === 'playing'
+      );
+
+      if (anyPlaying) {
+        console.log("👾 참가자 중 'playing' 상태 발견 -> 2초 메세지 후 게임 페이지로 이동");
+        setShowRedirectMessage(true);
+        setTimeout(() => {
+          navigate(gameUrl(roomId));
+        }, 2000);
+      }
+    }
+  }, [socketParticipants, roomId, navigate]);
 
   useEffect(() => {
     if (messages.length > 0) {
@@ -388,7 +404,7 @@ function GameLobbyPage() {
       setTimeout(() => {
         console.log("🕹️ navigate(game) 실행됨");
         navigate(gameUrl(roomId));
-      }, 2500);
+      }, 1000);
     }
   }, [gameStatus, roomId, navigate]);
 
@@ -421,6 +437,15 @@ function GameLobbyPage() {
     return () => clearInterval(intervalId);
   }, [connected, connect]);
 
+  if (showRedirectMessage) {
+    return (
+      <div className="w-full h-screen flex items-center justify-center bg-white">
+        <div className="text-center text-2xl font-extrabold text-red-500 animate-pulse leading-relaxed">
+          잘못된 접근입니다. <br /> 게임페이지로 이동합니다...
+        </div>
+      </div>
+    );
+  }
   if (redirectingToGame) {
     return (
       <div className="w-full h-screen flex items-center justify-center bg-white">

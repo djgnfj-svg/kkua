@@ -30,7 +30,7 @@ function EndPointModal({ players, onClose, usedLog, reactionTimes }) {
           animation: spinZoom 1s ease-in-out forwards;
         }
       `}</style>
-      <div className="absolute top-0 left-0 right-0 mx-auto bg-gradient-to-b from-orange-50 to-white rounded-2xl p-10 w-[92%] max-w-md shadow-2xl animate-spinZoom h-[600px] border-4 border-orange-200 z-50 mt-20">
+      <div className="absolute top-0 left-0 right-0 mx-auto bg-gradient-to-b from-orange-50 to-white rounded-2xl p-10 w-[92%] max-w-md shadow-2xl animate-spinZoom h-[650px] border-4 border-orange-200 z-50 mt-20">
         <h2 className="text-2xl font-bold mb-6 text-center text-orange-500">🎉 최종 결과 🎉</h2>
         <div className="space-y-4">
           {ranks.map((player, index) => (

@@ -32,9 +32,21 @@ function Layout({
   finalResults, // Added finalResults prop
   usedLog, // Added usedLog prop
   reactionTimes, // Added reactionTimes prop
+  handleClickFinish // <-- Add this line
 }) {
   const [showEndPointModal, setShowEndPointModal] = useState(false);
   const [catRun, setCatRun] = useState(false);
+
+  const randomWords = ['햄 스 터', '고 양 이', '강 아 지', '너 구 리', '사 자 상'];
+  const [randomWord, setRandomWord] = useState('');
+
+  useEffect(() => {
+    const pickRandomWord = () => {
+      const word = randomWords[Math.floor(Math.random() * randomWords.length)];
+      setRandomWord(word);
+    };
+    pickRandomWord();
+  }, []);
 
   return (
     
@@ -47,6 +59,7 @@ function Layout({
         
         {/* 남은 시간 */}
         <h1 className="text-3xl font-extrabold mt-4 mb-2">{frozenTime ?? timeLeft}초</h1>
+        <div className="text-xl font-bold text-orange-400 mb-2">{randomWord}</div>
 
         <div className="w-full max-w-sm p-4 border-4 border-orange-400 rounded-full text-center font-bold shadow-lg bg-white text-xl leading-tight h-16 flex flex-col justify-center">
           {/* 항상 보이는 제시어 */}
@@ -210,6 +223,21 @@ function Layout({
             style={{ zIndex: 9999 }}
             onAnimationEnd={() => setCatRun(false)}
           />
+        </div>
+      )}
+
+      {socketParticipants.length > 0 && guestStore.getState().guest_id === socketParticipants.find(p => p.is_owner)?.guest_id && (
+        <div className="fixed bottom-4 left-4 z-50">
+          <button
+            onClick={() => {
+              if (typeof handleClickFinish === 'function') {
+                handleClickFinish();
+              }
+            }}
+            className="bg-red-500 text-white px-4 py-2 rounded-lg shadow hover:bg-red-600 transition"
+          >
+            게임 종료
+          </button>
         </div>
       )}
     </div>

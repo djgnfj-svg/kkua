@@ -9,6 +9,7 @@ import axiosInstance from '../../Api/axiosInstance';
 import { ROOM_API } from '../../Api/roomApi';
 import { gameLobbyUrl, gameUrl } from '../../Component/urls';
 import useGameRoomSocket from '../../hooks/useGameRoomSocket';
+import guestStore from '../../store/guestStore';
 
 const time_gauge = 40;
 
@@ -167,7 +168,7 @@ function InGame() {
       navigate(gameLobbyUrl(gameid))
     }catch(error){
       console.log(error)
-      alert("5252 난아직 이 게임을 끝낼 생각이 없다고");
+      alert("종료된 게임이 아닙니다.");
     }
   }
 
@@ -197,15 +198,27 @@ function InGame() {
         finalResults={finalResults}
         usedLog={usedLog}
         reactionTimes={reactionTimes}
+        handleClickFinish={handleClickFinish}
       />
-      <div className="fixed bottom-4 left-4 z-50">
-        <button
-          onClick={handleClickFinish}
-          className="bg-red-500 text-white px-4 py-2 rounded-lg shadow hover:bg-red-600 transition"
-        >
-          게임 종료
-        </button>
-      </div>
+      {socketParticipants.length > 0 && (
+        <div className="fixed bottom-4 left-4 z-50">
+          {guestStore.getState().guest_id === socketParticipants.find(p => p.is_owner)?.guest_id ? (
+            <button
+              onClick={handleClickFinish}
+              className="bg-red-500 text-white px-4 py-2 rounded-lg shadow hover:bg-red-600 transition"
+            >
+              게임 종료
+            </button>
+          ) : (
+            <button
+              onClick={() => navigate(gameLobbyUrl(gameid))}
+              className="bg-gray-500 text-white px-4 py-2 rounded-lg shadow hover:bg-gray-600 transition"
+            >
+              로비 이동
+            </button>
+          )}
+        </div>
+      )}
     </>
   )
 }

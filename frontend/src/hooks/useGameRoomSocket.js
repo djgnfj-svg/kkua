@@ -206,16 +206,7 @@ export default function useGameRoomSocket(roomId) {
     };
 
     // 상태 업데이트 함수 (준비 또는 시작)
-    const updateStatus = (status) => {
-        if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-            socketRef.current.send(JSON.stringify({
-                action: 'start_game',
-                status
-            }));
-        } else {
-            console.error("웹소켓이 연결되지 않았습니다");
-        }
-    };
+   
     // isReady 상태 디버깅용 useEffect 추가
     useEffect(() => {
         console.log("🟢 현재 isReady 상태:", isReady);
@@ -229,7 +220,6 @@ export default function useGameRoomSocket(roomId) {
         isReady,
         sendMessage,
         toggleReady,
-        updateStatus,
         roomUpdated,
         setRoomUpdated,
         finalResults,
