@@ -1,4 +1,5 @@
 let socket = null;
+let receiveWordHandler = null; // (⭐) 외부 핸들러 저장
 
 export function connectSocket(gameId) {
   console.log("📌 connectSocket 호출됨");
@@ -31,6 +32,16 @@ export function connectSocket(gameId) {
       console.log("✅ WebSocket 연결 성공:", socketUrl);
     };
 
+    socket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      console.log('📨 수신한 메시지:', data);
+  
+      // (⭐) word_chain_word_submitted 오면 외부 핸들러 호출
+      if (data.type === "word_chain_word_submitted" && receiveWordHandler) {
+        receiveWordHandler(data);
+      }
+    };
+
     socket.onerror = (err) => {
       console.error("⚠️ WebSocket 에러 발생:", err);
       console.error("⚠️ 시도했던 주소:", socketUrl);
@@ -40,9 +51,23 @@ export function connectSocket(gameId) {
       console.warn(`❌ WebSocket 끊김: code=${e.code}, reason=${e.reason}`);
     };
 
+    socket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      console.log('📨 수신한 전체 메시지:', data);  // 이거 추가
+    
+      if (data.type === "word_chain_word_submitted" && receiveWordHandler) {
+        receiveWordHandler(data);
+      }
+    };
+    
+
   } catch (error) {
     console.error("❗ 소켓 생성 자체 실패:", error);
   }
+}
+
+export function setReceiveWordHandler(handler) {
+  receiveWordHandler = handler;
 }
 
 export function getSocket() {

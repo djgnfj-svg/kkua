@@ -12,7 +12,8 @@ import useGameRoomSocket from '../../hooks/useGameRoomSocket';
 import userIsTrue from '../../Component/userIsTrue';
 import guestStore from '../../store/guestStore';
 
-import { connectSocket } from './Socket/mainSocket';
+import { connectSocket, getSocket, setReceiveWordHandler } from './Socket/mainSocket';
+
 import { sendWordToServer } from './Socket/kdataSocket';
 
 const time_gauge = 40;
@@ -44,6 +45,17 @@ function InGame() {
       setQuizMsg(randomWord);
     }
   };
+
+  useEffect(() => {
+    // 단어 수신 핸들러 등록
+    setReceiveWordHandler((data) => {
+      console.log("💬 서버에서 단어 수신:", data);
+      if (data && data.word) {
+        setTypingText(data.word);  // 이건 예시야. 너 흐름에 맞게 사용해야 해.
+        setPendingItem({ word: data.word });
+      }
+    });
+  }, []);
 
   useEffect(() => {
     setRandomQuizWord();
@@ -102,6 +114,10 @@ function InGame() {
     setQuizMsg
   });
 
+  const [usedWords, setUsedWords] = useState([]);
+  const [currentPlayer, setCurrentPlayer] = useState(null);
+  const [lastCharacter, setLastCharacter] = useState('');
+  
   useEffect(() => {
     async function prepareGuestAndConnect() {
       try {
@@ -109,21 +125,39 @@ function InGame() {
           .split('; ')
           .find(row => row.startsWith('kkua_guest_uuid='))
           ?.split('=')[1];
-    
+  
         if (!guestUuid) {
-          console.log("✅ 게스트 UUID 없음 -> 로그인 요청");
           const loginRes = await axiosInstance.post('/guests/login');
           guestUuid = loginRes.data.uuid;
           document.cookie = `kkua_guest_uuid=${guestUuid}; path=/`;
         }
-
-        console.log("✅ 게스트 인증 성공, 방 입장 시도");
-
-        console.log("✅ 방 입장 성공, 소켓 연결 시도");
+  
         connectSocket(gameid);
-    
+  
+        const socket = getSocket();
+        if (socket) {
+          socket.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            console.log('📨 수신 데이터:', data);
+  
+            if (data.type === "word_chain_state") {
+              console.log('✅ word_chain_state 수신:', data);
+              setUsedWords(data.words_used || []);
+              setCurrentPlayer(data.current_player || null);
+              setLastCharacter(data.last_character || '');
+            }
+  
+            if (data.type === "word_chain_word_submitted") {
+              console.log('✅ word_chain_word_submitted 수신:', data);
+              setUsedWords(prev => [...prev, data.word]);
+              setCurrentPlayer(data.next_player);
+              setLastCharacter(data.last_character);
+            }
+          };
+        }
+  
       } catch (error) {
-        console.error("❌ 방 입장 API 에러:", error.response?.data || error.message);
+        console.error("❌ 방 입장 또는 소켓 연결 실패:", error.response?.data || error.message);
         alert("방 입장 실패 또는 서버 연결 실패");
         navigate("/");
       }
@@ -133,6 +167,20 @@ function InGame() {
       prepareGuestAndConnect();
     }
   }, [gameid, navigate]);
+  
+
+  /*
+  useEffect(() => {
+    setReceiveWordHandler((data) => {
+      console.log("서버에서 받은 단어 데이터:", data);
+  
+      if (data && data.word) {
+        setTypingText(data.word);            // '햄스터' 같은 글자 뜨게
+        setPendingItem({ word: data.word });  // 다음 행동 준비 (예: 리스트 추가)
+      }
+    });
+  }, []);*/
+  
 
   // 나머지 게임 로직은 기존 그대로 ↓↓↓
 

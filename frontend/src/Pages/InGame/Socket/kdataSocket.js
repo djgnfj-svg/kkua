@@ -9,10 +9,9 @@ export function sendWordToServer({ user, word, itemUsed }) {
 
   const payload = {
     action: "submit_word",
-    user,
-    current_word: word,
-    itemUsed: itemUsed || false,
+    word, 
   };
+  
 
   socket.send(JSON.stringify(payload));
   console.log('✅ 서버에 단어 전송:', payload);
