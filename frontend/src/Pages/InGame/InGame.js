@@ -3,10 +3,14 @@ import { useNavigate, useParams } from 'react-router-dom';
 import axiosInstance from '../../Api/axiosInstance';
 import { ROOM_API } from '../../Api/roomApi';
 import { gameLobbyUrl } from '../../Component/urls';
-import Layout from './Layout';
-import Timer from './Timer';
-import useTopMsg from './TopMsg';
-import TopMsgAni from './TopMsg_Ani';
+import Layout from './Section/Layout';
+import Timer from './Section/Timer';
+import useTopMsg from './Section/TopMsg';
+import TopMsgAni from './Section/TopMsg_Ani';
+
+import useGameRoomSocket from '../../hooks/useGameRoomSocket';
+import userIsTrue from '../../Component/userIsTrue';
+import guestStore from '../../store/guestStore';
 
 import { connectSocket } from './Socket/mainSocket';
 import { sendWordToServer } from './Socket/kdataSocket';
@@ -64,6 +68,8 @@ function InGame() {
   const [timeLeft, setTimeLeft] = useState(120);
   const resetTimer = () => setTimeLeft(120);
 
+  const [catActive, setCatActive] = useState(true);
+
   useEffect(() => {
     if (timeLeft <= 0) return;
     const interval = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
@@ -115,10 +121,6 @@ function InGame() {
         }
 
         console.log("✅ 게스트 인증 성공, 방 입장 시도");
-
-        await axiosInstance.post(`/gamerooms/${gameid}/join`, {
-          guest_uuid: guestUuid,
-        });
 
         console.log("✅ 방 입장 성공, 소켓 연결 시도");
         connectSocket(gameid);
