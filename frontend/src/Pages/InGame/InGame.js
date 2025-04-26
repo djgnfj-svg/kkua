@@ -11,7 +11,6 @@ import TopMsgAni from './TopMsg_Ani';
 import { connectSocket } from './Socket/mainSocket';
 import { sendWordToServer } from './Socket/kdataSocket';
 
-
 const time_gauge = 40;
 
 function InGame() {
@@ -59,38 +58,44 @@ function InGame() {
           .split('; ')
           .find(row => row.startsWith('kkua_guest_uuid='))
           ?.split('=')[1];
-
+    
         if (!guestUuid) {
           console.log("✅ 게스트 UUID 없음 -> 로그인 요청");
           const loginRes = await axiosInstance.post('/guests/login');
           guestUuid = loginRes.data.uuid;
-
-          // 수동으로 쿠키 저장 (테스트용. 서버가 Set-Cookie 하면 생략)
           document.cookie = `kkua_guest_uuid=${guestUuid}; path=/`;
         }
-
-        console.log("✅ 게스트 인증 성공, 방 입장 시도");
-
-        await axiosInstance.post(`/gamerooms/${gameid}/join`, {
+    
+        console.log("✅ 방 입장 시도:", guestUuid, gameid);
+    
+        const joinRes = await axiosInstance.post(`/gamerooms/${gameid}/join`, {
           guest_uuid: guestUuid,
         });
-
-        console.log("✅ 방 입장 성공, 소켓 연결 시도");
+    
+        if (joinRes.status !== 200 && joinRes.status !== 201) {
+          console.error('❌ 방 입장 실패: 응답코드', joinRes.status);
+          alert("방 입장 실패! 서버 점검중일 수 있습니다.");
+          navigate("/");
+          return; // 🚫 여기서 아예 끊어
+        }
+    
+        console.log("✅ 방 입장 성공:", joinRes.data);
+        console.log("✅ 소켓 연결 시도");
         connectSocket(gameid);
-
+    
       } catch (error) {
-        console.error("❌ 준비 실패:", error);
-        alert("방 입장 실패 또는 서버 연결 실패ㅁㅁㅁ");
+        console.error("❌ 방 입장 API 에러:", error.response?.data || error.message);
+        alert("방 입장 실패 또는 서버 연결 실패");
+        navigate("/");
       }
     }
-
+  
     if (gameid) {
       prepareGuestAndConnect();
     }
   }, [gameid, navigate]);
 
   // 나머지 게임 로직은 기존 그대로 ↓↓↓
-
   const setRandomQuizWord = () => {
     if (itemList.length > 0) {
       const randomWord = itemList[Math.floor(Math.random() * itemList.length)].word;

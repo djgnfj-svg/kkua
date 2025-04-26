@@ -1,5 +1,3 @@
-// src/Pages/InGame/Socket/kdataSocket.js
-
 import { getSocket } from './mainSocket';
 
 export function sendWordToServer({ user, word, itemUsed }) {
