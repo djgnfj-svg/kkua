@@ -26,9 +26,10 @@ class GameroomRepository:
             
             # 디버깅 로그 추가
             if room:
-                print(f"게임룸 조회: ID={room.room_id}, 제목={room.title}, 상태={room.status}")
+                # print(f"게임룸 조회: ID={room.room_id}, 제목={room.title}, 상태={room.status}")
                 if isinstance(room.status, str):
-                    print(f"상태 타입: 문자열, 값: {room.status}")
+                    # print(f"상태 타입: 문자열, 값: {room.status}")
+                    pass
                 else:
                     print(f"상태 타입: Enum, 값: {room.status.value if hasattr(room.status, 'value') else room.status}")
             else:
@@ -277,9 +278,9 @@ class GameroomRepository:
         # 생성자 ID
         creator_id = gameroom.created_by
         
-        # 참가자 정보 조회 쿼리
+        # 참가자 정보 조회 쿼리 - status 필드 추가
         query = """
-            SELECT gp.guest_id, g.nickname, gp.joined_at
+            SELECT gp.guest_id, g.nickname, gp.joined_at, gp.status
             FROM gameroom_participants gp
             JOIN guests g ON gp.guest_id = g.guest_id
             WHERE gp.room_id = :room_id AND gp.left_at IS NULL
@@ -289,13 +290,14 @@ class GameroomRepository:
         try:
             result = self.db.execute(text(query), {"room_id": room_id}).fetchall()
             
-            # 결과를 딕셔너리 리스트로 변환
+            # 결과를 딕셔너리 리스트로 변환 - status 필드 추가
             participants = [
                 {
                     "guest_id": row[0],
                     "nickname": row[1],
                     "is_creator": (row[0] == creator_id),
-                    "joined_at": row[2]
+                    "joined_at": row[2],
+                    "status": row[3]  # 상태 정보 추가
                 }
                 for row in result
             ]
@@ -318,16 +320,17 @@ class GameroomRepository:
 
     def find_all(self, limit=10, offset=0, filter_args=None) -> Tuple[List[Gameroom], int]:
         """
-        모든 게임룸을 조회합니다. 정렬 기능을 제거했습니다.
+        모든 게임룸을 조회합니다. 종료된 방은 항상 제외합니다.
         
         Args:
             limit (int): 페이지당 게임룸 수
             offset (int): 오프셋 (페이지네이션용)
             filter_args (dict): 필터링 조건
         """
-        query = self.db.query(Gameroom)
+        # 기본 쿼리 생성
+        query = self.db.query(Gameroom).filter(Gameroom.status != GameStatus.FINISHED)
         
-        # 필터링 적용
+        # 추가 필터링 적용
         if filter_args:
             for key, value in filter_args.items():
                 if hasattr(Gameroom, key) and value is not None:
@@ -379,9 +382,7 @@ class GameroomRepository:
     def remove_all_participants(self, room_id: int) -> bool:
         """게임룸의 모든 참가자를 퇴장 처리합니다."""
         try:
-            print(f"게임룸(ID={room_id})의 모든 참가자 퇴장 처리")
-            
-            # 현재 시간 설정
+            print(f"모든 참가자 퇴장 처리: 방ID={room_id}")
             now = datetime.now()
             
             # 모든 활성 참가자 퇴장 처리
@@ -392,20 +393,27 @@ class GameroomRepository:
             
             for participant in participants:
                 participant.left_at = now
-                participant.status = ParticipantStatus.LEFT.value
+                participant.status = ParticipantStatus.LEFT.value if isinstance(ParticipantStatus.LEFT.value, str) else ParticipantStatus.LEFT
+                participant.updated_at = now
+            
+            # 참가자 수 업데이트
+            room = self.find_by_id(room_id)
+            if room:
+                room.participant_count = 0
+                room.updated_at = now
             
             self.db.commit()
-            print(f"{len(participants)}명의 참가자가 퇴장 처리되었습니다.")
+            print(f"모든 참가자 퇴장 처리 완료: 방ID={room_id}, 처리된 참가자 수={len(participants)}")
             return True
         except Exception as e:
             self.db.rollback()
-            print(f"참가자 일괄 퇴장 오류: {str(e)}")
+            print(f"참가자 일괄 퇴장 처리 오류: {str(e)}")
             import traceback
             traceback.print_exc()
             return False
 
     def delete_gameroom(self, room_id: int) -> bool:
-        """게임룸을 삭제합니다. (소프트 삭제 - 상태만 변경)"""
+        """게임룸을 삭제합니다 (상태를 FINISHED로 변경)."""
         try:
             print(f"게임룸 삭제: ID={room_id}")
             
@@ -415,8 +423,9 @@ class GameroomRepository:
                 print(f"게임룸 ID={room_id} 조회 실패")
                 return False
             
-            # 게임룸 상태를 DELETED로 변경
-            room.status = GameStatus.DELETED.value if isinstance(GameStatus.DELETED.value, str) else GameStatus.DELETED
+            # 상태를 FINISHED로 변경 (DELETED가 아닌 FINISHED 사용)
+            room.status = GameStatus.FINISHED.value if isinstance(GameStatus.FINISHED.value, str) else GameStatus.FINISHED
+            room.ended_at = datetime.now()
             room.updated_at = datetime.now()
             
             self.db.commit()

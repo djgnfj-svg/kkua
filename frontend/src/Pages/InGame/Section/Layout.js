@@ -1,7 +1,11 @@
+import guestStore from '../../../store/guestStore';
+import './Layout.css';
 import { useEffect, useState } from 'react';
 import TopMsgAni from './TopMsg_Ani';
 import Timer from './Timer';
 import msgData from './MsgData';
+import { workingCatImg } from '../../../Component/imgUrl';
+import EndPointModal from './EndPointModal';
 
 function Layout({
   quizMsg, 
@@ -24,24 +28,38 @@ function Layout({
   setPendingItem, // Added setter here
   catActive, // Added catActive prop
   frozenTime, // add this line
+  socketParticipants, // Added socketParticipants prop
+  finalResults, // Added finalResults prop
+  usedLog, // Added usedLog prop
+  reactionTimes, // Added reactionTimes prop
+  handleClickFinish // <-- Add this line
 }) {
-  
+  const [showEndPointModal, setShowEndPointModal] = useState(false);
+  const [catRun, setCatRun] = useState(false);
+
+  const randomWords = ['햄 스 터', '고 양 이', '강 아 지', '너 구 리', '사 자 상'];
+  const [randomWord, setRandomWord] = useState('');
+
+  useEffect(() => {
+    const pickRandomWord = () => {
+      const word = randomWords[Math.floor(Math.random() * randomWords.length)];
+      setRandomWord(word);
+    };
+    pickRandomWord();
+  }, []);
 
   return (
+    
     <div className="w-screen flex justify-center bg-white lg:pb-[100px] px-4">
       <div className="min-h-screen py-4 flex flex-col md:flex-row md:space-x-8 md:justify-center md:items-start w-full max-w-[1920px]">
 
-        {/* 왼쪽 고양이 */}
-        <div className="hidden md:flex flex-col items-start mt-[220px] pl-4 space-y-6 w-[170px] shrink-0">
-          <div className="text-sm font-bold ml-1">ㅋㅋ 그것도 모름?</div>
-          <img src="/imgs/icon/AddIconA.png" alt="고양이" className="w-24 ml-2" />
-        </div>
 
         {/* 중앙 타이핑 영역 */}
       <div className="w-full flex flex-col items-center space-y-4 px-[5%]">
         
         {/* 남은 시간 */}
         <h1 className="text-3xl font-extrabold mt-4 mb-2">{frozenTime ?? timeLeft}초</h1>
+        <div className="text-xl font-bold text-orange-400 mb-2">{randomWord}</div>
 
         <div className="w-full max-w-sm p-4 border-4 border-orange-400 rounded-full text-center font-bold shadow-lg bg-white text-xl leading-tight h-16 flex flex-col justify-center">
           {/* 항상 보이는 제시어 */}
@@ -84,47 +102,76 @@ function Layout({
         {/* 오른쪽 유저들 */}
         <div className="flex justify-center md:justify-end mt-[100px] pr-4">
           <div className="grid grid-cols-2 md:grid-cols-1 gap-6 place-items-center max-w-fit">
-            {players.map((player, index) => (
-              <div key={index} className="flex flex-col items-center space-y-2">
-                <div
-                  className={`w-[220px] h-[60px] px-2 rounded-lg border-[3px] flex items-center justify-between font-bold text-base space-x-3 ${
+            {players.map((player, index) => {
+              const currentGuest = guestStore.getState();
+              const isMyself = currentGuest.nickname === player;
+              return (
+                <div key={index} className="flex flex-col items-center space-y-2">
+                  <div className={`flex flex-col items-center w-[220px] px-2 py-2 rounded-lg border-[3px] font-bold text-base space-y-2 ${
                     player === specialPlayer
                       ? 'bg-orange-100 border-orange-400 text-orange-500'
                       : 'bg-gray-100 border-gray-300 text-black'
-                  }`}
-                >
-                  <div className="ml-2">{player}</div>
-                  <div className="flex gap-1 mr-1">
-                    {[0, 1, 2, 3].map((slot) => (
-                      <div
-                        key={slot}
-                        className="w-5 h-5 rounded-[6px] border-2 border-orange-300 shadow-md"
-                      ></div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* 아이템리스트를 마지막 유저 아래에만 출력 */}
-                {index === players.length - 1 && (
-                  <div className="text-center mt-4">
-                    <div className="text-base text-orange-500 font-bold mb-2">내 아이템</div>
-                    <div className="grid grid-cols-2 gap-4 px-2">
+                  }`}>
+                    <div className="flex flex-col items-center space-y-2">
+                      <div className="relative w-[50px] h-[50px]">
+                        <div className="w-full h-full bg-gray-300 rounded-full"></div> {/* Circle image placeholder */}
+                        {isMyself && (
+                          <div className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white text-xs flex items-center justify-center rounded-full border-2 border-white shadow-md">
+                            나
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-center">
+                        {player}
+                      </div>
+                    </div>
+                    <div className="flex gap-2 justify-center">
                       {[0, 1, 2, 3].map((slot) => (
                         <div
                           key={slot}
-                          className="w-16 h-16 rounded-[16px] border-[4px] border-orange-300 shadow-md bg-white"
+                          className="w-6 h-6 rounded-[6px] border-2 border-orange-300 shadow-md"
                         ></div>
                       ))}
                     </div>
                   </div>
-                )}
-              </div>
-            ))}
+                </div>
+              );
+            })}
           </div>
         </div>
 
         <div style={{ height: "70" }}></div>
         <br /><br /><br />
+
+        {/* 테스트용 결과 보기 버튼 */}
+        <div className="fixed top-4 right-4 z-50">
+          <button
+            onClick={() => {
+              setShowEndPointModal(false);
+              setTimeout(() => setShowEndPointModal(true), 100); // 항상 새로 띄우게 강제 리셋
+            }}
+            className="px-4 py-2 bg-orange-400 text-white font-bold rounded-lg shadow-md"
+          >
+            결과 보기
+          </button>
+          <button
+            onClick={() => setCatRun(true)}
+            className="mt-2 px-4 py-2 bg-blue-400 text-white font-bold rounded-lg shadow-md"
+          >
+            고양이 달리기
+          </button>
+        </div>
+
+        {showEndPointModal && (
+          <div className="absolute top-0 left-0 w-full flex justify-center items-center z-50">
+            <EndPointModal
+              players={(socketParticipants.length > 0 ? socketParticipants.map(p => p.nickname) : players)}
+              onClose={() => setShowEndPointModal(false)}
+              usedLog={usedLog}
+              reactionTimes={reactionTimes}
+            />
+          </div>
+        )}
 
         {/* 하단 입력창 */}
         <div className="w-full fixed bottom-0 bg-white z-50 border-t border-gray">
@@ -138,8 +185,8 @@ function Layout({
               }}
             ></div>
             <img
-              src={process.env.PUBLIC_URL + '/imgs/cat_workingA.gif'}
-              alt="고양이"
+              src={workingCatImg}
+              alt="고양이22"
               className={`absolute top-1/2 w-6 h-6 z-10 ${inputTimeLeft === 12 ? '' : 'transition-[left] ease-linear duration-1000'}`}
               style={{
                 left: `${inputTimeLeft === 12 ? '100%' : (inputTimeLeft / 12) * 100 + '%'}`,
@@ -167,6 +214,32 @@ function Layout({
           </div>
         </div>
       </div>
+      {catRun && (
+        <div className="fixed top-0 left-0 w-screen h-screen z-[1000] bg-transparent overflow-hidden">
+          <img
+            src={workingCatImg}
+            alt="달리는 고양이"
+            className="absolute top-0 left-0 w-full h-full animate-runCat object-contain"
+            style={{ zIndex: 9999 }}
+            onAnimationEnd={() => setCatRun(false)}
+          />
+        </div>
+      )}
+
+      {socketParticipants.length > 0 && guestStore.getState().guest_id === socketParticipants.find(p => p.is_owner)?.guest_id && (
+        <div className="fixed bottom-4 left-4 z-50">
+          <button
+            onClick={() => {
+              if (typeof handleClickFinish === 'function') {
+                handleClickFinish();
+              }
+            }}
+            className="bg-red-500 text-white px-4 py-2 rounded-lg shadow hover:bg-red-600 transition"
+          >
+            게임 종료
+          </button>
+        </div>
+      )}
     </div>
   );
 }

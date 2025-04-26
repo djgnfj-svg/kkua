@@ -122,7 +122,19 @@ async def process_message(
             return
         
         # 참가자 상태 업데이트
-        updated = gameroom_repo.update_participant_status(participant.id, new_status)
+        print(f"current_status: {current_status}, 새 상태: {new_status}")
+        updated = gameroom_repo.update_participant_status(room_id, participant.participant_id, new_status)
+        
+        # 업데이트 결과 확인
+        if not updated:
+            await ws_manager.send_personal_message({
+                "type": "error",
+                "message": "DB 상태 업데이트 실패"
+            }, websocket)
+            print(f"DB 업데이트 실패: room_id={room_id}, participant_id={participant.participant_id}")
+            return
+        
+        print(f"DB 업데이트 성공: {updated.status}")
         
         # 준비 상태 변경 알림
         await ws_manager.broadcast_ready_status(

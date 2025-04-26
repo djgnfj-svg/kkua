@@ -3,10 +3,14 @@ import { useNavigate, useParams } from 'react-router-dom';
 import axiosInstance from '../../Api/axiosInstance';
 import { ROOM_API } from '../../Api/roomApi';
 import { gameLobbyUrl } from '../../Component/urls';
-import Layout from './Layout';
-import Timer from './Timer';
-import useTopMsg from './TopMsg';
-import TopMsgAni from './TopMsg_Ani';
+import Layout from './Section/Layout';
+import Timer from './Section/Timer';
+import useTopMsg from './Section/TopMsg';
+import TopMsgAni from './Section/TopMsg_Ani';
+
+import useGameRoomSocket from '../../hooks/useGameRoomSocket';
+import userIsTrue from '../../Component/userIsTrue';
+import guestStore from '../../store/guestStore';
 
 import { connectSocket } from './Socket/mainSocket';
 import { sendWordToServer } from './Socket/kdataSocket';
@@ -19,23 +23,70 @@ function InGame() {
   const { gameid } = useParams();
   const navigate = useNavigate();
 
-  const [inputValue, setInputValue] = useState('');
-  const [message, setMessage] = useState('');
-  const [typingText, setTypingText] = useState('');
-  const [pendingItem, setPendingItem] = useState(null);
-  const [players, setPlayers] = useState(['하우두유', '부러', '김밥', '후러']);
-  const [specialPlayer, setSpecialPlayer] = useState('부러');
+  // 퀴즈 제시어 
+
+  const {
+    participants: socketParticipants,
+    gameStatus,
+    isReady,
+    sendMessage,
+    toggleReady,
+    updateStatus,
+    roomUpdated,
+    setRoomUpdated,
+    finalResults,
+    setFinalResults
+  } = useGameRoomSocket(gameid);
+
+  const setRandomQuizWord = () => {
+    if (itemList.length > 0) {
+      const randomWord = itemList[Math.floor(Math.random() * itemList.length)].word;
+      setQuizMsg(randomWord);
+    }
+  };
+
+  useEffect(() => {
+    setRandomQuizWord();
+  }, []);
+  
+  useEffect(() => {
+    const checkGuest = async () => {
+      const result = await userIsTrue();
+      if (!result) {
+        alert("어멋 어딜들어오세요 Cut !");
+        navigate("/")
+      }
+    };
+    checkGuest();
+  }, []);
+
   const [timeOver, setTimeOver] = useState(false);
   const [frozenTime, setFrozenTime] = useState(null);
   const [inputTimeLeft, setInputTimeLeft] = useState(12);
-  const [catActive, setCatActive] = useState(true);
-  const [showCount, setShowCount] = useState(3);
-  const [usedLog, setUsedLog] = useState([]);
 
-  const { timeLeft, resetTimer } = Timer(120, () => {
-    setMessage('게임종료!');
-    setTimeout(() => setMessage(''), 3000);
-  });
+  const [timeLeft, setTimeLeft] = useState(120);
+  const resetTimer = () => setTimeLeft(120);
+
+  const [catActive, setCatActive] = useState(true);
+
+  useEffect(() => {
+    if (timeLeft <= 0) return;
+    const interval = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
+    return () => clearInterval(interval);
+  }, [timeLeft]);
+
+  const [usedLog, setUsedLog] = useState([]);
+  const [specialPlayer, setSpecialPlayer] = useState('부러');
+
+  const [inputValue, setInputValue] = useState('');
+  const [message, setMessage] = useState('');
+  const [showCount, setShowCount] = useState(3);
+
+  // 애니메이션 상태
+  const [typingText, setTypingText] = useState('');
+  const [pendingItem, setPendingItem] = useState(null);
+
+  const [reactionTimes, setReactionTimes] = useState([]);
 
   const { crashMessage } = useTopMsg({
     inputValue,
@@ -65,22 +116,10 @@ function InGame() {
           guestUuid = loginRes.data.uuid;
           document.cookie = `kkua_guest_uuid=${guestUuid}; path=/`;
         }
-    
-        console.log("✅ 방 입장 시도:", guestUuid, gameid);
-    
-        const joinRes = await axiosInstance.post(`/gamerooms/${gameid}/join`, {
-          guest_uuid: guestUuid,
-        });
-    
-        if (joinRes.status !== 200 && joinRes.status !== 201) {
-          console.error('❌ 방 입장 실패: 응답코드', joinRes.status);
-          alert("방 입장 실패! 서버 점검중일 수 있습니다.");
-          navigate("/");
-          return; // 🚫 여기서 아예 끊어
-        }
-    
-        console.log("✅ 방 입장 성공:", joinRes.data);
-        console.log("✅ 소켓 연결 시도");
+
+        console.log("✅ 게스트 인증 성공, 방 입장 시도");
+
+        console.log("✅ 방 입장 성공, 소켓 연결 시도");
         connectSocket(gameid);
     
       } catch (error) {
@@ -96,16 +135,6 @@ function InGame() {
   }, [gameid, navigate]);
 
   // 나머지 게임 로직은 기존 그대로 ↓↓↓
-  const setRandomQuizWord = () => {
-    if (itemList.length > 0) {
-      const randomWord = itemList[Math.floor(Math.random() * itemList.length)].word;
-      setQuizMsg(randomWord);
-    }
-  };
-
-  useEffect(() => {
-    setRandomQuizWord();
-  }, []);
 
   const handleTypingDone = () => {
     if (!pendingItem) return;
@@ -115,8 +144,8 @@ function InGame() {
     setQuizMsg(pendingItem.word.charAt(pendingItem.word.length - 1));
 
     setSpecialPlayer(prev => {
-      const currentIndex = players.indexOf(prev);
-      return players[(currentIndex + 1) % players.length];
+      const currentIndex = socketParticipants.map(p => p.nickname).indexOf(prev);
+      return socketParticipants.map(p => p.nickname)[(currentIndex + 1) % socketParticipants.length];
     });
 
     sendWordToServer({
@@ -162,12 +191,12 @@ function InGame() {
   };
 
   const handleClickFinish = async () => {
-    try {
-      await axiosInstance.post(ROOM_API.END_ROOMS(gameid));
-      navigate(gameLobbyUrl(gameid));
-    } catch (error) {
-      console.error(error);
-      alert('5252 난 아직 이 게임을 끝낼 생각이 없다고');
+    try{
+      await axiosInstance.post(ROOM_API.END_ROOMS(gameid))
+      navigate(gameLobbyUrl(gameid))
+    }catch(error){
+      console.log(error)
+      alert("종료된 게임이 아닙니다.");
     }
   };
 
@@ -182,7 +211,7 @@ function InGame() {
         timeOver={timeOver}
         itemList={itemList}
         showCount={showCount}
-        players={players}
+        players={socketParticipants.map(p => p.nickname)}
         specialPlayer={specialPlayer}
         setSpecialPlayer={setSpecialPlayer}
         inputValue={inputValue}
@@ -192,17 +221,33 @@ function InGame() {
         time_gauge={time_gauge}
         inputTimeLeft={inputTimeLeft}
         setInputTimeLeft={setInputTimeLeft}
+        socketParticipants={socketParticipants}
+        finalResults={finalResults}
+        usedLog={usedLog}
+        reactionTimes={reactionTimes}
+        handleClickFinish={handleClickFinish}
         catActive={catActive}
         frozenTime={frozenTime}
       />
-      <div className="fixed bottom-4 left-4 z-50">
-        <button
-          onClick={handleClickFinish}
-          className="bg-red-500 text-white px-4 py-2 rounded-lg shadow hover:bg-red-600 transition"
-        >
-          게임 종료
-        </button>
-      </div>
+      {socketParticipants.length > 0 && (
+        <div className="fixed bottom-4 left-4 z-50">
+          {guestStore.getState().guest_id === socketParticipants.find(p => p.is_owner)?.guest_id ? (
+            <button
+              onClick={handleClickFinish}
+              className="bg-red-500 text-white px-4 py-2 rounded-lg shadow hover:bg-red-600 transition"
+            >
+              게임 종료
+            </button>
+          ) : (
+            <button
+              onClick={() => navigate(gameLobbyUrl(gameid))}
+              className="bg-gray-500 text-white px-4 py-2 rounded-lg shadow hover:bg-gray-600 transition"
+            >
+              로비 이동
+            </button>
+          )}
+        </div>
+      )}
     </>
   );
 }
