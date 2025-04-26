@@ -147,14 +147,6 @@ function Layout({
           >
             고양이 달리기
           </button>
-          <button
-            onClick={() => {
-              setCatRun(true);
-            }}
-            className="mt-2 px-4 py-2 bg-green-400 text-white font-bold rounded-lg shadow-md"
-          >
-            고양이 대시
-          </button>
         </div>
 
         {showEndPointModal && (
