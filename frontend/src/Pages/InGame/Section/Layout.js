@@ -1,3 +1,4 @@
+import './Layout.css';
 import { useEffect, useState } from 'react';
 import TopMsgAni from './TopMsg_Ani';
 import Timer from './Timer';
@@ -32,8 +33,10 @@ function Layout({
   reactionTimes, // Added reactionTimes prop
 }) {
   const [showEndPointModal, setShowEndPointModal] = useState(false);
+  const [catRun, setCatRun] = useState(false);
 
   return (
+    
     <div className="w-screen flex justify-center bg-white lg:pb-[100px] px-4">
       <div className="min-h-screen py-4 flex flex-col md:flex-row md:space-x-8 md:justify-center md:items-start w-full max-w-[1920px]">
 
@@ -138,6 +141,20 @@ function Layout({
           >
             결과 보기
           </button>
+          <button
+            onClick={() => setCatRun(true)}
+            className="mt-2 px-4 py-2 bg-blue-400 text-white font-bold rounded-lg shadow-md"
+          >
+            고양이 달리기
+          </button>
+          <button
+            onClick={() => {
+              setCatRun(true);
+            }}
+            className="mt-2 px-4 py-2 bg-green-400 text-white font-bold rounded-lg shadow-md"
+          >
+            고양이 대시
+          </button>
         </div>
 
         {showEndPointModal && (
@@ -164,7 +181,7 @@ function Layout({
             ></div>
             <img
               src={workingCatImg}
-              alt="고양이"
+              alt="고양이22"
               className={`absolute top-1/2 w-6 h-6 z-10 ${inputTimeLeft === 12 ? '' : 'transition-[left] ease-linear duration-1000'}`}
               style={{
                 left: `${inputTimeLeft === 12 ? '100%' : (inputTimeLeft / 12) * 100 + '%'}`,
@@ -192,6 +209,17 @@ function Layout({
           </div>
         </div>
       </div>
+      {catRun && (
+        <div className="fixed top-0 left-0 w-screen h-screen z-[1000] bg-transparent overflow-hidden">
+          <img
+            src={workingCatImg}
+            alt="달리는 고양이"
+            className="absolute top-0 left-0 w-full h-full animate-runCat object-contain"
+            style={{ zIndex: 9999 }}
+            onAnimationEnd={() => setCatRun(false)}
+          />
+        </div>
+      )}
     </div>
   );
 }

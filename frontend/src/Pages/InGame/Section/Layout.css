@@ -1,0 +1,21 @@
+@keyframes runCat {
+  0% {
+    transform: translateX(-100%) translateY(0) scale(2) rotate(-180deg);
+  }
+  20% {
+    transform: translateX(0%) translateY(0) scale(2) rotate(0deg);
+  }
+  50% {
+    transform: translateX(0%) translateY(0) scale(2.0) rotate(360deg);
+  }
+  70% {
+    transform: translateX(0%) translateY(0) scale(1.5) rotate(0deg);
+  }
+  100% {
+    transform: translateX(100%) translateY(0) scale(2) rotate(180deg);
+  }
+}
+
+.animate-runCat {
+  animation: runCat 2.5s ease-in-out forwards;
+}
