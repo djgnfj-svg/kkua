@@ -3,54 +3,106 @@ import React from 'react';
 const RoomList = ({ rooms, onEnter }) => {
   if (rooms.length === 0 || !rooms[0] || rooms[0].title === '') {
     return (
-      <div className="flex items-center justify-center bg-white min-h-[20vh] border rounded-md mx-4 mt-6 mb-2 shadow-md">
-        <p className="text-gray-500 text-center text-lg">방을 생성해주세요.</p>
+      <div className="flex-1 flex items-center justify-center">
+        <div className="text-center text-white/70">
+          <div className="w-24 h-24 mx-auto mb-4 bg-white/10 rounded-full flex items-center justify-center">
+            <span className="text-4xl">🎮</span>
+          </div>
+          <p className="text-lg mb-2">아직 게임방이 없습니다</p>
+          <p className="text-sm text-white/50">새 게임방을 만들어 보세요!</p>
+        </div>
       </div>
     );
   }
 
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'waiting': return '⏳';
+      case 'playing': return '🎯';
+      case 'finished': return '🏁';
+      default: return '❓';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'waiting': return '대기중';
+      case 'playing': return '게임중';
+      case 'finished': return '종료됨';
+      default: return '알 수 없음';
+    }
+  };
+
   return (
-    <div className="flex-1 overflow-y-auto text-left space-y-4 px-2 md:px-10 md:pt-16 pb-24">
-      {rooms.map((room, index) => (
-        <div
-          key={room.room_id || index}
-          className="bg-white p-4 md:p-8 min-h-[12vh] md:min-h-[16vh] border-b shadow-md md:shadow-lg flex items-center justify-between"
-        >
-          <div>
-            <h3 className="font-bold mb-0.5 tracking-widest text-lg md:text-xl">
-              {room?.title || '제목 없음'}
-            </h3>
-            <p className="text-sm md:text-lg font-bold">
-              {room?.game_mode || '알 수 없음'} [ {room?.participant_count || 0}{' '}
-              /{room?.max_players || 0} ]
-            </p>
+    <div className="flex-1 overflow-y-auto p-6">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+        {rooms.map((room, index) => (
+          <div
+            key={room.room_id || index}
+            className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20 hover:bg-white/15 transition-all duration-200 hover:scale-[1.02] shadow-lg"
+          >
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex-1">
+                <div className="flex items-center space-x-2 mb-2">
+                  <span className="text-xl">{getStatusIcon(room.status)}</span>
+                  <h3 className="text-white font-bold text-lg truncate">
+                    {room?.title || '제목 없음'}
+                  </h3>
+                </div>
+                <div className="flex items-center space-x-4 text-sm text-white/70">
+                  <span className="flex items-center space-x-1">
+                    <span>🎮</span>
+                    <span>{room?.game_mode || '아케이드'}</span>
+                  </span>
+                  <span className="flex items-center space-x-1">
+                    <span>👥</span>
+                    <span>{room?.participant_count || 0}/{room?.max_players || 0}</span>
+                  </span>
+                </div>
+              </div>
+              
+              <div className="flex flex-col items-end space-y-2">
+                <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                  room.status === 'waiting' 
+                    ? 'bg-green-500/20 text-green-300 border border-green-500/30' 
+                    : room.status === 'playing'
+                    ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30'
+                    : 'bg-gray-500/20 text-gray-300 border border-gray-500/30'
+                }`}>
+                  {getStatusText(room.status)}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              {room.status === 'waiting' ? (
+                room.participant_count >= room.max_players ? (
+                  <button
+                    className="px-4 py-2 bg-gray-500/50 text-white/50 rounded-lg cursor-not-allowed"
+                    disabled
+                  >
+                    인원 초과
+                  </button>
+                ) : (
+                  <button
+                    className="px-6 py-2 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white font-semibold rounded-lg transition-all duration-200 transform hover:scale-105 shadow-lg"
+                    onClick={() => onEnter(room.room_id)}
+                  >
+                    입장하기
+                  </button>
+                )
+              ) : (
+                <button
+                  className="px-4 py-2 bg-gray-500/50 text-white/50 rounded-lg cursor-not-allowed"
+                  disabled
+                >
+                  입장 불가
+                </button>
+              )}
+            </div>
           </div>
-          {room.status === 'waiting' ? (
-            room.participant_count >= room.max_players ? (
-              <button
-                className="text-white px-3 py-1 rounded bg-gray-500 cursor-not-allowed"
-                disabled
-              >
-                인원 초과
-              </button>
-            ) : (
-              <button
-                className="text-white px-3 py-1 rounded bg-red-500 hover:bg-red-600"
-                onClick={() => onEnter(room.room_id)}
-              >
-                입장하기
-              </button>
-            )
-          ) : (
-            <button
-              className="text-white px-3 py-1 rounded bg-gray-500"
-              disabled
-            >
-              끄아 중
-            </button>
-          )}
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 };
