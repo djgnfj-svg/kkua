@@ -1,0 +1,41 @@
+name: PR Checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  check-branch-naming:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check branch naming convention
+      run: |
+        branch_name="${GITHUB_HEAD_REF}"
+        if [[ ! "$branch_name" =~ ^(feature|bugfix|hotfix|release)/.+ ]]; then
+          echo "Error: Branch name '$branch_name' does not follow naming convention"
+          echo "Branch names should start with: feature/, bugfix/, hotfix/, or release/"
+          exit 1
+        fi
+    
+  check-commit-messages:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    
+    - name: Check commit message format
+      run: |
+        # Check that commit messages follow conventional commits
+        # Format: type(scope): subject
+        commits=$(git log --format=%s origin/${{ github.base_ref }}..HEAD)
+        
+        while IFS= read -r commit; do
+          if [[ ! "$commit" =~ ^(feat|fix|docs|style|refactor|test|chore|build|ci|perf)(\(.+\))?: .+ ]]; then
+            echo "Error: Commit message does not follow conventional format"
+            echo "Invalid commit: $commit"
+            echo "Expected format: type(scope): subject"
+            echo "Valid types: feat, fix, docs, style, refactor, test, chore, build, ci, perf"
+            exit 1
+          fi
+        done <<< "$commits"
