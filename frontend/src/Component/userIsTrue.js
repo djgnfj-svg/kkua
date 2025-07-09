@@ -14,15 +14,15 @@ async function userIsTrue() {
     // 백엔드 스키마에 맞게 요청 구성
     const response = await axiosInstance.post(USER_API.GET_GUEST, {
       guest_uuid: cookieUuid,
-      device_info: navigator.userAgent
+      device_info: navigator.userAgent,
     });
 
     if (response.data && response.data.uuid) {
       return true;
     }
   } catch (error) {
-    console.warn("UUID 확인 중 오류 발생:", error);
-    console.warn("유효하지 않은 uuid, 새 게스트 생성 필요");
+    console.warn('UUID 확인 중 오류 발생:', error);
+    console.warn('유효하지 않은 uuid, 새 게스트 생성 필요');
   }
 
   return false;

@@ -17,8 +17,8 @@ export default function TopMsgAni({ text, onDone }) {
       if (index >= chars.length - 1) {
         clearInterval(interval);
         setTimeout(() => {
-            if (onDone) onDone();
-          }, 500);
+          if (onDone) onDone();
+        }, 500);
       }
 
       index++;

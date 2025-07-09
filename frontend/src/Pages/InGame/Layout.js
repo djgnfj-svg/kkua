@@ -1,10 +1,9 @@
-import { useEffect, useState } from 'react';
+import React from 'react';
 import TopMsgAni from './TopMsg_Ani';
-import Timer from './Timer';
 import msgData from './MsgData';
 
 function Layout({
-  quizMsg, 
+  quizMsg,
   typingText,
   handleTypingDone,
   message,
@@ -25,51 +24,62 @@ function Layout({
   catActive, // Added catActive prop
   frozenTime, // add this line
 }) {
-  
-
   return (
     <div className="w-screen flex justify-center bg-white lg:pb-[100px] px-4">
       <div className="min-h-screen py-4 flex flex-col md:flex-row md:space-x-8 md:justify-center md:items-start w-full max-w-[1920px]">
-
         {/* 왼쪽 고양이 */}
         <div className="hidden md:flex flex-col items-start mt-[220px] pl-4 space-y-6 w-[170px] shrink-0">
           <div className="text-sm font-bold ml-1">ㅋㅋ 그것도 모름?</div>
-          <img src="/imgs/icon/AddIconA.png" alt="고양이" className="w-24 ml-2" />
+          <img
+            src="/imgs/icon/AddIconA.png"
+            alt="고양이"
+            className="w-24 ml-2"
+          />
         </div>
 
         {/* 중앙 타이핑 영역 */}
-      <div className="w-full flex flex-col items-center space-y-4 px-[5%]">
-        
-        {/* 남은 시간 */}
-        <h1 className="text-3xl font-extrabold mt-4 mb-2">{frozenTime ?? timeLeft}초</h1>
+        <div className="w-full flex flex-col items-center space-y-4 px-[5%]">
+          {/* 남은 시간 */}
+          <h1 className="text-3xl font-extrabold mt-4 mb-2">
+            {frozenTime ?? timeLeft}초
+          </h1>
 
-        <div className="w-full max-w-sm p-4 border-4 border-orange-400 rounded-full text-center font-bold shadow-lg bg-white text-xl leading-tight h-16 flex flex-col justify-center">
-          {/* 항상 보이는 제시어 */}
-          <div className="text-orange-500 text-lg">
-            {quizMsg.length > 1 && !msgData.find(item => item.word === quizMsg)
-              ? quizMsg
-              : quizMsg.charAt(quizMsg.length - 1)}
-          </div>
-
-          {/* 애니메이션 메시지 */}
-          {typingText && <TopMsgAni text={typingText} onDone={handleTypingDone} />}
-
-          {/* 피드백 메시지 (중복 등) */}
-          {message && !typingText && (
-            <div className="text-red-500 text-sm font-normal">
-              {message}
+          <div className="w-full max-w-sm p-4 border-4 border-orange-400 rounded-full text-center font-bold shadow-lg bg-white text-xl leading-tight h-16 flex flex-col justify-center">
+            {/* 항상 보이는 제시어 */}
+            <div className="text-orange-500 text-lg">
+              {quizMsg.length > 1 &&
+              !msgData.find((item) => item.word === quizMsg)
+                ? quizMsg
+                : quizMsg.charAt(quizMsg.length - 1)}
             </div>
-          )}
-        </div>
+
+            {/* 애니메이션 메시지 */}
+            {typingText && (
+              <TopMsgAni text={typingText} onDone={handleTypingDone} />
+            )}
+
+            {/* 피드백 메시지 (중복 등) */}
+            {message && !typingText && (
+              <div className="text-red-500 text-sm font-normal">{message}</div>
+            )}
+          </div>
 
           <div className="w-full md:w-[750px] px-2 md:px-4 space-y-4 tracking-wide">
             <div className="bg-gray-100 p-6 rounded-xl space-y-4 pb-10 mb-2 min-h-[480px]">
               {itemList.slice(-showCount).map((item, index) => (
-                <div key={index} className="p-4 rounded-2xl border shadow-lg bg-white border-gray-300 drop-shadow-md">
+                <div
+                  key={index}
+                  className="p-4 rounded-2xl border shadow-lg bg-white border-gray-300 drop-shadow-md"
+                >
                   <div className="flex items-center space-x-4 ml-2">
-                    <div className={`w-8 h-8 ${index === 0 ? 'bg-blue-400' : index === 1 ? 'bg-green-400' : 'bg-purple-400'} rounded-full`}></div>
+                    <div
+                      className={`w-8 h-8 ${index === 0 ? 'bg-blue-400' : index === 1 ? 'bg-green-400' : 'bg-purple-400'} rounded-full`}
+                    ></div>
                     <span className="font-semibold text-lg text-black">
-                      {item.word.slice(0, -1)}<span className="text-red-500">{item.word.charAt(item.word.length - 1)}</span>
+                      {item.word.slice(0, -1)}
+                      <span className="text-red-500">
+                        {item.word.charAt(item.word.length - 1)}
+                      </span>
                     </span>
                   </div>
                   <div className="text-gray-500 text-sm ml-2 mt-2 break-words max-w-md text-left">
@@ -107,7 +117,9 @@ function Layout({
                 {/* 아이템리스트를 마지막 유저 아래에만 출력 */}
                 {index === players.length - 1 && (
                   <div className="text-center mt-4">
-                    <div className="text-base text-orange-500 font-bold mb-2">내 아이템</div>
+                    <div className="text-base text-orange-500 font-bold mb-2">
+                      내 아이템
+                    </div>
                     <div className="grid grid-cols-2 gap-4 px-2">
                       {[0, 1, 2, 3].map((slot) => (
                         <div
@@ -123,8 +135,10 @@ function Layout({
           </div>
         </div>
 
-        <div style={{ height: "70" }}></div>
-        <br /><br /><br />
+        <div style={{ height: '70' }}></div>
+        <br />
+        <br />
+        <br />
 
         {/* 하단 입력창 */}
         <div className="w-full fixed bottom-0 bg-white z-50 border-t border-gray">
@@ -163,7 +177,9 @@ function Layout({
               }}
               onKeyDown={crashKeyDown}
             />
-            <span className="font-bold" onClick={crashMessage}>전송</span>
+            <span className="font-bold" onClick={crashMessage}>
+              전송
+            </span>
           </div>
         </div>
       </div>

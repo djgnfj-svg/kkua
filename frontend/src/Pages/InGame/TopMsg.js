@@ -11,7 +11,7 @@ export default function useTopMsg({
   setTypingText,
   setPendingItem,
   quizMsg,
-  setQuizMsg
+  setQuizMsg,
 }) {
   const crashMessage = () => {
     const trim = inputValue.trim();
@@ -26,7 +26,7 @@ export default function useTopMsg({
     }
 
     // msgData 내 존재하는 단어인지 확인
-    const found = msgData.find(item => item.word === trim);
+    const found = msgData.find((item) => item.word === trim);
     if (!found) {
       setMessage(`잘못된 단어입니다: ${trim}`);
       setTimeout(() => setMessage(''), 2000);

@@ -7,5 +7,5 @@ export const USER_API = {
 */
 export const USER_API = {
   GET_GUEST: '/guests/login',
-  GET_GUEST_STATUS: '/gamerooms/check-active-game'
-}
+  GET_GUEST_STATUS: '/gamerooms/check-active-game',
+};
