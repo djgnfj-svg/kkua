@@ -1,36 +1,63 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+// Simplified guest store focused on guest-specific data only
+// Authentication is now handled by AuthContext
 const guestStore = create(
   persist(
-    (set) => ({
-      uuid: null,
+    (set, get) => ({
+      // Guest profile information
       nickname: '',
-      guest_id: null,
-      guest_uuid: null,
-      setGuestInfo: ({ uuid, nickname, guest_id, guest_uuid }) =>
+      lastLogin: null,
+      preferences: {
+        notifications: true,
+        sound: true,
+      },
+
+      // Game-related state
+      activeGameId: null,
+      gameHistory: [],
+
+      // Actions
+      setNickname: (nickname) =>
         set(() => ({
-          uuid,
           nickname,
-          guest_id,
-          guest_uuid,
         })),
-      resetGuestInfo: () =>
+
+      setPreferences: (preferences) =>
         set(() => ({
-          uuid: null,
+          preferences: { ...get().preferences, ...preferences },
+        })),
+
+      setActiveGame: (gameId) =>
+        set(() => ({
+          activeGameId: gameId,
+        })),
+
+      addToGameHistory: (gameData) =>
+        set((state) => ({
+          gameHistory: [gameData, ...state.gameHistory.slice(0, 9)], // Keep last 10 games
+        })),
+
+      resetGuestData: () =>
+        set(() => ({
           nickname: '',
-          guest_id: null,
-          guest_uuid: null,
+          lastLogin: null,
+          activeGameId: null,
+          gameHistory: [],
+          preferences: {
+            notifications: true,
+            sound: true,
+          },
         })),
     }),
     {
       name: 'guest-storage',
       getStorage: () => localStorage,
       partialize: (state) => ({
-        uuid: state.uuid,
         nickname: state.nickname,
-        guest_id: state.guest_id,
-        guest_uuid: state.guest_uuid,
+        preferences: state.preferences,
+        gameHistory: state.gameHistory,
       }),
     }
   )

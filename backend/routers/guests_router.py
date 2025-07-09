@@ -1,11 +1,15 @@
-from fastapi import APIRouter, Depends, Response, Request
-from sqlalchemy.orm import Session
-from config.cookie import GUEST_AUTH_COOKIE, GUEST_UUID_COOKIE
+"""
+Simplified guests router - authentication moved to auth_router
+"""
 
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
 from db.postgres import get_db
 from repositories.guest_repository import GuestRepository
 from services.guest_service import GuestService
-from schemas.guest_schema import GuestResponse, GuestLoginRequest
+from schemas.guest_schema import GuestResponse
+from middleware.auth_middleware import require_authentication
+from models.guest_model import Guest
 
 router = APIRouter(prefix="/guests", tags=["guests"])
 
@@ -15,18 +19,29 @@ def get_guest_service(db: Session = Depends(get_db)) -> GuestService:
     return GuestService(repository)
 
 
-@router.post("/login", response_model=GuestResponse)
-def guest_login(
-    request: Request,
-    response: Response,
-    login_data: GuestLoginRequest,
-    service: GuestService = Depends(get_guest_service),
+@router.get("/me", response_model=GuestResponse)
+def get_current_guest(
+    current_guest: Guest = Depends(require_authentication)
 ) -> GuestResponse:
-    # 두 쿠키 중 하나 가져오기 (auth가 우선)
-    guest_uuid = request.cookies.get(GUEST_AUTH_COOKIE) or request.cookies.get(
-        GUEST_UUID_COOKIE
+    """Get current guest information"""
+    return GuestResponse(
+        guest_uuid=current_guest.guest_uuid,
+        nickname=current_guest.nickname,
+        last_login=current_guest.last_login
     )
-    nickname = login_data.nickname
-    device_info = login_data.device_info or request.headers.get("User-Agent", "")
 
-    return service.login(response, guest_uuid, nickname, device_info)
+
+@router.get("/{guest_uuid}", response_model=GuestResponse)
+def get_guest_by_uuid(
+    guest_uuid: str,
+    service: GuestService = Depends(get_guest_service)
+) -> GuestResponse:
+    """Get guest by UUID (public endpoint)"""
+    guest = service.get_guest_by_uuid(guest_uuid)
+    if not guest:
+        from fastapi import HTTPException, status
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Guest not found"
+        )
+    return guest

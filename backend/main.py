@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from db.postgres import Base, engine
 from routers import (
+    auth_router,
     guests_router,
     gamerooms_router,
     gameroom_ws_router,
@@ -42,6 +43,7 @@ app.add_middleware(
 Base.metadata.create_all(bind=engine)
 
 # 라우터 등록
+app.include_router(auth_router.router)  # 인증 API
 app.include_router(guests_router.router)
 app.include_router(gamerooms_router.router)  # 기본 CRUD 기능
 app.include_router(gameroom_actions_router.router)  # 게임룸 액션 기능

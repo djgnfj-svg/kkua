@@ -2,154 +2,116 @@ import React, { useEffect, useState } from 'react';
 import './Loading.css';
 import { useNavigate } from 'react-router-dom';
 import TutoModal from './Modal/TutoModal';
-import axiosInstance from '../../Api/axiosInstance';
 import { lobbyUrl } from '../../Component/urls';
-import { USER_API } from '../../Api/userApi';
-import userIsTrue from '../../Component/userIsTrue';
-import guestStore from '../../store/guestStore';
+import { useAuth } from '../../contexts/AuthContext';
 import WelcomeSection from './components/WelcomeSection';
 
 function Loading() {
-  console.log('Loading 컴포넌트 렌더링');
-
   const [showModal, setShowModal] = useState(false);
+  const [nickname, setNickname] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const { isAuthenticated, login, loading } = useAuth();
 
   useEffect(() => {
-    const checkGuest = async () => {
-      const result = await userIsTrue();
-      if (result) {
-        alert('어허 로그인하셧으면 시작페이지 오지마세요 !');
-        navigate(lobbyUrl);
-      }
-    };
-    checkGuest();
-  }, [navigate]);
+    // 이미 로그인된 경우 로비로 리다이렉트
+    if (isAuthenticated) {
+      navigate(lobbyUrl);
+    }
+  }, [isAuthenticated, navigate]);
 
-  const startButtonOn = async () => {
+  const handleQuickStart = async () => {
     try {
-      const response = await axiosInstance.post(USER_API.GET_GUEST, {
-        nickname: null,
-        device_info: navigator.userAgent,
-      });
-
-      const data = response.data;
-
-      guestStore.getState().setGuestInfo(data);
-
-      alert(`게스트 ${data.nickname}님으로 로그인되었습니다!`);
-
-      setTimeout(() => {
-        setShowModal(true);
-      }, 100);
+      setIsLoading(true);
+      await login(); // 닉네임 없이 로그인 (자동 생성)
+      setShowModal(true);
     } catch (error) {
-      console.error('게스트 로그인 실패:', error);
-      alert('게스트 로그인에 실패했습니다.');
+      console.error('빠른 시작 실패:', error);
+      alert('로그인에 실패했습니다. 다시 시도해주세요.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const backButtonOn = () => {
-    window.close();
+  const handleNicknameLogin = async () => {
+    if (!nickname.trim()) {
+      alert('닉네임을 입력해주세요.');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      await login(nickname.trim());
+      setShowModal(true);
+    } catch (error) {
+      console.error('닉네임 로그인 실패:', error);
+      const errorMessage = error.response?.data?.detail || '로그인에 실패했습니다.';
+      alert(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const guideSections = [
-    {
-      image: (
-        <div className="w-[60px] h-[60px] border border-red-300 mr-2"></div>
-      ),
-      text: (
-        <>
-          첫 번째 아이템
-          <br />
-          재미있는 효과
-          <br />
-          플레이를 도와줘요!
-        </>
-      ),
-    },
-    {
-      image: (
-        <div className="w-full h-[120px] bg-gray-200 border border-red-300"></div>
-      ),
-    },
-    {
-      image: (
-        <div className="w-[60px] h-[60px] border border-red-300 mr-2"></div>
-      ),
-      text: (
-        <>
-          두 번째 아이템
-          <br />
-          상대를 방해하거나
-          <br />
-          유리하게 만들 수 있어요!
-        </>
-      ),
-    },
-    {
-      image: (
-        <div className="w-full h-[120px] bg-gray-200 border border-red-300"></div>
-      ),
-    },
-    {
-      image: (
-        <div className="w-[60px] h-[60px] border border-red-300 mr-2"></div>
-      ),
-      text: (
-        <>
-          세 번째 아이템
-          <br />
-          위기를 기회로!
-          <br />
-          전략적 활용 가능!
-        </>
-      ),
-    },
-    {
-      image: (
-        <div className="w-full h-[120px] bg-gray-200 border border-red-300"></div>
-      ),
-    },
-    {
-      image: (
-        <div className="w-[60px] h-[60px] border border-red-300 mr-2"></div>
-      ),
-      text: (
-        <>
-          네 번째 아이템
-          <br />
-          마지막 한 방!
-          <br />
-          반전의 기회를 노려보세요!
-        </>
-      ),
-    },
-    {
-      image: (
-        <div className="w-full h-[120px] bg-gray-200 border border-red-300"></div>
-      ),
-    },
-  ];
+  const handleModalClose = () => {
+    setShowModal(false);
+    navigate(lobbyUrl);
+  };
+
+  // 인증 상태 로딩 중
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen flex justify-center items-center">
-      <WelcomeSection
-        startButtonOn={startButtonOn}
-        backButtonOn={backButtonOn}
-      />
+    <div className="Loading">
+      <WelcomeSection />
+      
+      <div className="mt-8 space-y-4">
+        {/* 빠른 시작 버튼 */}
+        <button
+          onClick={handleQuickStart}
+          disabled={isLoading}
+          className="w-full py-3 px-6 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-bold rounded-lg transition-colors"
+        >
+          {isLoading ? '로그인 중...' : '빠른 시작'}
+        </button>
 
-      <TutoModal
-        showModal={showModal}
-        setShowModal={(show) => {
-          console.log('모달 상태 변경:', show);
-          setShowModal(show);
-          if (!show) {
-            console.log('모달 닫힘 - 로비로 이동 시도');
-            navigate(lobbyUrl);
-          }
-        }}
-        guideSections={guideSections}
-      />
+        {/* 구분선 */}
+        <div className="flex items-center">
+          <div className="flex-grow border-t border-gray-300"></div>
+          <span className="mx-4 text-gray-500">또는</span>
+          <div className="flex-grow border-t border-gray-300"></div>
+        </div>
+
+        {/* 닉네임으로 시작 */}
+        <div className="space-y-2">
+          <input
+            type="text"
+            placeholder="닉네임을 입력하세요"
+            value={nickname}
+            onChange={(e) => setNickname(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleNicknameLogin()}
+            className="w-full py-2 px-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            maxLength={20}
+            disabled={isLoading}
+          />
+          <button
+            onClick={handleNicknameLogin}
+            disabled={isLoading || !nickname.trim()}
+            className="w-full py-3 px-6 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-bold rounded-lg transition-colors"
+          >
+            {isLoading ? '로그인 중...' : '닉네임으로 시작'}
+          </button>
+        </div>
+      </div>
+
+      {showModal && (
+        <TutoModal isOpen={showModal} onClose={handleModalClose} />
+      )}
     </div>
   );
 }
