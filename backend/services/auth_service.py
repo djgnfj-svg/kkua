@@ -39,7 +39,7 @@ class AuthService:
         
         guest = self.guest_repo.create(guest_uuid_obj, nickname)
         # Update last login after creation
-        self.guest_repo.update_last_login(guest_uuid_obj)
+        self.guest_repo.update_last_login(guest)
         return guest, guest_uuid
 
     def authenticate_guest(self, guest_uuid: str) -> Optional[Guest]:
@@ -53,10 +53,11 @@ class AuthService:
         except ValueError:
             return None
         
-        guest = self.guest_repo.find_by_uuid(guest_uuid)
+        guest_uuid_obj = uuid.UUID(guest_uuid)
+        guest = self.guest_repo.find_by_uuid(guest_uuid_obj)
         if guest:
             # Update last login
-            self.guest_repo.update_last_login(guest.guest_uuid)
+            self.guest_repo.update_last_login(guest)
         
         return guest
 
