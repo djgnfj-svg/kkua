@@ -5,45 +5,29 @@ services:
     build: ./backend
     ports:
       - "8000:8000"
-    volumes:
-      - ./backend:/app
     environment:
       - DATABASE_URL=postgresql://postgres:mysecretpassword@db:5432/mydb
-      - ENVIRONMENT=development
-      - DEBUG=true
+      - ENVIRONMENT=production
+      - DEBUG=false
+      - CORS_ORIGINS=["https://your-domain.com"]
     depends_on:
       db:
         condition: service_healthy
     restart: unless-stopped
 
-  # 테스트 서비스 추가
-  backend-test:
-    build: ./backend
-    volumes:
-      - ./backend:/app
-    environment:
-      - DATABASE_URL=postgresql://postgres:mysecretpassword@db:5432/mydb
-      - TESTING=true
-    depends_on:
-      db:
-        condition: service_healthy
-    # 테스트 실행 명령으로 덮어씀
-    command: python -m pytest tests/ -v
-
   frontend:
-    build: ./frontend
+    build: 
+      context: ./frontend
+      dockerfile: Dockerfile.prod
     ports:
       - "3000:3000"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
     environment:
-      - CHOKIDAR_USEPOLLING=true
-      - REACT_APP_API_URL=http://localhost:8000
-      - REACT_APP_WS_URL=ws://localhost:8000
+      - REACT_APP_API_URL=https://your-api-domain.com
+      - REACT_APP_WS_URL=wss://your-api-domain.com
     depends_on:
       - backend
     restart: unless-stopped
+
   db:
     build: ./DB
     ports:
