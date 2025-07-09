@@ -1,4 +1,4 @@
-from fastapi import HTTPException, status, Request
+from fastapi import HTTPException, status
 from typing import List, Dict, Any
 import uuid
 import asyncio
@@ -20,35 +20,8 @@ class GameroomActionsService:
         self.repository = repository
         self.guest_repository = guest_repository
 
-    def get_guest_by_cookie(self, request: Request) -> Guest:
-        """쿠키에서 UUID를 추출하여 게스트를 반환합니다."""
-        guest_uuid_str = request.cookies.get("kkua_guest_uuid")
-        if not guest_uuid_str:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="게스트 UUID가 필요합니다. 쿠키에 kkua_guest_uuid가 없습니다.",
-            )
-
-        try:
-            guest_uuid = uuid.UUID(guest_uuid_str)
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="유효하지 않은 UUID 형식입니다.",
-            )
-
-        guest = self.guest_repository.find_by_uuid(guest_uuid)
-        if not guest:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="유효하지 않은 게스트 UUID입니다.",
-            )
-
-        return guest
-
-    def join_gameroom(self, room_id: int, request: Request) -> JoinGameroomResponse:
+    def join_gameroom(self, room_id: int, guest: Guest) -> JoinGameroomResponse:
         """게임룸에 참가합니다."""
-        guest = self.get_guest_by_cookie(request)
 
         # 게임룸 조회
         room = self.repository.find_by_id(room_id)
@@ -125,9 +98,8 @@ class GameroomActionsService:
             room_id=room_id, guest_id=guest.guest_id, message="게임룸에 참가했습니다."
         )
 
-    def leave_gameroom(self, room_id: int, request: Request) -> Dict[str, str]:
+    def leave_gameroom(self, room_id: int, guest: Guest) -> Dict[str, str]:
         """게임룸에서 나갑니다."""
-        guest = self.get_guest_by_cookie(request)
 
         # 게임룸 조회
         room = self.repository.find_by_id(room_id)
@@ -241,9 +213,8 @@ class GameroomActionsService:
 
             return {"message": "게임룸에서 퇴장했습니다."}
 
-    def start_game(self, room_id: int, request: Request) -> Dict[str, str]:
+    def start_game(self, room_id: int, guest: Guest) -> Dict[str, str]:
         """게임을 시작합니다. 방장만 게임을 시작할 수 있습니다."""
-        guest = self.get_guest_by_cookie(request)
 
         # 게임룸 조회
         room = self.repository.find_by_id(room_id)
@@ -309,9 +280,8 @@ class GameroomActionsService:
 
         return {"message": "게임이 시작되었습니다!", "status": "PLAYING"}
 
-    def end_game(self, room_id: int, request: Request) -> Dict[str, str]:
+    def end_game(self, room_id: int, guest: Guest) -> Dict[str, str]:
         """게임을 종료하고 대기 상태로 되돌립니다. 방장만 게임을 종료할 수 있습니다."""
-        guest = self.get_guest_by_cookie(request)
 
         # 게임룸 조회
         room = self.repository.find_by_id(room_id)
@@ -378,9 +348,7 @@ class GameroomActionsService:
         participants = self.repository.get_participants(room_id)
         return participants
 
-    def check_active_game(
-        self, request: Request, guest_uuid_str: str = None
-    ) -> Dict[str, Any]:
+    def check_active_game(self, guest_uuid_str: str = None) -> Dict[str, Any]:
         """유저가 현재 참여 중인 게임이 있는지 확인합니다."""
         if guest_uuid_str:
             # URL 파라미터로 UUID가 제공된 경우
@@ -392,15 +360,7 @@ class GameroomActionsService:
                     detail="유효하지 않은 UUID 형식입니다.",
                 )
         else:
-            # 쿠키에서 UUID 가져오기
-            guest_uuid_str = request.cookies.get("kkua_guest_uuid")
-            if not guest_uuid_str:
-                return {"has_active_game": False, "room_id": None}
-
-            try:
-                guest_uuid = uuid.UUID(guest_uuid_str)
-            except ValueError:
-                return {"has_active_game": False, "room_id": None}
+            return {"has_active_game": False, "room_id": None}
 
         # UUID로 게스트 조회
         guest = self.guest_repository.find_by_uuid(guest_uuid)
@@ -414,11 +374,9 @@ class GameroomActionsService:
 
         return {"has_active_game": should_redirect, "room_id": active_room_id}
 
-    def check_if_owner(self, room_id: int, request: Request) -> Dict[str, bool]:
+    def check_if_owner(self, room_id: int, guest: Guest) -> Dict[str, bool]:
         """현재 게스트가 특정 게임룸의 방장인지 확인합니다."""
         try:
-            guest = self.get_guest_by_cookie(request)
-
             # 게임룸 조회
             room = self.repository.find_by_id(room_id)
             if not room:
@@ -431,9 +389,8 @@ class GameroomActionsService:
         except HTTPException:
             return {"is_owner": False}
 
-    def toggle_ready_status(self, room_id: int, request: Request) -> Dict[str, Any]:
+    def toggle_ready_status(self, room_id: int, guest: Guest) -> Dict[str, Any]:
         """참가자의 준비 상태를 토글합니다."""
-        guest = self.get_guest_by_cookie(request)
 
         # 게임룸 조회
         room = self.repository.find_by_id(room_id)

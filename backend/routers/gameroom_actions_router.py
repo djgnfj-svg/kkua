@@ -26,51 +26,51 @@ def get_gameroom_actions_service(
 @router.post("/{room_id}/join", response_model=JoinGameroomResponse)
 def join_gameroom(
     room_id: int,
-    request: Request,
+    guest: Guest = Depends(get_current_guest),
     service: GameroomActionsService = Depends(get_gameroom_actions_service),
 ):
     """게임룸에 참가합니다."""
-    return service.join_gameroom(room_id, request)
+    return service.join_gameroom(room_id, guest)
 
 
 @router.post("/{room_id}/leave", status_code=status.HTTP_200_OK)
 def leave_gameroom(
     room_id: int,
-    request: Request,
+    guest: Guest = Depends(get_current_guest),
     service: GameroomActionsService = Depends(get_gameroom_actions_service),
 ):
     """게임룸에서 나갑니다."""
-    return service.leave_gameroom(room_id, request)
+    return service.leave_gameroom(room_id, guest)
 
 
 @router.post("/{room_id}/ready", status_code=status.HTTP_200_OK)
 def toggle_ready_status(
     room_id: int,
-    request: Request,
+    guest: Guest = Depends(get_current_guest),
     service: GameroomActionsService = Depends(get_gameroom_actions_service),
 ):
     """참가자의 준비 상태를 토글합니다."""
-    return service.toggle_ready_status(room_id, request)
+    return service.toggle_ready_status(room_id, guest)
 
 
 @router.post("/{room_id}/start", status_code=status.HTTP_200_OK)
 def start_game(
     room_id: int,
-    request: Request,
+    guest: Guest = Depends(get_current_guest),
     service: GameroomActionsService = Depends(get_gameroom_actions_service),
 ):
     """게임을 시작합니다. 방장만 게임을 시작할 수 있습니다."""
-    return service.start_game(room_id, request)
+    return service.start_game(room_id, guest)
 
 
 @router.post("/{room_id}/end", status_code=status.HTTP_200_OK)
 def end_game(
     room_id: int,
-    request: Request,
+    guest: Guest = Depends(get_current_guest),
     service: GameroomActionsService = Depends(get_gameroom_actions_service),
 ):
     """게임을 종료합니다. 방장만 게임을 종료할 수 있습니다."""
-    return service.end_game(room_id, request)
+    return service.end_game(room_id, guest)
 
 
 @router.get("/{room_id}/participants", status_code=status.HTTP_200_OK)
@@ -84,19 +84,18 @@ def get_gameroom_participants(
 
 @router.get("/check-active-game", status_code=status.HTTP_200_OK)
 def check_active_game(
-    request: Request,
     guest_uuid_str: str = None,
     service: GameroomActionsService = Depends(get_gameroom_actions_service),
 ):
     """유저가 현재 참여 중인 게임이 있는지 확인합니다."""
-    return service.check_active_game(request, guest_uuid_str)
+    return service.check_active_game(guest_uuid_str)
 
 
 @router.get("/{room_id}/is-owner", status_code=status.HTTP_200_OK)
 def check_if_owner(
     room_id: int,
-    request: Request,
+    guest: Guest = Depends(get_current_guest),
     service: GameroomActionsService = Depends(get_gameroom_actions_service),
 ):
     """현재 게스트가 특정 게임룸의 방장인지 확인합니다."""
-    return service.check_if_owner(room_id, request)
+    return service.check_if_owner(room_id, guest)
