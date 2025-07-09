@@ -64,7 +64,7 @@ export function AuthProvider({ children }) {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       const response = await axiosInstance.get('/auth/status');
-      
+
       if (response.data.authenticated) {
         dispatch({ type: 'LOGIN_SUCCESS', payload: response.data.guest });
       } else {
@@ -81,7 +81,7 @@ export function AuthProvider({ children }) {
   const login = async (nickname = null) => {
     try {
       dispatch({ type: 'LOGIN_START' });
-      
+
       const response = await axiosInstance.post('/auth/login', {
         nickname: nickname,
       });
@@ -89,7 +89,8 @@ export function AuthProvider({ children }) {
       dispatch({ type: 'LOGIN_SUCCESS', payload: response.data });
       return response.data;
     } catch (error) {
-      const errorMessage = error.response?.data?.detail || '로그인에 실패했습니다.';
+      const errorMessage =
+        error.response?.data?.detail || '로그인에 실패했습니다.';
       dispatch({ type: 'LOGIN_FAILURE', payload: errorMessage });
       throw error;
     }
@@ -111,7 +112,8 @@ export function AuthProvider({ children }) {
       dispatch({ type: 'UPDATE_PROFILE', payload: response.data });
       return response.data;
     } catch (error) {
-      const errorMessage = error.response?.data?.detail || '프로필 업데이트에 실패했습니다.';
+      const errorMessage =
+        error.response?.data?.detail || '프로필 업데이트에 실패했습니다.';
       throw new Error(errorMessage);
     }
   };

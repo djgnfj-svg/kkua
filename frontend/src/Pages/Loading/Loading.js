@@ -45,7 +45,8 @@ function Loading() {
       setShowModal(true);
     } catch (error) {
       console.error('닉네임 로그인 실패:', error);
-      const errorMessage = error.response?.data?.detail || '로그인에 실패했습니다.';
+      const errorMessage =
+        error.response?.data?.detail || '로그인에 실패했습니다.';
       alert(errorMessage);
     } finally {
       setIsLoading(false);
@@ -69,7 +70,7 @@ function Loading() {
   return (
     <div className="Loading">
       <WelcomeSection />
-      
+
       <div className="mt-8 space-y-4">
         {/* 빠른 시작 버튼 */}
         <button
@@ -109,9 +110,7 @@ function Loading() {
         </div>
       </div>
 
-      {showModal && (
-        <TutoModal isOpen={showModal} onClose={handleModalClose} />
-      )}
+      {showModal && <TutoModal isOpen={showModal} onClose={handleModalClose} />}
     </div>
   );
 }
