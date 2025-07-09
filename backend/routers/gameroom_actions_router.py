@@ -4,8 +4,6 @@ from sqlalchemy.orm import Session
 from db.postgres import get_db
 from middleware.auth_middleware import get_current_guest
 from models.guest_model import Guest
-from repositories.gameroom_repository import GameroomRepository
-from repositories.guest_repository import GuestRepository
 from services.gameroom_actions_service import GameroomActionsService
 from schemas.gameroom_actions_schema import JoinGameroomResponse
 
@@ -18,9 +16,7 @@ router = APIRouter(
 def get_gameroom_actions_service(
     db: Session = Depends(get_db),
 ) -> GameroomActionsService:
-    gameroom_repo = GameroomRepository(db)
-    guest_repo = GuestRepository(db)
-    return GameroomActionsService(gameroom_repo, guest_repo)
+    return GameroomActionsService(db)
 
 
 @router.post("/{room_id}/join", response_model=JoinGameroomResponse)
