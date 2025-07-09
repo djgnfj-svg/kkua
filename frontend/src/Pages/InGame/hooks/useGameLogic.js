@@ -99,7 +99,14 @@ const useGameLogic = () => {
         resetTimer();
       }, 500);
     }
-  }, [inputTimeLeft, inputValue, typingText, timeLeft, resetTimer, setRandomQuizWord]);
+  }, [
+    inputTimeLeft,
+    inputValue,
+    typingText,
+    timeLeft,
+    resetTimer,
+    setRandomQuizWord,
+  ]);
 
   const handleTypingDone = () => {
     if (!pendingItem) return;

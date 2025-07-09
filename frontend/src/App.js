@@ -1,9 +1,5 @@
 import './App.css';
-import {
-  BrowserRouter as Router,
-  Route,
-  Routes,
-} from 'react-router-dom'; //루트
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom'; //루트
 import Loading from './Pages/Loading/Loading';
 import InGame from './Pages/InGame/InGame';
 import Lobby from './Pages/Lobby/Lobby';

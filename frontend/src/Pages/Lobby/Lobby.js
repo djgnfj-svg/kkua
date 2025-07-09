@@ -39,10 +39,10 @@ function Lobby() {
           </div>
         )}
         <div className="w-full flex flex-col items-center mt-6 mb-2">
-          <img 
+          <img
             src="/imgs/icon/default-avatar.png"
             alt="프로필 이미지"
-            className="w-[50px] h-[50px] bg-white rounded-full object-cover mb-2" 
+            className="w-[50px] h-[50px] bg-white rounded-full object-cover mb-2"
           />
           <p className="text-lg font-semibold text-gray-700">
             {nickname || '게스트'}
