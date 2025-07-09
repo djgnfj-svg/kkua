@@ -3,16 +3,16 @@ import axiosInstance from '../Api/axiosInstance';
 
 const AuthContext = createContext();
 
-// 로컬 스토리지에서 초기 상태 복원
+// 로컬 스토리지에서 초기 상태 복원 (서버 검증 없이는 인증하지 않음)
 const getInitialState = () => {
   try {
     const savedAuth = localStorage.getItem('auth_state');
     if (savedAuth) {
       const parsedAuth = JSON.parse(savedAuth);
       return {
-        isAuthenticated: parsedAuth.isAuthenticated || false,
-        user: parsedAuth.user || null,
-        loading: true, // 여전히 서버 확인 필요
+        isAuthenticated: false, // 항상 false로 시작, 서버 검증 후 결정
+        user: parsedAuth.user || null, // 사용자 정보만 복원
+        loading: true, // 서버 확인 필요
         error: null,
       };
     }

@@ -66,8 +66,15 @@ class GameroomService:
     def create_gameroom(
         self, data: Dict[str, Any], guest_id: int
     ) -> Optional[Gameroom]:
-        """게임룸을 생성합니다."""
+        """게임룸을 생성하고 방장을 자동으로 참가자로 추가합니다."""
         room, _ = self.actions.create_gameroom(data, guest_id)
+        
+        # 방장을 자동으로 참가자로 추가
+        if room:
+            self.repository.add_participant(room.room_id, guest_id)
+            # 참가자 수 업데이트
+            self.repository.update_participant_count(room.room_id)
+            
         return room
 
     def update_gameroom(self, room_id: int, data: Dict[str, Any]) -> Optional[Gameroom]:
@@ -136,13 +143,14 @@ class GameroomService:
             participant.id, status.upper()
         )
 
-        # 웹소켓으로 상태 변경 알림
-        asyncio.create_task(
-            ws_manager.broadcast_room_update(
-                room_id,
-                "status_changed",
-                {"guest_id": guest_id, "status": updated_participant.status.value},
+        # 웹소켓으로 상태 변경 알림 (ws_manager 유효성 검사 추가)
+        if ws_manager:
+            asyncio.create_task(
+                ws_manager.broadcast_room_update(
+                    room_id,
+                    "status_changed",
+                    {"guest_id": guest_id, "status": updated_participant.status.value},
+                )
             )
-        )
 
         return {"detail": "참가자 상태가 업데이트되었습니다."}

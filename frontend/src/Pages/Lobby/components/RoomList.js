@@ -1,6 +1,6 @@
 import React from 'react';
 
-const RoomList = ({ rooms, onEnter }) => {
+const RoomList = ({ rooms, onEnter, isEntering, enteringRoomId }) => {
   if (rooms.length === 0 || !rooms[0] || rooms[0].title === '') {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -85,10 +85,22 @@ const RoomList = ({ rooms, onEnter }) => {
                   </button>
                 ) : (
                   <button
-                    className="px-6 py-2 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white font-semibold rounded-lg transition-all duration-200 transform hover:scale-105 shadow-lg"
+                    className={`px-6 py-2 font-semibold rounded-lg transition-all duration-200 shadow-lg flex items-center space-x-2 ${
+                      isEntering && enteringRoomId === room.room_id
+                        ? 'bg-gray-500/50 text-white/70 cursor-not-allowed'
+                        : 'bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white transform hover:scale-105'
+                    }`}
                     onClick={() => onEnter(room.room_id)}
+                    disabled={isEntering}
                   >
-                    입장하기
+                    {isEntering && enteringRoomId === room.room_id ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/50 border-t-white rounded-full animate-spin"></div>
+                        <span>입장 중...</span>
+                      </>
+                    ) : (
+                      <span>입장하기</span>
+                    )}
                   </button>
                 )
               ) : (

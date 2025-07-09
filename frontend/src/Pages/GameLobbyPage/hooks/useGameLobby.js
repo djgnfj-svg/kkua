@@ -2,13 +2,13 @@ import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axiosInstance from '../../../Api/axiosInstance';
 import { gameUrl } from '../../../Component/urls';
-import userIsTrue from '../../../Component/userIsTrue';
 import { ROOM_API } from '../../../Api/roomApi';
-import guestStore from '../../../store/guestStore';
 import useGameRoomSocket from '../../../hooks/useGameRoomSocket';
+import { useAuth } from '../../../contexts/AuthContext';
 
 const useGameLobby = () => {
   const { roomId } = useParams();
+  const { user, isAuthenticated } = useAuth();
   const [roomInfo, setRoomInfo] = useState(null);
   const [participants, setParticipants] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -25,69 +25,21 @@ const useGameLobby = () => {
     toggleReady,
     roomUpdated,
     setRoomUpdated,
-    connect,
-    disconnect,
   } = useGameRoomSocket(roomId);
 
-  /* Guest Check */
+  /* 인증 상태 확인 */
   useEffect(() => {
-    const checkGuest = async () => {
-      const { uuid, guest_id, nickname } = guestStore.getState();
-
-      if (uuid && guest_id && nickname) {
-        console.log('✅ 저장된 guestStore 정보 사용:', {
-          uuid,
-          guest_id,
-          nickname,
-        });
-        return;
-      }
-      const cookies = document.cookie.split(';');
-      const guestUuidCookie = cookies.find((cookie) =>
-        cookie.trim().startsWith('kkua_guest_uuid=')
-      );
-      const guestUuid = guestUuidCookie
-        ? guestUuidCookie.split('=')[1].trim()
-        : null;
-
-      console.log('쿠키에서 찾은 UUID:', guestUuid);
-      console.log('스토어에 저장된 UUID:', uuid);
-
-      if (guestUuid) {
-        if (!uuid || uuid !== guestUuid) {
-          console.log('UUID 불일치, 스토어 업데이트');
-          const current = guestStore.getState();
-          guestStore.getState().setGuestInfo({
-            uuid: guestUuid,
-            guest_id: current.guest_id,
-            nickname: current.nickname,
-            guest_uuid: current.guest_uuid,
-          });
-        }
-
-        const result = await userIsTrue();
-        if (!result) {
-          alert('어멋 어딜들어오세요 Get Out !');
-          navigate('/');
-          return;
-        }
-      } else {
-        try {
-          const response = await axiosInstance.post('/guests/login');
-
-          guestStore.getState().setGuestInfo({
-            uuid: response.data.uuid,
-            nickname: response.data.nickname,
-            guest_id: response.data.guest_id,
-          });
-        } catch (error) {
-          alert('서버 연결에 문제가 있습니다');
-          navigate('/');
-        }
-      }
-    };
-    checkGuest();
-  }, [navigate]);
+    if (!isAuthenticated || !user) {
+      console.log('인증되지 않은 사용자 - 메인 페이지로 리다이렉트');
+      navigate('/');
+      return;
+    }
+    
+    console.log('✅ 인증된 사용자:', {
+      guest_id: user.guest_id,
+      nickname: user.nickname,
+    });
+  }, [isAuthenticated, user, navigate]);
 
   /* USER INFO */
   const fetchRoomData = useCallback(async () => {
@@ -108,23 +60,42 @@ const useGameLobby = () => {
           Array.isArray(response.data.participants)
         ) {
           setParticipants(response.data.participants);
+          
+          // 현재 사용자가 방 참가자인지 확인
+          const isParticipant = response.data.participants.some(
+            (p) => String(p.guest_id) === String(user?.guest_id)
+          );
+          
+          if (!isParticipant) {
+            console.log('방 참가자가 아님 - 접근 거부');
+            alert('이 방에 참가하지 않은 사용자입니다. 로비로 이동합니다.');
+            navigate('/lobby');
+            return;
+          }
         }
       }
     } catch (error) {
       console.error('방 정보 가져오기 실패:', error);
+      if (error.response?.status === 404) {
+        alert('존재하지 않는 방입니다. 로비로 이동합니다.');
+        navigate('/lobby');
+      } else if (error.response?.status === 403) {
+        alert('접근 권한이 없습니다. 로비로 이동합니다.');
+        navigate('/lobby');
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [roomId]);
+  }, [roomId, user, navigate]);
 
   /* 방장 확인 */
   const checkIfOwnerFromParticipants = useCallback(() => {
-    const { guest_id } = guestStore.getState();
-    const currentUser = guest_id
-      ? participants.find((p) => String(p.guest_id) === String(guest_id))
-      : null;
+    if (!user?.guest_id) return false;
+    const currentUser = participants.find(
+      (p) => String(p.guest_id) === String(user.guest_id)
+    );
     return currentUser?.is_creator === true;
-  }, [participants]);
+  }, [participants, user]);
 
   useEffect(() => {
     fetchRoomData();
@@ -184,11 +155,8 @@ const useGameLobby = () => {
       let confirmLeave = window.confirm('로비로 나가시겠습니까?');
       if (confirmLeave) {
         try {
-          const { uuid } = guestStore.getState();
           axiosInstance
-            .post(ROOM_API.LEAVE_ROOMS(roomId), {
-              guest_uuid: uuid,
-            })
+            .post(ROOM_API.LEAVE_ROOMS(roomId))
             .then(() => {
               alert('방에서 나갑니다!');
               navigate(lobbyUrl);
@@ -224,39 +192,17 @@ const useGameLobby = () => {
     }
   };
 
+  /* 인증 상태 재확인 (세션 기반) */
   useEffect(() => {
-    const checkUuidConsistency = async () => {
-      const { uuid } = guestStore.getState();
-
-      if (!uuid) {
-        try {
-          const response = await axiosInstance.post('/guests/login');
-          guestStore.getState().setGuestInfo({
-            uuid: response.data.uuid,
-            nickname: response.data.nickname,
-            guest_id: response.data.guest_id,
-          });
-        } catch (error) {
-          console.error('로그인 실패:', error);
-          alert('서버 연결에 문제가 있습니다');
-          navigate('/');
-        }
-      }
-    };
-    checkUuidConsistency();
-  }, [navigate]);
+    if (!isAuthenticated || !user) {
+      console.log('인증 상태 확인 실패 - 메인 페이지로 리다이렉트');
+      navigate('/');
+    }
+  }, [isAuthenticated, user, navigate]);
 
   useEffect(() => {
     console.log('웹소켓 연결 상태:', connected ? '연결됨' : '연결 안됨');
-    if (!connected && connect) {
-      console.log('웹소켓 연결 시도...');
-      connect();
-    }
-    return () => {
-      console.log('컴포넌트 언마운트: 웹소켓 연결 종료');
-      if (disconnect) disconnect();
-    };
-  }, [connected, connect, disconnect]);
+  }, [connected]);
 
   useEffect(() => {
     if (connected && socketParticipants && socketParticipants.length > 0) {
@@ -281,20 +227,16 @@ const useGameLobby = () => {
     }
   }, [roomUpdated, fetchRoomData, setRoomUpdated]);
 
+  // 웹소켓 연결 상태 모니터링 및 방 정보 동기화
   useEffect(() => {
-    const checkWebSocketConnection = () => {
-      console.log(
-        '웹소켓 연결 상태 주기적 확인:',
-        connected ? '연결됨' : '연결 안됨'
-      );
-      if (!connected && connect) {
-        console.log('웹소켓 연결 끊김 감지, 재연결 시도...');
-        connect();
-      }
-    };
-    const intervalId = setInterval(checkWebSocketConnection, 10000);
-    return () => clearInterval(intervalId);
-  }, [connected, connect]);
+    if (!connected) {
+      console.log('웹소켓 연결이 끊어졌습니다.');
+    } else {
+      console.log('웹소켓 연결 성공! 방 정보를 동기화합니다.');
+      // 웹소켓 연결 성공 시 방 정보 새로고침
+      fetchRoomData();
+    }
+  }, [connected, fetchRoomData]);
 
   return {
     roomId,

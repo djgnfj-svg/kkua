@@ -8,29 +8,33 @@ const ActionButtons = ({
   handleReady,
   isReady,
 }) => {
+  const allNonOwnerPlayersReady = participants.every(
+    (player) =>
+      player.is_creator ||
+      player.status === 'READY' ||
+      player.status === 'ready'
+  );
+
   return (
-    <div className="w-full px-6 py-4 bg-white border border-gray-300 rounded-md shadow-sm flex flex-col gap-2 mb-4">
-      <div className="w-full flex justify-between items-center">
+    <div className="w-full bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20 shadow-lg">
+      <div className="flex justify-between items-center mb-4">
         <button
           onClick={handleClickExit}
-          className={`px-4 py-2 ${isOwner ? 'bg-red-600' : 'bg-red-500'} text-white rounded-lg shadow hover:bg-red-700 transition-all`}
+          className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold rounded-lg shadow-lg transition-all duration-200 transform hover:scale-105"
         >
-          {isOwner ? '방 삭제' : '나가기'}
+          {isOwner ? '🗑️ 방 삭제' : '🚪 나가기'}
         </button>
+        
+        <div className="text-white/80 text-sm">
+          {isOwner ? '👑 방장' : '👤 참가자'}
+        </div>
       </div>
 
       {isOwner ? (
-        <div className="w-full text-center mt-8 mb-4">
+        <div className="text-center">
           <div className="relative inline-block group">
             <button
               onClick={() => {
-                const allNonOwnerPlayersReady = participants.every(
-                  (player) =>
-                    player.is_creator ||
-                    player.status === 'READY' ||
-                    player.status === 'ready'
-                );
-
                 if (participants.length >= 2 && allNonOwnerPlayersReady) {
                   handleClickStartBtn();
                 } else if (participants.length < 2) {
@@ -39,34 +43,38 @@ const ActionButtons = ({
                   alert('모든 플레이어가 준비 상태여야 합니다.');
                 }
               }}
-              className={`px-6 py-2 rounded-lg shadow transition-all font-bold ${
-                participants.length >= 2
-                  ? 'bg-blue-600 text-white hover:bg-blue-700'
-                  : 'bg-gray-400 text-white cursor-not-allowed'
+              className={`px-8 py-4 rounded-xl shadow-lg font-bold text-lg transition-all duration-200 transform ${
+                participants.length >= 2 && allNonOwnerPlayersReady
+                  ? 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white hover:scale-105'
+                  : 'bg-gradient-to-r from-gray-400 to-gray-500 text-white cursor-not-allowed'
               }`}
+              disabled={participants.length < 2 || !allNonOwnerPlayersReady}
             >
-              게임 시작
+              🎮 게임 시작
             </button>
-            {participants.length < 2 && (
-              <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-black text-white text-sm px-4 py-2 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 shadow-md">
-                2인 이상일 때 게임을 시작할 수 있습니다
+            
+            {(participants.length < 2 || !allNonOwnerPlayersReady) && (
+              <div className="absolute -top-16 left-1/2 transform -translate-x-1/2 bg-black/80 text-white text-sm px-4 py-2 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 shadow-md">
+                {participants.length < 2 
+                  ? '2인 이상일 때 게임을 시작할 수 있습니다' 
+                  : '모든 플레이어가 준비 상태여야 합니다'}
               </div>
             )}
           </div>
         </div>
       ) : (
-        !isOwner && (
+        <div className="text-center">
           <button
             onClick={handleReady}
-            className={`mt-8 mb-4 px-6 py-2 ${
+            className={`px-8 py-4 rounded-xl shadow-lg font-bold text-lg transition-all duration-200 transform hover:scale-105 ${
               isReady
-                ? 'bg-green-500 hover:bg-green-600'
-                : 'bg-yellow-500 hover:bg-yellow-600'
-            } text-white rounded-lg shadow transition-all`}
+                ? 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white'
+                : 'bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-white'
+            }`}
           >
-            {isReady ? '준비완료' : '준비하기'}
+            {isReady ? '✅ 준비완료' : '⏳ 준비하기'}
           </button>
-        )
+        </div>
       )}
     </div>
   );

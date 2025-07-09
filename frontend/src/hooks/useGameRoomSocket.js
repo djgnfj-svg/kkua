@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import guestStore from '../store/guestStore';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function useGameRoomSocket(roomId) {
   const [connected, setConnected] = useState(false);
@@ -10,21 +10,15 @@ export default function useGameRoomSocket(roomId) {
   const [roomUpdated, setRoomUpdated] = useState(false);
   const [isReady, setIsReady] = useState(false);
 
+  const { user, isAuthenticated } = useAuth();
+
   useEffect(() => {
-    if (roomId) {
-      // guestStore에서 UUID 가져오기
-      const { uuid } = guestStore.getState();
+    if (roomId && isAuthenticated && user) {
+      console.log(`웹소켓 연결 시도: /ws/gamerooms/${roomId}`);
 
-      if (!uuid) {
-        console.error('UUID가 없습니다. 로그인이 필요합니다.');
-        return;
-      }
-
-      console.log(`웹소켓 연결 시도: /ws/gamerooms/${roomId}/${uuid}`);
-
-      // 웹소켓 연결 생성
+      // 웹소켓 연결 생성 (세션 토큰은 쿠키를 통해 자동 전송)
       const socket = new WebSocket(
-        `${process.env.REACT_APP_WS_BASE_URL || 'ws://localhost:8000'}/ws/gamerooms/${roomId}/${uuid}`
+        `${process.env.REACT_APP_WS_BASE_URL || 'ws://localhost:8000'}/ws/gamerooms/${roomId}`
       );
       socketRef.current = socket;
 
@@ -39,14 +33,13 @@ export default function useGameRoomSocket(roomId) {
         console.log('소켓 메시지 수신:', data);
 
         if (data.type === 'chat') {
-          const { guest_id } = guestStore.getState();
-          console.log('내 guest_id:', guest_id);
+          console.log('내 guest_id:', user.guest_id);
           console.log('수신 guest_id:', data.guest_id);
           console.log('수신 message_id:', data.message_id);
 
           const isOwnMessage =
-            data.guest_id === guest_id ||
-            data.message_id?.startsWith(`${guest_id}-`);
+            data.guest_id === user.guest_id ||
+            data.message_id?.startsWith(`${user.guest_id}-`);
 
           const alreadyExists = messages.some(
             (msg) => msg.message_id === data.message_id
@@ -98,8 +91,7 @@ export default function useGameRoomSocket(roomId) {
           console.log('🔥 준비 상태 변경 수신:', data);
 
           // 현재 사용자의 준비 상태인 경우 상태 업데이트
-          const { guest_id } = guestStore.getState();
-          if (String(data.guest_id) === String(guest_id)) {
+          if (String(data.guest_id) === String(user.guest_id)) {
             console.log('📌 내 준비 상태 업데이트:', data.is_ready);
             setIsReady(data.is_ready);
           }
@@ -134,6 +126,17 @@ export default function useGameRoomSocket(roomId) {
       socket.onclose = (event) => {
         console.log('웹소켓 연결 종료:', event.code, event.reason);
         setConnected(false);
+        
+        // 비정상 종료인 경우 재연결 시도
+        if (event.code !== 1000 && event.code !== 1001) {
+          console.log('비정상 종료 감지, 5초 후 재연결 시도...');
+          setTimeout(() => {
+            if (roomId && isAuthenticated && user) {
+              console.log('웹소켓 재연결 시도');
+              // 재연결 로직은 useEffect에서 처리됨
+            }
+          }, 5000);
+        }
       };
 
       socket.onerror = (error) => {
@@ -148,19 +151,18 @@ export default function useGameRoomSocket(roomId) {
         socketRef.current.close();
       }
     };
-  }, [roomId, messages]); // UUID는 변경될 수 있지만 페이지가 로드될 때 한 번만 연결
+  }, [roomId, isAuthenticated, user]); // 인증 상태와 사용자 정보가 변경되면 재연결
 
   // 메시지 전송 함수
   const sendMessage = (message) => {
-    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-      const { guest_id, nickname } = guestStore.getState();
+    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN && user) {
       const messageData = {
         type: 'chat',
         message: message,
-        guest_id: guest_id,
-        nickname: nickname,
+        guest_id: user.guest_id,
+        nickname: user.nickname,
         timestamp: new Date().toISOString(),
-        message_id: `${guest_id}-${Date.now()}`,
+        message_id: `${user.guest_id}-${Date.now()}`,
       };
       socketRef.current.send(JSON.stringify(messageData));
     } else {

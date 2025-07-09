@@ -1,6 +1,5 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
 from sqlalchemy.orm import Session
-import uuid
 import json
 from datetime import datetime
 import traceback
@@ -14,6 +13,7 @@ from models.guest_model import Guest
 from services.gameroom_service import (
     ws_manager,
 )  # 중요: 여기서 공유된 ws_manager 인스턴스 사용
+from services.session_service import get_session_store
 
 router = APIRouter(
     prefix="/ws/gamerooms",
@@ -21,26 +21,53 @@ router = APIRouter(
 )
 
 
+# 세션 스토어는 get_session_store() 함수를 통해 가져옴
+
 # 도우미 함수: 게스트 및 참가자 검증
 async def validate_connection(
-    websocket: WebSocket, room_id: int, guest_uuid_str: str, db: Session
+    websocket: WebSocket, room_id: int, db: Session
 ) -> Tuple[Optional[Guest], Optional[GameroomParticipant]]:
-    """웹소켓 연결을 위한 게스트 및 참가자 유효성 검증"""
-    # UUID 형식 확인
-    try:
-        guest_uuid_obj = uuid.UUID(guest_uuid_str)
-    except ValueError:
-        print(f"UUID 형식 검증 실패: {guest_uuid_str}")
-        await websocket.close(code=4000, reason="유효하지 않은 UUID 형식입니다")
+    """웹소켓 연결을 위한 게스트 및 참가자 유효성 검증 (세션 기반)"""
+    
+    # 웹소켓 헤더에서 쿠키 추출
+    cookies = {}
+    cookie_header = None
+    
+    # 헤더에서 쿠키 찾기
+    for name, value in websocket.headers:
+        if name.lower() == b'cookie':
+            cookie_header = value.decode('utf-8')
+            break
+    
+    if cookie_header:
+        # 쿠키 파싱
+        for cookie in cookie_header.split(';'):
+            if '=' in cookie:
+                key, val = cookie.strip().split('=', 1)
+                cookies[key] = val
+    
+    # 세션 토큰 추출
+    session_token = cookies.get('session_token')
+    if not session_token:
+        print("세션 토큰이 없습니다")
+        await websocket.close(code=4000, reason="세션 토큰이 필요합니다")
         return None, None
-
+    
+    # 세션 유효성 검사
+    session_store = get_session_store()
+    session_data = session_store.get_session(session_token)
+    if not session_data:
+        print(f"유효하지 않은 세션 토큰: {session_token}")
+        await websocket.close(code=4001, reason="유효하지 않거나 만료된 세션입니다")
+        return None, None
+    
     # 게스트 조회
     guest_repo = GuestRepository(db)
-    guest = guest_repo.find_by_uuid(guest_uuid_obj)
-
+    guest = guest_repo.find_by_id(session_data['guest_id'])
+    
     if not guest:
-        print(f"게스트 조회 실패: UUID={guest_uuid_str}")
-        await websocket.close(code=4001, reason="유효하지 않은 게스트 UUID입니다")
+        print(f"게스트 조회 실패: guest_id={session_data['guest_id']}")
+        await websocket.close(code=4002, reason="게스트 정보를 찾을 수 없습니다")
         return None, None
 
     # 게임룸 조회
@@ -48,7 +75,7 @@ async def validate_connection(
     room = gameroom_repo.find_by_id(room_id)
     if not room:
         print(f"게임룸 조회 실패: room_id={room_id}")
-        await websocket.close(code=4002, reason="게임룸이 존재하지 않습니다")
+        await websocket.close(code=4003, reason="게임룸이 존재하지 않습니다")
         return None, None
 
     # 참가자 확인 - 방장이거나 참가자인 경우 허용
@@ -58,7 +85,7 @@ async def validate_connection(
 
     if not (is_participant or is_creator):
         print(f"웹소켓 액세스 거부: guest_id={guest.guest_id}, room_id={room_id}")
-        await websocket.close(code=4003, reason="게임룸에 참가하지 않은 게스트입니다")
+        await websocket.close(code=4004, reason="게임룸에 참가하지 않은 게스트입니다")
         return None, None
 
     # 방장이지만 참가자로 등록되지 않은 경우 참가자로 추가
@@ -85,7 +112,7 @@ async def process_message(
 
     if message_type == "chat":
         # 채팅 메시지 처리
-        nickname = guest.nickname if guest.nickname else f"게스트_{guest.uuid.hex[:8]}"
+        nickname = guest.nickname if guest.nickname else f"게스트_{guest.guest_id}"
         await ws_manager.broadcast_to_room(
             room_id,
             {
@@ -354,9 +381,9 @@ async def process_word_chain_message(
             )
 
 
-@router.websocket("/{room_id}/{guest_uuid}")
+@router.websocket("/{room_id}")
 async def websocket_endpoint(
-    websocket: WebSocket, room_id: int, guest_uuid: str, db: Session = Depends(get_db)
+    websocket: WebSocket, room_id: int, db: Session = Depends(get_db)
 ):
     """게임룸 웹소켓 연결 엔드포인트"""
     guest = None
@@ -364,11 +391,11 @@ async def websocket_endpoint(
     try:
         # 연결 수락 - 클라이언트와 핸드셰이크 완료
         await websocket.accept()
-        print(f"웹소켓 초기 연결 수락: room_id={room_id}, guest_uuid={guest_uuid}")
+        print(f"웹소켓 초기 연결 수락: room_id={room_id}")
 
-        # 사용자 및 권한 검증
+        # 사용자 및 권한 검증 (세션 기반)
         guest, participant = await validate_connection(
-            websocket, room_id, guest_uuid, db
+            websocket, room_id, db
         )
         if not guest:
             return  # 검증 실패 시 조기 종료
@@ -462,7 +489,8 @@ def websocket_documentation():
     # 웹소켓 API 문서
 
     ## 연결 URL
-    - `ws://서버주소/ws/gamerooms/{room_id}/{guest_uuid}`
+    - `ws://서버주소/ws/gamerooms/{room_id}`
+    - 인증: 쿠키의 session_token 사용
 
     ## 메시지 형식
     모든 메시지는 JSON 형식이며 다음 구조를 따릅니다:
@@ -496,5 +524,5 @@ def websocket_documentation():
     """
     return {
         "message": "위 문서를 참고하세요.",
-        "websocket_url": "/ws/gamerooms/{room_id}/{guest_uuid}",
+        "websocket_url": "/ws/gamerooms/{room_id}",
     }

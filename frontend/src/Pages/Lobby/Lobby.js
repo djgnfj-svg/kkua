@@ -9,6 +9,7 @@ function Lobby() {
     roomsData,
     isLoading,
     isEntering,
+    enteringRoomId,
     nickname,
     fetchRoom,
     handleEnterGame,
@@ -21,9 +22,20 @@ function Lobby() {
     setModalIsOpen(true);
   };
 
-  const handleClickRefresh = () => {
-    fetchRoom();
-    alert('새 정보를 가져옵니다.');
+  const handleClickRefresh = async () => {
+    try {
+      await fetchRoom();
+      // 성공적인 새로고침 피드백 (조용한 방식)
+      const button = document.querySelector('[data-refresh-btn]');
+      if (button) {
+        button.style.transform = 'rotate(360deg)';
+        setTimeout(() => {
+          button.style.transform = 'rotate(0deg)';
+        }, 500);
+      }
+    } catch (error) {
+      alert('방 목록을 새로고침하는 중 오류가 발생했습니다.');
+    }
   };
 
   return (
@@ -99,9 +111,11 @@ function Lobby() {
             </button>
             <button 
               onClick={handleClickRefresh}
-              className="px-4 py-2 bg-gradient-to-r from-purple-500 to-blue-500 rounded-lg text-white text-sm hover:from-purple-600 hover:to-blue-600 transition-colors shadow-lg"
+              data-refresh-btn
+              className="px-4 py-2 bg-gradient-to-r from-purple-500 to-blue-500 rounded-lg text-white text-sm hover:from-purple-600 hover:to-blue-600 transition-all duration-300 shadow-lg"
+              disabled={isLoading}
             >
-              🔄 새로고침
+              <span className="transition-transform duration-500">🔄</span> 새로고침
             </button>
           </div>
         </div>
@@ -128,7 +142,12 @@ function Lobby() {
               </div>
             </div>
           ) : (
-            <RoomList rooms={roomsData} onEnter={handleEnterGame} />
+            <RoomList 
+              rooms={roomsData} 
+              onEnter={handleEnterGame} 
+              isEntering={isEntering}
+              enteringRoomId={enteringRoomId}
+            />
           )}
         </div>
 

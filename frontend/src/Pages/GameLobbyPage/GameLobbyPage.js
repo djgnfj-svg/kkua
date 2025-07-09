@@ -44,22 +44,24 @@ function GameLobbyPage() {
   }
 
   return (
-    <div className="w-full min-h-screen bg-white flex flex-col items-center pt-5 relative overflow-y-auto">
-      <RoomInfo
-        roomInfo={roomInfo}
-        participants={participants}
-        connected={connected}
-      />
-      <ActionButtons
-        isOwner={isOwner}
-        participants={participants}
-        handleClickExit={handleClickExit}
-        handleClickStartBtn={handleClickStartBtn}
-        handleReady={toggleReady}
-        isReady={isReady}
-      />
-      <ParticipantList participants={participants} />
-      <ChatWindow messages={messages} sendMessage={sendMessage} />
+    <div className="w-full min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex flex-col items-center pt-5 relative overflow-y-auto">
+      <div className="max-w-6xl w-full px-4 space-y-6">
+        <RoomInfo
+          roomInfo={roomInfo}
+          participants={participants}
+          connected={connected}
+        />
+        <ActionButtons
+          isOwner={isOwner}
+          participants={participants}
+          handleClickExit={handleClickExit}
+          handleClickStartBtn={handleClickStartBtn}
+          handleReady={toggleReady}
+          isReady={isReady}
+        />
+        <ParticipantList participants={participants} />
+        <ChatWindow messages={messages} sendMessage={sendMessage} />
+      </div>
     </div>
   );
 }

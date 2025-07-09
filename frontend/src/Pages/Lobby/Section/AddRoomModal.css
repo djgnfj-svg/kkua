@@ -117,6 +117,11 @@
   color: #fff;
 }
 
+.input-group {
+  width: 100%;
+  margin-top: 1.5rem;
+}
+
 .room-title-input {
   width: 100%;
   max-width: 320px;
@@ -124,8 +129,35 @@
   border-radius: 1rem;
   border: 2px solid #ffd9b3;
   font-size: 1rem;
-  margin-top: 1.5rem;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  transition: border-color 0.2s ease;
+}
+
+.room-title-input:focus {
+  outline: none;
+  border-color: #ff7a00;
+}
+
+.room-title-input.error {
+  border-color: #ff3b3b;
+  background-color: #ffe8e8;
+}
+
+.error-message {
+  color: #ff3b3b;
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+  text-align: left;
+  padding-left: 0.5rem;
+}
+
+.submit-error {
+  background-color: #ffe8e8;
+  border: 1px solid #ff3b3b;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+  text-align: center;
 }
 
 .game-settings {
@@ -140,13 +172,24 @@
 
 .create-btn {
   background-color: #adf998;
-  color: #888;
+  color: #333;
   font-weight: bold;
   border: none;
   padding: 0.9rem 2rem;
   border-radius: 1.5rem;
   margin-top: 2.5rem;
   cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-width: 120px;
+}
+
+.create-btn:hover:not(:disabled) {
+  background-color: #9ae885;
+  transform: translateY(-1px);
 }
 
 .create-btn-fasle {
@@ -157,7 +200,26 @@
   padding: 0.9rem 2rem;
   border-radius: 1.5rem;
   margin-top: 2.5rem;
-  cursor: pointer;
+  cursor: not-allowed;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-width: 120px;
+}
+
+.loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #333;
+  border-top: 2px solid transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 .section+.section {}

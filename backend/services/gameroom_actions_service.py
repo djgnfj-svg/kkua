@@ -19,6 +19,12 @@ class GameroomActionsService:
     ):
         self.repository = repository
         self.guest_repository = guest_repository
+        # 웹소켓 매니저 import 및 설정
+        try:
+            from services.gameroom_service import ws_manager
+            self.ws_manager = ws_manager
+        except ImportError:
+            self.ws_manager = None
 
     def join_gameroom(self, room_id: int, guest: Guest) -> JoinGameroomResponse:
         """게임룸에 참가합니다."""
@@ -80,7 +86,7 @@ class GameroomActionsService:
         self.repository.update_participant_count(room_id)
 
         # 웹소켓 이벤트 발송 (게임룸 참가 알림)
-        if hasattr(self, "ws_manager"):
+        if self.ws_manager:
             asyncio.create_task(
                 self.ws_manager.broadcast_room_update(
                     room_id,
@@ -179,7 +185,7 @@ class GameroomActionsService:
             print("남은 모든 참가자 퇴장 처리 완료")
 
             # 웹소켓 이벤트 발송 (방 삭제)
-            if hasattr(self, "ws_manager"):
+            if self.ws_manager:
                 asyncio.create_task(
                     self.ws_manager.broadcast_room_update(
                         room_id,
@@ -198,7 +204,7 @@ class GameroomActionsService:
             print("참가자 수 업데이트 완료")
 
             # 웹소켓 이벤트 발송 (참가자 퇴장)
-            if hasattr(self, "ws_manager"):
+            if self.ws_manager:
                 asyncio.create_task(
                     self.ws_manager.broadcast_room_update(
                         room_id,
@@ -265,7 +271,7 @@ class GameroomActionsService:
         print(f"게임 시작 완료: 방ID={room_id}")
 
         # 웹소켓 이벤트 발송 (게임 시작)
-        if hasattr(self, "ws_manager"):
+        if self.ws_manager:
             asyncio.create_task(
                 self.ws_manager.broadcast_room_update(
                     room_id,
@@ -316,7 +322,7 @@ class GameroomActionsService:
         print(f"게임 종료 완료: 방ID={room_id}")
 
         # 웹소켓 이벤트 발송 (게임 종료)
-        if hasattr(self, "ws_manager"):
+        if self.ws_manager:
             asyncio.create_task(
                 self.ws_manager.broadcast_room_update(
                     room_id,
@@ -454,7 +460,7 @@ class GameroomActionsService:
         print(f"참가자 상태 업데이트 완료: {current_status} -> {new_status}")
 
         # 웹소켓 이벤트 발송 (참가자 상태 변경)
-        if hasattr(self, "ws_manager"):
+        if self.ws_manager:
             asyncio.create_task(
                 self.ws_manager.broadcast_room_update(
                     room_id,
