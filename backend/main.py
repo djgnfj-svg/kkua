@@ -1,13 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from db.postgres import Base, engine
 from routers import (
     guests_router,
     gamerooms_router,
     gameroom_ws_router,
     gameroom_actions_router,
-    simple_ws_router,
 )
 from fastapi.openapi.utils import get_openapi
 from app_config import settings
@@ -26,13 +24,6 @@ app = FastAPI(
     **연결 URL**: `ws://서버주소/ws/gamerooms/{room_id}/{guest_uuid}`
     
     자세한 정보는 `/websockets/documentation` 엔드포인트를 참조하세요.
-    
-    ### 테스트용 간단한 웹소켓
-    
-    단순 테스트를 위한 웹소켓은 다음에서 접근 가능합니다:
-    
-    **연결 URL**: `ws://서버주소/simple-ws/ws`
-    **테스트 페이지**: `/static/websocket_test.html`
     """,
     version="1.0.0",
     debug=settings.debug,
@@ -55,10 +46,6 @@ app.include_router(guests_router.router)
 app.include_router(gamerooms_router.router)  # 기본 CRUD 기능
 app.include_router(gameroom_actions_router.router)  # 게임룸 액션 기능
 app.include_router(gameroom_ws_router.router)  # 웹소켓 기능
-app.include_router(simple_ws_router.router)  # 간단한 웹소켓 테스트 라우터
-
-# 정적 파일 마운트
-app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 @app.get("/")
@@ -94,7 +81,6 @@ def custom_openapi():
             "name": "websockets",
             "description": "웹소켓 관련 API (웹소켓 자체는 Swagger에서 테스트할 수 없음)",
         },
-        {"name": "websocket-test", "description": "간단한 웹소켓 테스트 API"},
         # 기타 태그들...
     ]
 

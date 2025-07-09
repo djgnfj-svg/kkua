@@ -187,5 +187,16 @@ bower_components
 psd
 thumb
 sketch
+.mcp.json
+.claude
+
+# Development files
+**/ws_test_client.py
+**/websocket_test.html
+**/*-todo.md
+**/PROJECT_SUMMARY.md
+
+# Production environment files
+.env.production
 
 # End of https://www.toptal.com/developers/gitignore/api/react,python
