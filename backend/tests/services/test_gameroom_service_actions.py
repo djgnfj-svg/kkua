@@ -3,9 +3,10 @@ import uuid
 from unittest.mock import Mock, patch, AsyncMock
 from fastapi import Request, HTTPException, status
 
-from services.gameroom_actions_service import GameroomActionsService
+from services.gameroom_service import GameroomService
 from repositories.gameroom_repository import GameroomRepository
 from repositories.guest_repository import GuestRepository
+from services.game_state_service import GameStateService
 from models.gameroom_model import (
     Gameroom,
     GameStatus,
@@ -18,12 +19,14 @@ from models.guest_model import Guest
 pytestmark = pytest.mark.asyncio
 
 
-class TestGameroomActionsService:
+class TestGameroomService:
     def setup_method(self):
         """각 테스트 메소드 실행 전 설정"""
-        self.repository = Mock(spec=GameroomRepository)
-        self.guest_repository = Mock(spec=GuestRepository)
-        self.service = GameroomActionsService(self.repository, self.guest_repository)
+        self.mock_db = Mock()
+        self.service = GameroomService(self.mock_db)
+        self.service.repository = Mock(spec=GameroomRepository)
+        self.service.guest_repository = Mock(spec=GuestRepository)
+        self.service.game_state_service = Mock(spec=GameStateService)
 
         # ws_manager mock 설정
         self.service.ws_manager = Mock()
