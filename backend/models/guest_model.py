@@ -5,6 +5,7 @@ from db.postgres import Base
 import datetime
 import uuid
 
+
 class Guest(Base):
     __tablename__ = "guests"
     guest_id = Column(Integer, primary_key=True, index=True)
@@ -13,5 +14,7 @@ class Guest(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     last_login = Column(DateTime, nullable=True)
     device_info = Column(String, nullable=True)
-    
-    participations = relationship("GameroomParticipant", back_populates="guest", cascade="all, delete-orphan")
+
+    participations = relationship(
+        "GameroomParticipant", back_populates="guest", cascade="all, delete-orphan"
+    )

@@ -1,17 +1,20 @@
-# Node.js 베이스 이미지 선택 (필요한 Node 버전에 맞게 조정)
-FROM node:22.9-alpine
+# Node.js 베이스 이미지 (필요에 따라 버전 변경 가능)
+FROM node:22.9
 
-# 작업 디렉토리 생성
+# 작업 디렉토리 설정
 WORKDIR /app
-# npm 버전 공유
-RUN npm install -g npm@11.2.0
 
-# 나머지 소스 코드 복사
+# package.json과 package-lock.json 복사 (의존성 설치 효율을 위해)
+COPY package.json package-lock.json ./
+
+# 의존성 설치
+RUN npm install
+
+# 소스 코드 전체 복사
 COPY . .
 
-RUN npm install
-# React 개발 서버 포트 노출
+# React 개발 서버 포트 오픈
 EXPOSE 3000
 
-# 컨테이너 실행 시 React 앱 시작
+# 앱 실행
 CMD ["npm", "start"]

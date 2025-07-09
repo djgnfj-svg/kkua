@@ -3,17 +3,21 @@ from typing import Optional, Dict, Any
 import datetime
 import uuid
 
+
 class GuestBase(BaseModel):
     nickname: Optional[str] = None
+
 
 class GuestCreateRequest(BaseModel):
     nickname: Optional[str] = None
     device_info: Optional[str] = None
 
+
 class GuestLoginRequest(BaseModel):
     guest_uuid: Optional[str] = None
     nickname: Optional[str] = None
     device_info: Optional[str] = None
+
 
 class GuestResponse(BaseModel):
     guest_id: int
