@@ -13,11 +13,11 @@ function Loading() {
   const { isAuthenticated, login, loading } = useAuth();
 
   useEffect(() => {
-    // 이미 로그인된 경우 로비로 리다이렉트
-    if (isAuthenticated) {
+    // 이미 로그인된 경우 로비로 리다이렉트 (로딩 완료 후)
+    if (!loading && isAuthenticated) {
       navigate(lobbyUrl);
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, loading, navigate]);
 
   const handleQuickStart = async () => {
     try {
