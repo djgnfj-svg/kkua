@@ -8,6 +8,7 @@ from models.gameroom_model import Gameroom, GameStatus, GameroomParticipant, Par
 from models.guest_model import Guest
 from ws_manager.connection_manager import ConnectionManager
 from repositories.guest_repository import GuestRepository
+from services.game_state_service import GameStateService
 
 # 웹소켓 연결 관리자
 ws_manager = ConnectionManager()
@@ -18,6 +19,7 @@ class GameroomService:
         self.db = db
         self.repository = GameroomRepository(db)
         self.guest_repository = GuestRepository(db)
+        self.game_state_service = GameStateService(db)
 
 
     def list_gamerooms(self, status=None, limit=10, offset=0):
@@ -166,59 +168,16 @@ class GameroomService:
 
     def start_game(self, room_id: int, host_id: int) -> bool:
         """게임을 시작합니다. 방장만 시작할 수 있습니다."""
-        try:
-            room = self.repository.find_by_id(room_id)
-            host = self.repository.find_participant(room_id, host_id)
-
-            # 게임룸과 방장 확인
-            if not room or not host or not host.is_creator:
-                return False
-
-            # 게임 중이거나 종료된 경우
-            if room.status != GameStatus.WAITING:
-                return False
-
-            # 모든 참가자가 준비 상태인지 확인
-            participants = self.repository.find_room_participants(room_id)
-            all_ready = all(
-                p.status == ParticipantStatus.READY.value or p.is_creator
-                for p in participants
-            )
-
-            if not all_ready:
-                return False
-
-            # 게임 상태 변경
-            room.status = GameStatus.PLAYING
-            room.started_at = datetime.now()
-
-            # 모든 참가자 상태를 PLAYING으로 변경
-            for p in participants:
-                p.status = ParticipantStatus.PLAYING.value
-
-            self.db.commit()
-            return True
-
-        except Exception as e:
-            self.db.rollback()
-            raise e
+        # 게임 시작 가능 여부 확인
+        if not self.game_state_service.can_start_game(room_id, host_id):
+            return False
+        
+        # 게임 시작
+        return self.game_state_service.start_game(room_id)
 
     def end_game(self, room_id: int) -> bool:
         """게임을 종료합니다."""
-        try:
-            room = self.repository.find_by_id(room_id)
-            if not room or room.status != GameStatus.PLAYING:
-                return False
-
-            room.status = GameStatus.FINISHED
-            room.ended_at = datetime.now()
-
-            self.db.commit()
-            return True
-
-        except Exception as e:
-            self.db.rollback()
-            raise e
+        return self.game_state_service.end_game(room_id)
 
     def get_participants(self, room_id: int) -> List[Dict[str, Any]]:
         """게임룸 참가자 목록을 조회합니다."""

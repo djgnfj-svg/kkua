@@ -6,7 +6,7 @@ from fastapi import Request, HTTPException, status
 from services.gameroom_service import GameroomService
 from repositories.gameroom_repository import GameroomRepository
 from repositories.guest_repository import GuestRepository
-from repositories.gameroom_actions import GameroomActions
+from services.game_state_service import GameStateService
 from models.gameroom_model import Gameroom, GameStatus, GameroomParticipant
 from models.guest_model import Guest
 
@@ -17,7 +17,7 @@ class TestGameroomService:
         self.mock_db = Mock()
         self.service = GameroomService(self.mock_db)
         self.service.repository = Mock(spec=GameroomRepository)
-        self.service.actions = Mock(spec=GameroomActions)
+        self.service.game_state_service = Mock(spec=GameStateService)
         self.service.guest_repository = Mock(spec=GuestRepository)
 
     def test_get_guest_by_cookie_success(self):
