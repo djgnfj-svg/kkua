@@ -24,10 +24,10 @@ function Loading() {
       setIsLoading(true);
       await login(); // 닉네임 없이 로그인 (자동 생성)
       setShowModal(true);
+      setIsLoading(false);
     } catch (error) {
       console.error('빠른 시작 실패:', error);
       alert('로그인에 실패했습니다. 다시 시도해주세요.');
-    } finally {
       setIsLoading(false);
     }
   };
@@ -42,19 +42,20 @@ function Loading() {
       setIsLoading(true);
       await login(nickname.trim());
       setShowModal(true);
+      setIsLoading(false);
     } catch (error) {
       console.error('닉네임 로그인 실패:', error);
       const errorMessage =
         error.response?.data?.detail || '로그인에 실패했습니다.';
       alert(errorMessage);
-    } finally {
       setIsLoading(false);
     }
   };
 
   const handleModalClose = () => {
     setShowModal(false);
-    navigate(lobbyUrl);
+    // useEffect에서 isAuthenticated가 true일 때 자동으로 navigate하므로 
+    // 여기서는 navigate하지 않음
   };
 
   // 인증 상태 로딩 중

@@ -2,17 +2,15 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axiosInstance from '../../../Api/axiosInstance';
 import { ROOM_API } from '../../../Api/roomApi';
-import { USER_API } from '../../../Api/userApi';
 import { gameLobbyUrl } from '../../../Component/urls';
-import guestStore from '../../../store/guestStore';
-import Cookies from 'js-cookie';
+import { useAuth } from '../../../contexts/AuthContext';
 
 const useLobbyData = () => {
   const navigate = useNavigate();
+  const { isAuthenticated, user } = useAuth();
   const [roomsData, setRoomsData] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isEntering, setIsEntering] = useState(false);
-  const { uuid, nickname } = guestStore.getState();
 
   const fetchRoom = async () => {
     try {
@@ -35,53 +33,29 @@ const useLobbyData = () => {
   };
 
   useEffect(() => {
-    const checkGuestInfo = async () => {
-      const guestUuid = Cookies.get('kkua_guest_uuid');
-      if (guestUuid) {
-        try {
-          await axiosInstance.post(USER_API.GET_GUEST, {
-            guest_uuid: guestUuid,
-            nickname: null,
-            device_info: navigator.userAgent,
-          });
-        } catch (error) {
-          console.error('게스트 로그인 실패:', error);
-          alert('로그인에 실패했습니다. 메인 페이지로 이동합니다.');
-          navigate('/');
-        }
-      } else {
-        alert('로그인이 필요합니다. 메인 페이지로 이동합니다.');
-        navigate('/');
-      }
-    };
-    checkGuestInfo();
-    fetchRoom();
-  }, [navigate]);
+    // AuthContext가 이미 인증을 확인하므로 여기서는 단순히 방 목록만 가져옴
+    if (isAuthenticated) {
+      fetchRoom();
+    }
+  }, [isAuthenticated]);
 
   useEffect(() => {
-    if (!uuid) return;
+    if (!isAuthenticated || !user) return;
 
     const fetchGuestStatus = async () => {
-      const guestUuid = Cookies.get('kkua_guest_uuid');
-      if (guestUuid) {
-        try {
-          const res = await axiosInstance.get(USER_API.GET_GUEST_STATUS, {
-            headers: {
-              guest_uuid_str: guestUuid,
-            },
-          });
-          const roomId = res?.data?.room_id;
-          if (roomId) {
-            alert('기존 방에 재입장합니다.');
-            navigate(gameLobbyUrl(roomId));
-          }
-        } catch (err) {
-          console.error('게스트 상태 확인 실패:', err);
+      try {
+        const res = await axiosInstance.get('/auth/status');
+        const roomId = res?.data?.room_id;
+        if (roomId) {
+          alert('기존 방에 재입장합니다.');
+          navigate(gameLobbyUrl(roomId));
         }
+      } catch (err) {
+        console.error('게스트 상태 확인 실패:', err);
       }
     };
     fetchGuestStatus();
-  }, [uuid, navigate]);
+  }, [isAuthenticated, user, navigate]);
 
   const handleEnterGame = async (room_id) => {
     try {
@@ -130,7 +104,7 @@ const useLobbyData = () => {
     roomsData,
     isLoading,
     isEntering,
-    nickname,
+    nickname: user?.nickname || '',
     fetchRoom,
     handleEnterGame,
     handleRandomEnter,

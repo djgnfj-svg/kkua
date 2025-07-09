@@ -1,7 +1,9 @@
-from fastapi import APIRouter, status, Depends, Request
+from fastapi import APIRouter, status, Depends
 from sqlalchemy.orm import Session
 
 from db.postgres import get_db
+from middleware.auth_middleware import get_current_guest
+from models.guest_model import Guest
 from repositories.gameroom_repository import GameroomRepository
 from repositories.guest_repository import GuestRepository
 from services.gameroom_actions_service import GameroomActionsService

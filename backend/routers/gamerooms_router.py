@@ -1,9 +1,11 @@
-from fastapi import APIRouter, HTTPException, status, Depends, Request
+from fastapi import APIRouter, HTTPException, status, Depends
 from sqlalchemy.orm import Session
 from typing import Dict, Optional
 
 from db.postgres import get_db
 from services.gameroom_service import GameroomService
+from middleware.auth_middleware import get_current_guest
+from models.guest_model import Guest
 from schemas.gameroom_schema import (
     GameroomResponse,
     CreateGameroomRequest,
@@ -36,15 +38,11 @@ def list_gamerooms(
 
 @router.post("/", response_model=GameroomResponse, status_code=status.HTTP_201_CREATED)
 def create_gameroom(
-    request: Request,
     create_data: CreateGameroomRequest,
+    guest: Guest = Depends(get_current_guest),
     service: GameroomService = Depends(get_gameroom_service),
 ) -> GameroomResponse:
     """게임룸을 생성합니다."""
-    guest = service.get_guest_by_cookie(request)
-    if not guest:
-        raise HTTPException(status_code=404, detail="게스트를 찾을 수 없습니다")
-
     return service.create_gameroom(create_data.dict(), guest.guest_id)
 
 
@@ -65,14 +63,10 @@ def get_gameroom(
 def update_gameroom(
     room_id: int,
     update_data: GameroomUpdate,
-    request: Request,
+    guest: Guest = Depends(get_current_guest),
     service: GameroomService = Depends(get_gameroom_service),
 ) -> GameroomResponse:
     """게임룸 정보를 업데이트합니다. 방장만 수정할 수 있습니다."""
-    guest = service.get_guest_by_cookie(request)
-    if not guest:
-        raise HTTPException(status_code=404, detail="게스트를 찾을 수 없습니다")
-
     update_dict = update_data.dict(exclude_unset=True)
     return service.update_gameroom(room_id, update_dict)
 
@@ -80,14 +74,10 @@ def update_gameroom(
 @router.delete("/{room_id}", status_code=status.HTTP_200_OK)
 def delete_gameroom(
     room_id: int,
-    request: Request,
+    guest: Guest = Depends(get_current_guest),
     service: GameroomService = Depends(get_gameroom_service),
 ) -> Dict[str, str]:
     """게임룸을 삭제합니다. 방장만 삭제할 수 있습니다."""
-    guest = service.get_guest_by_cookie(request)
-    if not guest:
-        raise HTTPException(status_code=404, detail="게스트를 찾을 수 없습니다")
-
     success = service.delete_gameroom(room_id)
     if not success:
         raise HTTPException(status_code=404, detail="게임룸을 찾을 수 없습니다")

@@ -2,15 +2,15 @@ import React, { useState } from 'react';
 import Modal from 'react-modal';
 import './AddRoomModal.css';
 import axiosInstance from '../../../Api/axiosInstance';
-import { ROOM_API } from '../../../Api/roomApi';
 import { gameLobbyUrl } from '../../../Component/urls';
 import { useNavigate } from 'react-router-dom';
-import Cookies from 'js-cookie';
+import { useAuth } from '../../../contexts/AuthContext';
 
 Modal.setAppElement('#root');
 
 function AddRoomModal({ isOpen, isClose }) {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const [roomTitle, setRoomTitle] = useState('');
   const [maxPlayers, setMaxPlayers] = useState(2);
   const [gameMode, setGameMode] = useState('arcade');
@@ -19,25 +19,14 @@ function AddRoomModal({ isOpen, isClose }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // 쿠키에서 UUID 가져오기
-    const guestUuid = Cookies.get('kkua_guest_uuid');
-
-    // UUID가 없으면 로그인 페이지로 이동
-    if (!guestUuid) {
+    // 인증 상태 확인 (AuthContext가 이미 처리)
+    if (!isAuthenticated) {
       alert('로그인이 필요합니다');
       navigate('/');
       return;
     }
 
     try {
-      console.log('방 생성 요청 경로:', ROOM_API.CREATE_ROOM);
-      console.log('전송 데이터:', {
-        title: roomTitle,
-        max_players: maxPlayers,
-        game_mode: gameMode,
-        time_limit: timeLimit,
-      });
-
       const response = await axiosInstance.post('/gamerooms/', {
         title: roomTitle,
         max_players: maxPlayers,
