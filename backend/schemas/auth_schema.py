@@ -32,7 +32,7 @@ class ProfileResponse(BaseModel):
     """Schema for profile response"""
     guest_uuid: str = Field(..., description="Unique identifier for the guest")
     nickname: str = Field(..., description="Guest's nickname")
-    last_login: datetime = Field(..., description="Last login timestamp")
+    last_login: Optional[datetime] = Field(None, description="Last login timestamp")
 
     class Config:
         from_attributes = True

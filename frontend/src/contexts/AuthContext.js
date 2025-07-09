@@ -107,7 +107,7 @@ export function AuthProvider({ children }) {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       const response = await axiosInstance.get('/auth/status');
-
+      
       if (response.data.authenticated) {
         dispatch({ type: 'LOGIN_SUCCESS', payload: response.data.guest });
       } else {
