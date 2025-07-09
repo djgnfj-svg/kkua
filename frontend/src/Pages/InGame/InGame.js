@@ -20,6 +20,7 @@ function InGame() {
     timeLeft,
     time_gauge,
     setInputValue,
+    setInputTimeLeft,
     setSpecialPlayer,
     handleTypingDone,
     crashKeyDown,
