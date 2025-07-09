@@ -1,101 +1,160 @@
 """
-Authentication service for managing user authentication and sessions
+Session-based authentication service for managing user authentication
 """
 
+from fastapi import HTTPException, status, Response, Request
+from typing import Optional, Tuple
 import uuid
-from datetime import datetime
-from typing import Optional
-from fastapi import HTTPException, status, Response
-from sqlalchemy.orm import Session
 from repositories.guest_repository import GuestRepository
 from models.guest_model import Guest
+from services.session_service import get_session_store
 
 
 class AuthService:
-    def __init__(self, db: Session):
-        self.db = db
-        self.guest_repo = GuestRepository(db)
-
-    def login_or_create_guest(self, nickname: Optional[str] = None) -> tuple[Guest, str]:
+    def __init__(self, guest_repo: GuestRepository):
+        self.guest_repo = guest_repo
+        self.session_store = get_session_store()
+    
+    def login(self, nickname: Optional[str] = None, device_info: Optional[str] = None) -> Tuple[Guest, str]:
         """
-        Create a new guest or login existing guest
-        Returns: (Guest object, guest_uuid)
+        Login or create a new guest
+        Returns: (Guest object, session_token)
         """
-        guest_uuid = str(uuid.uuid4())
-        
-        # Check if nickname is provided and unique
         if nickname:
+            # Check if nickname already exists
             existing_guest = self.guest_repo.find_by_nickname(nickname)
             if existing_guest:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Nickname already exists"
-                )
-        
-        # Create new guest
-        import uuid as uuid_module
-        nickname = nickname or f"Guest_{guest_uuid[:8]}"
-        guest_uuid_obj = uuid_module.UUID(guest_uuid)
-        
-        guest = self.guest_repo.create(guest_uuid_obj, nickname)
-        # Update last login after creation
-        self.guest_repo.update_last_login(guest)
-        return guest, guest_uuid
-
-    def authenticate_guest(self, guest_uuid: str) -> Optional[Guest]:
+                # Update last login and create new session
+                guest = self.guest_repo.update_last_login(existing_guest, device_info)
+                session_token = self.session_store.create_session(guest.guest_id, guest.nickname)
+                return guest, session_token
+            else:
+                # Create new guest with nickname
+                guest_uuid_obj = uuid.uuid4()
+                guest = self.guest_repo.create(guest_uuid_obj, nickname, device_info)
+                session_token = self.session_store.create_session(guest.guest_id, guest.nickname)
+                return guest, session_token
+        else:
+            # Create anonymous guest
+            guest_uuid_obj = uuid.uuid4()
+            auto_nickname = f"게스트_{str(guest_uuid_obj)[:8]}"
+            guest = self.guest_repo.create(guest_uuid_obj, auto_nickname, device_info)
+            session_token = self.session_store.create_session(guest.guest_id, guest.nickname)
+            return guest, session_token
+    
+    def check_auth_status(self, request: Request) -> dict:
         """
-        Authenticate guest by UUID
-        Returns: Guest object if valid, None otherwise
+        Check authentication status from session
         """
-        try:
-            # Validate UUID format
-            uuid.UUID(guest_uuid)
-        except ValueError:
-            return None
+        session_token = request.cookies.get("session_token")
         
-        guest_uuid_obj = uuid.UUID(guest_uuid)
-        guest = self.guest_repo.find_by_uuid(guest_uuid_obj)
+        if not session_token:
+            return {"authenticated": False, "guest": None}
+        
+        # Get session data
+        session_data = self.session_store.get_session(session_token)
+        
+        if not session_data:
+            return {"authenticated": False, "guest": None}
+        
+        # Get guest from database
+        guest = self.guest_repo.find_by_id(session_data['guest_id'])
+        
         if guest:
-            # Update last login
-            self.guest_repo.update_last_login(guest)
+            # Check if guest has active game
+            has_active_game, room_id = self.guest_repo.check_active_game(guest.guest_id)
+            
+            return {
+                "authenticated": True,
+                "guest": {
+                    "guest_id": guest.guest_id,
+                    "uuid": str(guest.uuid),
+                    "nickname": guest.nickname,
+                    "created_at": guest.created_at.isoformat() if guest.created_at else None,
+                    "last_login": guest.last_login.isoformat() if guest.last_login else None
+                },
+                "room_id": room_id if has_active_game else None
+            }
+        else:
+            # Clean up invalid session
+            self.session_store.delete_session(session_token)
+            return {"authenticated": False, "guest": None}
+    
+    def logout(self, request: Request, response: Response) -> dict:
+        """
+        Logout user by clearing session and cookies
+        """
+        session_token = request.cookies.get("session_token")
         
-        return guest
-
-    def set_auth_cookies(self, response: Response, guest_uuid: str) -> None:
-        """Set authentication cookies in response"""
-        response.set_cookie(
-            key="guest_uuid",
-            value=guest_uuid,
-            max_age=86400 * 30,  # 30 days
-            httponly=True,
-            secure=False,  # Set to True in production with HTTPS
-            samesite="lax"
-        )
-
-    def logout(self, response: Response) -> None:
-        """Clear authentication cookies"""
-        response.delete_cookie(key="guest_uuid")
-
-    def get_guest_by_uuid(self, guest_uuid: str) -> Optional[Guest]:
-        """Get guest by UUID"""
-        return self.guest_repo.find_by_uuid(guest_uuid)
-
-    def update_guest_profile(self, guest_uuid: str, nickname: str) -> Guest:
-        """Update guest profile"""
-        # Check if nickname is already taken by another guest
+        if session_token:
+            self.session_store.delete_session(session_token)
+        
+        response.delete_cookie("session_token")
+        return {"message": "로그아웃되었습니다"}
+    
+    def update_profile(self, request: Request, nickname: str) -> Guest:
+        """
+        Update user profile
+        """
+        session_token = request.cookies.get("session_token")
+        
+        if not session_token:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required"
+            )
+        
+        # Get session data
+        session_data = self.session_store.get_session(session_token)
+        
+        if not session_data:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid session"
+            )
+        
+        guest = self.guest_repo.find_by_id(session_data['guest_id'])
+        
+        if not guest:
+            # Clean up invalid session
+            self.session_store.delete_session(session_token)
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid authentication"
+            )
+        
+        # Check if nickname is already taken by another user
         existing_guest = self.guest_repo.find_by_nickname(nickname)
-        if existing_guest and str(existing_guest.uuid) != guest_uuid:
+        if existing_guest and existing_guest.guest_id != guest.guest_id:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Nickname already exists"
+                detail="닉네임이 이미 사용 중입니다"
             )
         
-        guest_uuid_obj = uuid.UUID(guest_uuid)
-        guest = self.guest_repo.update_nickname(guest_uuid_obj, nickname)
-        if not guest:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Guest not found"
-            )
+        # Update nickname in database and session
+        updated_guest = self.guest_repo.update_nickname(guest, nickname)
+        self.session_store.update_session(session_token, nickname=nickname)
         
-        return guest
+        return updated_guest
+    
+    def set_auth_cookies(self, response: Response, session_token: str) -> None:
+        """
+        Set authentication cookies with session token
+        """
+        response.set_cookie(
+            key="session_token",
+            value=session_token,
+            httponly=True,
+            max_age=24 * 60 * 60,  # 24 hours
+            samesite="lax"
+        )
+    
+    def get_session_stats(self) -> dict:
+        """
+        Get session statistics for admin/debugging
+        """
+        self.session_store.cleanup_expired_sessions()
+        return {
+            "active_sessions": self.session_store.get_session_count(),
+            "total_guests": len(set(session['guest_id'] for session in self.session_store.sessions.values()))
+        }

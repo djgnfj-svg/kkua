@@ -1,53 +1,58 @@
 """
-Authentication middleware for centralized authentication logic
+Authentication middleware for session-based authentication
 """
 
 from fastapi import HTTPException, status, Depends, Request
 from fastapi.security import HTTPBearer
-import uuid
 from typing import Optional
 from repositories.guest_repository import GuestRepository
 from models.guest_model import Guest
 from db.postgres import get_db
 from sqlalchemy.orm import Session
+from services.session_service import get_session_store
 
 security = HTTPBearer(auto_error=False)
 
 
-def get_guest_uuid_from_cookie(request: Request) -> Optional[str]:
-    """Extract guest UUID from cookie"""
-    guest_uuid = request.cookies.get("guest_uuid")
-    if not guest_uuid:
-        return None
-    
-    try:
-        # Validate UUID format
-        uuid.UUID(guest_uuid)
-        return guest_uuid
-    except ValueError:
-        return None
+def get_session_token_from_cookie(request: Request) -> Optional[str]:
+    """Extract session token from cookie"""
+    session_token = request.cookies.get("session_token")
+    return session_token if session_token else None
 
 
 def get_current_guest(
     request: Request,
     db: Session = Depends(get_db)
 ) -> Guest:
-    """Get current authenticated guest from cookie"""
-    guest_uuid = get_guest_uuid_from_cookie(request)
+    """Get current authenticated guest from session"""
+    session_token = get_session_token_from_cookie(request)
     
-    if not guest_uuid:
+    if not session_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required - no guest UUID found"
+            detail="Authentication required - no session token found"
         )
     
-    guest_repo = GuestRepository(db)
-    guest = guest_repo.find_by_uuid(guest_uuid)
+    # Get session data
+    session_store = get_session_store()
+    session_data = session_store.get_session(session_token)
     
-    if not guest:
+    if not session_data:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication - guest not found"
+            detail="Invalid session - session expired or not found"
+        )
+    
+    # Get guest from database
+    guest_repo = GuestRepository(db)
+    guest = guest_repo.find_by_id(session_data['guest_id'])
+    
+    if not guest:
+        # Clean up invalid session
+        session_store.delete_session(session_token)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid session - guest not found"
         )
     
     return guest

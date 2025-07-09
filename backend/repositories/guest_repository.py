@@ -10,6 +10,16 @@ class GuestRepository:
     def __init__(self, db: Session):
         self.db = db
 
+    def find_by_id(self, guest_id: int) -> Optional[Guest]:
+        """ID로 게스트를 찾습니다."""
+        try:
+            guest = self.db.query(Guest).filter(Guest.guest_id == guest_id).first()
+            return guest
+        except Exception as e:
+            import logging
+            logging.error(f"게스트 ID 검색 중 오류 발생: {str(e)}")
+            return None
+
     def find_by_uuid(self, guest_uuid: uuid.UUID) -> Optional[Guest]:
         try:
             guest = self.db.query(Guest).filter(Guest.uuid == guest_uuid).first()

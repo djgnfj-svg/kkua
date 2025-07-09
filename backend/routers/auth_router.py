@@ -5,6 +5,7 @@ Authentication router for handling login, logout, and profile management
 from fastapi import APIRouter, Depends, HTTPException, Response, Request, status
 from sqlalchemy.orm import Session
 from db.postgres import get_db
+from repositories.guest_repository import GuestRepository
 from services.auth_service import AuthService
 from middleware.auth_middleware import require_authentication, optional_authentication
 from schemas.auth_schema import (
@@ -17,20 +18,24 @@ from typing import Optional
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
 
+def get_auth_service(db: Session = Depends(get_db)) -> AuthService:
+    """Dependency to get AuthService instance"""
+    guest_repo = GuestRepository(db)
+    return AuthService(guest_repo)
+
+
 @router.post("/login", response_model=LoginResponse)
 async def login(
     login_data: LoginRequest,
     response: Response,
-    db: Session = Depends(get_db)
+    auth_service: AuthService = Depends(get_auth_service)
 ):
     """
     Login or create a new guest account
     """
-    auth_service = AuthService(db)
-    
     try:
-        guest, guest_uuid = auth_service.login_or_create_guest(login_data.nickname)
-        auth_service.set_auth_cookies(response, guest_uuid)
+        guest, session_token = auth_service.login(login_data.nickname)
+        auth_service.set_auth_cookies(response, session_token)
         
         return LoginResponse(
             guest_uuid=str(guest.uuid),
@@ -48,14 +53,16 @@ async def login(
 
 
 @router.post("/logout", response_model=LogoutResponse)
-async def logout(response: Response):
+async def logout(
+    request: Request,
+    response: Response,
+    auth_service: AuthService = Depends(get_auth_service)
+):
     """
     Logout and clear authentication cookies
     """
-    auth_service = AuthService(db=None)  # No DB needed for logout
-    auth_service.logout(response)
-    
-    return LogoutResponse(message="Logout successful")
+    result = auth_service.logout(request, response)
+    return LogoutResponse(message=result["message"])
 
 
 @router.get("/me", response_model=ProfileResponse)
@@ -73,19 +80,14 @@ async def get_profile(current_guest: Guest = Depends(require_authentication)):
 @router.put("/me", response_model=ProfileResponse)
 async def update_profile(
     profile_data: ProfileUpdateRequest,
-    current_guest: Guest = Depends(require_authentication),
-    db: Session = Depends(get_db)
+    request: Request,
+    auth_service: AuthService = Depends(get_auth_service)
 ):
     """
     Update current user profile
     """
-    auth_service = AuthService(db)
-    
     try:
-        updated_guest = auth_service.update_guest_profile(
-            str(current_guest.uuid), 
-            profile_data.nickname
-        )
+        updated_guest = auth_service.update_profile(request, profile_data.nickname)
         
         return ProfileResponse(
             guest_uuid=str(updated_guest.uuid),
@@ -102,17 +104,22 @@ async def update_profile(
 
 
 @router.get("/status", response_model=AuthStatusResponse)
-async def get_auth_status(current_guest: Optional[Guest] = Depends(optional_authentication)):
+async def get_auth_status(
+    request: Request,
+    auth_service: AuthService = Depends(get_auth_service)
+):
     """
     Check authentication status
     """
-    if current_guest:
+    auth_status = auth_service.check_auth_status(request)
+    
+    if auth_status["authenticated"]:
         return AuthStatusResponse(
             authenticated=True,
             guest=ProfileResponse(
-                guest_uuid=str(current_guest.uuid),
-                nickname=current_guest.nickname,
-                last_login=current_guest.last_login
+                guest_uuid=auth_status["guest"]["uuid"],
+                nickname=auth_status["guest"]["nickname"],
+                last_login=auth_status["guest"]["last_login"]
             )
         )
     else:
