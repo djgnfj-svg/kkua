@@ -38,6 +38,7 @@ async def login(
         auth_service.set_auth_cookies(response, session_token)
         
         return LoginResponse(
+            guest_id=guest.guest_id,
             guest_uuid=str(guest.uuid),
             nickname=guest.nickname,
             message="Login successful",
@@ -71,6 +72,7 @@ async def get_profile(current_guest: Guest = Depends(require_authentication)):
     Get current user profile
     """
     return ProfileResponse(
+        guest_id=current_guest.guest_id,
         guest_uuid=str(current_guest.uuid),
         nickname=current_guest.nickname,
         last_login=current_guest.last_login
@@ -90,6 +92,7 @@ async def update_profile(
         updated_guest = auth_service.update_profile(request, profile_data.nickname)
         
         return ProfileResponse(
+            guest_id=updated_guest.guest_id,
             guest_uuid=str(updated_guest.uuid),
             nickname=updated_guest.nickname,
             last_login=updated_guest.last_login
@@ -117,6 +120,7 @@ async def get_auth_status(
         return AuthStatusResponse(
             authenticated=True,
             guest=ProfileResponse(
+                guest_id=auth_status["guest"]["guest_id"],
                 guest_uuid=auth_status["guest"]["uuid"],
                 nickname=auth_status["guest"]["nickname"],
                 last_login=auth_status["guest"]["last_login"]

@@ -14,6 +14,7 @@ class LoginRequest(BaseModel):
 
 class LoginResponse(BaseModel):
     """Schema for login response"""
+    guest_id: int = Field(..., description="Guest's database ID")
     guest_uuid: str = Field(..., description="Unique identifier for the guest")
     nickname: str = Field(..., description="Guest's nickname")
     message: str = Field(..., description="Success message")
@@ -30,6 +31,7 @@ class ProfileUpdateRequest(BaseModel):
 
 class ProfileResponse(BaseModel):
     """Schema for profile response"""
+    guest_id: int = Field(..., description="Guest's database ID")
     guest_uuid: str = Field(..., description="Unique identifier for the guest")
     nickname: str = Field(..., description="Guest's nickname")
     last_login: Optional[datetime] = Field(None, description="Last login timestamp")

@@ -170,9 +170,9 @@ class GameroomRepository:
         if not gameroom:
             return []
 
-        # 참가자 정보 조회 쿼리 (is_creator 필드 사용)
+        # 참가자 정보 조회 쿼리 (status와 is_ready 필드 포함)
         query = """
-            SELECT gp.guest_id, g.nickname, gp.joined_at, gp.is_creator
+            SELECT gp.guest_id, g.nickname, gp.joined_at, gp.is_creator, gp.status
             FROM gameroom_participants gp
             JOIN guests g ON gp.guest_id = g.guest_id
             WHERE gp.room_id = :room_id AND gp.left_at IS NULL
@@ -189,6 +189,8 @@ class GameroomRepository:
                     "nickname": row[1],
                     "is_creator": bool(row[3]),  # is_creator 필드 사용
                     "joined_at": row[2],
+                    "status": row[4],  # status 필드 추가
+                    "is_ready": row[4].lower() == 'ready',  # status 기반으로 is_ready 계산
                 }
                 for row in result
             ]
