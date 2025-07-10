@@ -59,6 +59,12 @@ const RoomList = ({ rooms, onEnter, isEntering, enteringRoomId }) => {
                     <span>{room?.participant_count || 0}/{room?.max_players || 0}</span>
                   </span>
                 </div>
+                {room?.creator_nickname && (
+                  <div className="flex items-center space-x-1 text-xs text-purple-300 mt-1">
+                    <span>👑</span>
+                    <span>{room.creator_nickname}</span>
+                  </div>
+                )}
               </div>
               
               <div className="flex flex-col items-end space-y-2">

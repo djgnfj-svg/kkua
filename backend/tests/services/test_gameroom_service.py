@@ -301,3 +301,80 @@ class TestGameroomService:
         # 검증
         self.service.repository.get_participants.assert_called_once_with(room_id)
         assert result == mock_participants
+
+    def test_is_room_owner_true(self):
+        """방장 확인 테스트 - 방장인 경우"""
+        # 테스트 데이터
+        room_id = 1
+        guest_id = 1
+        
+        # mock 참가자 객체 생성 (방장)
+        mock_participant = Mock(spec=GameroomParticipant)
+        mock_participant.is_creator = True
+        
+        # repository mock 설정
+        self.service.repository.find_participant.return_value = mock_participant
+        
+        # 테스트 실행
+        result = self.service.is_room_owner(room_id, guest_id)
+        
+        # 검증
+        self.service.repository.find_participant.assert_called_once_with(room_id, guest_id)
+        assert result is True
+
+    def test_is_room_owner_false(self):
+        """방장 확인 테스트 - 일반 참가자인 경우"""
+        # 테스트 데이터
+        room_id = 1
+        guest_id = 2
+        
+        # mock 참가자 객체 생성 (일반 참가자)
+        mock_participant = Mock(spec=GameroomParticipant)
+        mock_participant.is_creator = False
+        
+        # repository mock 설정
+        self.service.repository.find_participant.return_value = mock_participant
+        
+        # 테스트 실행
+        result = self.service.is_room_owner(room_id, guest_id)
+        
+        # 검증
+        self.service.repository.find_participant.assert_called_once_with(room_id, guest_id)
+        assert result is False
+
+    def test_is_room_owner_not_participant(self):
+        """방장 확인 테스트 - 참가자가 아닌 경우"""
+        # 테스트 데이터
+        room_id = 1
+        guest_id = 3
+        
+        # repository mock 설정 (참가자 없음)
+        self.service.repository.find_participant.return_value = None
+        
+        # 테스트 실행
+        result = self.service.is_room_owner(room_id, guest_id)
+        
+        # 검증
+        self.service.repository.find_participant.assert_called_once_with(room_id, guest_id)
+        assert result is False
+
+    def test_check_if_owner_integration(self):
+        """방장 확인 통합 테스트"""
+        # 테스트 데이터
+        room_id = 1
+        mock_guest = Mock(spec=Guest)
+        mock_guest.guest_id = 1
+        
+        # mock 참가자 객체 생성 (방장)
+        mock_participant = Mock(spec=GameroomParticipant)
+        mock_participant.is_creator = True
+        
+        # repository mock 설정
+        self.service.repository.find_participant.return_value = mock_participant
+        
+        # 테스트 실행
+        result = self.service.check_if_owner(room_id, mock_guest)
+        
+        # 검증
+        self.service.repository.find_participant.assert_called_once_with(room_id, mock_guest.guest_id)
+        assert result == {"is_owner": True}

@@ -120,6 +120,38 @@ export default function useGameRoomSocket(roomId) {
         } else if (data.type === 'ready_status_updated') {
           // 자신의 준비 상태 업데이트 응답
           setIsReady(data.is_ready);
+        } else if (data.type === 'host_changed') {
+          // 방장 변경 처리
+          console.log('👑 방장 변경 수신:', data);
+          
+          // 참가자 목록에서 방장 상태 업데이트
+          setParticipants((prev) =>
+            prev.map((p) => ({
+              ...p,
+              is_creator: p.guest_id === data.new_host_id
+            }))
+          );
+          
+          // 방 업데이트 플래그 설정
+          setRoomUpdated(true);
+          
+          // 시스템 메시지로 추가
+          setMessages((prev) => [
+            ...prev,
+            {
+              nickname: '시스템',
+              message: data.message || `${data.new_host_nickname}님이 새로운 방장이 되었습니다.`,
+              type: 'system',
+              timestamp: new Date().toISOString(),
+            },
+          ]);
+        } else if (data.type === 'participant_list_updated') {
+          // 참가자 목록 업데이트
+          console.log('📅 참가자 목록 업데이트:', data.participants);
+          if (data.participants && Array.isArray(data.participants)) {
+            setParticipants(data.participants);
+            setRoomUpdated(true);
+          }
         }
       };
 
