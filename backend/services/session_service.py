@@ -4,76 +4,112 @@ Session management service for handling user sessions
 
 import secrets
 import time
+import threading
 from typing import Optional, Dict, Any
 from datetime import datetime, timedelta
+from concurrent.futures import ThreadPoolExecutor
 
 
 class SessionStore:
-    """In-memory session store for managing user sessions"""
+    """Thread-safe in-memory session store for managing user sessions"""
     
     def __init__(self):
         self.sessions: Dict[str, Dict[str, Any]] = {}
         self.session_timeout = 24 * 60 * 60  # 24 hours in seconds
+        self._lock = threading.RLock()  # 재진입 가능한 락
+        self._cleanup_executor = ThreadPoolExecutor(max_workers=1)
+        self._last_cleanup = datetime.utcnow()
+        self._cleanup_interval = 300  # 5분마다 자동 정리
     
     def create_session(self, guest_id: int, nickname: str = None) -> str:
         """Create a new session and return session token"""
-        session_token = secrets.token_urlsafe(32)
-        session_data = {
-            'guest_id': guest_id,
-            'nickname': nickname,
-            'created_at': datetime.utcnow(),
-            'last_accessed': datetime.utcnow(),
-            'expires_at': datetime.utcnow() + timedelta(seconds=self.session_timeout)
-        }
+        with self._lock:
+            # 동일 사용자의 기존 세션 정리 (단일 세션 정책)
+            self._cleanup_user_sessions(guest_id)
+            
+            session_token = secrets.token_urlsafe(32)
+            session_data = {
+                'guest_id': guest_id,
+                'nickname': nickname,
+                'created_at': datetime.utcnow(),
+                'last_accessed': datetime.utcnow(),
+                'expires_at': datetime.utcnow() + timedelta(seconds=self.session_timeout)
+            }
+            
+            self.sessions[session_token] = session_data
+            self._trigger_cleanup_if_needed()
+            return session_token
+    
+    def _cleanup_user_sessions(self, guest_id: int):
+        """동일 사용자의 기존 세션 정리 (단일 세션 정책)"""
+        tokens_to_remove = []
+        for token, session_data in self.sessions.items():
+            if session_data['guest_id'] == guest_id:
+                tokens_to_remove.append(token)
         
-        self.sessions[session_token] = session_data
-        return session_token
+        for token in tokens_to_remove:
+            del self.sessions[token]
+    
+    def _trigger_cleanup_if_needed(self):
+        """필요시 자동 정리 트리거"""
+        now = datetime.utcnow()
+        if (now - self._last_cleanup).seconds > self._cleanup_interval:
+            self._last_cleanup = now
+            self._cleanup_executor.submit(self._cleanup_expired_sessions_async)
     
     def get_session(self, session_token: str) -> Optional[Dict[str, Any]]:
         """Get session data by token"""
-        if not session_token or session_token not in self.sessions:
-            return None
+        with self._lock:
+            if not session_token or session_token not in self.sessions:
+                return None
+                
+            session_data = self.sessions[session_token]
             
-        session_data = self.sessions[session_token]
-        
-        # Check if session has expired
-        if datetime.utcnow() > session_data['expires_at']:
-            self.delete_session(session_token)
-            return None
-        
-        # Update last accessed time
-        session_data['last_accessed'] = datetime.utcnow()
-        return session_data
+            # Check if session has expired
+            if datetime.utcnow() > session_data['expires_at']:
+                del self.sessions[session_token]
+                return None
+            
+            # Update last accessed time
+            session_data['last_accessed'] = datetime.utcnow()
+            return session_data.copy()  # 불변성 보장을 위한 복사본 반환
     
     def update_session(self, session_token: str, **kwargs) -> bool:
         """Update session data"""
-        if session_token not in self.sessions:
-            return False
+        with self._lock:
+            if session_token not in self.sessions:
+                return False
+                
+            session_data = self.sessions[session_token]
             
-        session_data = self.sessions[session_token]
-        
-        # Check if session has expired
-        if datetime.utcnow() > session_data['expires_at']:
-            self.delete_session(session_token)
-            return False
-        
-        # Update session data
-        for key, value in kwargs.items():
-            if key in ['guest_id', 'nickname']:
-                session_data[key] = value
-        
-        session_data['last_accessed'] = datetime.utcnow()
-        return True
+            # Check if session has expired
+            if datetime.utcnow() > session_data['expires_at']:
+                del self.sessions[session_token]
+                return False
+            
+            # Update session data
+            for key, value in kwargs.items():
+                if key in ['guest_id', 'nickname']:
+                    session_data[key] = value
+            
+            session_data['last_accessed'] = datetime.utcnow()
+            return True
     
     def delete_session(self, session_token: str) -> bool:
         """Delete a session"""
-        if session_token in self.sessions:
-            del self.sessions[session_token]
-            return True
-        return False
+        with self._lock:
+            if session_token in self.sessions:
+                del self.sessions[session_token]
+                return True
+            return False
     
     def cleanup_expired_sessions(self):
-        """Remove expired sessions"""
+        """Remove expired sessions (public method)"""
+        with self._lock:
+            self._cleanup_expired_sessions_sync()
+    
+    def _cleanup_expired_sessions_sync(self):
+        """Remove expired sessions (synchronized)"""
         current_time = datetime.utcnow()
         expired_tokens = []
         
@@ -83,25 +119,45 @@ class SessionStore:
         
         for token in expired_tokens:
             del self.sessions[token]
+            
+        print(f"세션 정리 완료: {len(expired_tokens)}개 만료된 세션 제거")
+    
+    def _cleanup_expired_sessions_async(self):
+        """비동기 세션 정리 (백그라운드 실행용)"""
+        with self._lock:
+            self._cleanup_expired_sessions_sync()
     
     def get_session_count(self) -> int:
         """Get total number of active sessions"""
-        self.cleanup_expired_sessions()
-        return len(self.sessions)
+        with self._lock:
+            self._cleanup_expired_sessions_sync()
+            return len(self.sessions)
     
     def get_sessions_by_guest_id(self, guest_id: int) -> list:
         """Get all sessions for a specific guest"""
-        self.cleanup_expired_sessions()
-        sessions = []
-        
-        for token, session_data in self.sessions.items():
-            if session_data['guest_id'] == guest_id:
-                sessions.append({
-                    'token': token,
-                    'data': session_data
-                })
-        
-        return sessions
+        with self._lock:
+            self._cleanup_expired_sessions_sync()
+            sessions = []
+            
+            for token, session_data in self.sessions.items():
+                if session_data['guest_id'] == guest_id:
+                    sessions.append({
+                        'token': token,
+                        'data': session_data.copy()
+                    })
+            
+            return sessions
+    
+    def get_session_stats(self) -> Dict[str, Any]:
+        """세션 통계 정보 반환"""
+        with self._lock:
+            self._cleanup_expired_sessions_sync()
+            return {
+                'total_sessions': len(self.sessions),
+                'unique_users': len(set(s['guest_id'] for s in self.sessions.values())),
+                'last_cleanup': self._last_cleanup.isoformat(),
+                'cleanup_interval': self._cleanup_interval
+            }
 
 
 # Global session store instance
