@@ -58,6 +58,11 @@ class GameroomService:
 
         return guest
 
+    def is_room_owner(self, room_id: int, guest_id: int) -> bool:
+        """특정 게스트가 게임룸의 방장인지 확인합니다."""
+        participant = self.repository.find_participant(room_id, guest_id)
+        return participant is not None and participant.is_creator
+
 
     def list_gamerooms(self, status=None, limit=10, offset=0):
         """게임룸 목록을 조회합니다. 정렬 기능을 제거했습니다."""
@@ -85,13 +90,10 @@ class GameroomService:
             room_data["created_by"] = guest_id
             new_room = self.repository.create(room_data)
 
-            # 2. 방장을 참가자로 추가
+            # 2. 방장을 참가자로 추가 (참가자 수는 repository에서 자동 업데이트)
             self.repository.add_participant(
                 room_id=new_room.room_id, guest_id=guest_id, is_creator=True
             )
-
-            # 3. 참가자 수 업데이트
-            new_room.participant_count = 1
 
             # 변경사항 저장
             self.db.commit()
@@ -196,12 +198,8 @@ class GameroomService:
                     detail="게임룸 퇴장에 실패했습니다."
                 )
 
-            # 참가자 제거
+            # 참가자 제거 (참가자 수는 repository에서 자동 업데이트)
             self.repository.remove_participant(room_id, guest.guest_id)
-
-            # 참가자 수 감소
-            if room.participant_count > 0:
-                room.participant_count -= 1
 
             # 방장이 나간 경우 처리
             if participant.is_creator:
@@ -210,8 +208,23 @@ class GameroomService:
                     # 다른 참가자 중 한 명을 방장으로 지정
                     new_host = remaining[0]
                     new_host.is_creator = True
-                    # 상태도 READY로 변경
-                    new_host.status = ParticipantStatus.READY
+                    # 방장 이양 시 created_by 필드도 업데이트
+                    room.created_by = new_host.guest_id
+                    # 상태는 강제로 변경하지 않음 (기존 상태 유지)
+                    
+                    # 웹소켓으로 방장 변경 알림 전송
+                    if self.ws_manager:
+                        asyncio.create_task(
+                            self.ws_manager.broadcast_room_update(
+                                room_id,
+                                "host_changed",
+                                {
+                                    "new_host_id": new_host.guest_id,
+                                    "new_host_nickname": new_host.guest.nickname if new_host.guest else f"게스트_{new_host.guest_id}",
+                                    "message": f"{new_host.guest.nickname if new_host.guest else f'게스트_{new_host.guest_id}'}님이 새로운 방장이 되었습니다.",
+                                },
+                            )
+                        )
                 else:
                     # 남은 참가자가 없으면 게임룸 종료
                     room.status = GameStatus.FINISHED
@@ -398,8 +411,7 @@ class GameroomService:
             )
 
         # 방장 확인 - 방장은 항상 준비 상태
-        is_creator = room.created_by == guest.guest_id
-        if is_creator:
+        if self.is_room_owner(room_id, guest.guest_id):
             return {
                 "status": ParticipantStatus.READY.value,
                 "message": "방장은 항상 준비 상태입니다.",
@@ -484,7 +496,7 @@ class GameroomService:
                 return {"is_owner": False}
 
             # 방장 여부 확인
-            is_owner = room.created_by == guest.guest_id
+            is_owner = self.is_room_owner(room_id, guest.guest_id)
 
             return {"is_owner": is_owner}
         except HTTPException:

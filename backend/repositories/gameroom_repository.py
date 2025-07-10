@@ -129,10 +129,7 @@ class GameroomRepository:
         self.db.flush()
 
         # 참가자 수 업데이트
-        room = self.find_by_id(room_id)
-        if room:
-            room.participant_count += 1
-            self.db.commit()
+        self.update_participant_count(room_id)
 
         return participant
 
@@ -144,6 +141,10 @@ class GameroomRepository:
 
         participant.left_at = datetime.now()
         participant.status = ParticipantStatus.LEFT.value
+        
+        # 참가자 수 업데이트
+        self.update_participant_count(room_id)
+        
         self.db.commit()
         return True
 
@@ -169,11 +170,9 @@ class GameroomRepository:
         if not gameroom:
             return []
 
-        creator_id = gameroom.created_by
-
-        # 참가자 정보 조회 쿼리
+        # 참가자 정보 조회 쿼리 (is_creator 필드 사용)
         query = """
-            SELECT gp.guest_id, g.nickname, gp.joined_at
+            SELECT gp.guest_id, g.nickname, gp.joined_at, gp.is_creator
             FROM gameroom_participants gp
             JOIN guests g ON gp.guest_id = g.guest_id
             WHERE gp.room_id = :room_id AND gp.left_at IS NULL
@@ -188,7 +187,7 @@ class GameroomRepository:
                 {
                     "guest_id": row[0],
                     "nickname": row[1],
-                    "is_creator": (row[0] == creator_id),
+                    "is_creator": bool(row[3]),  # is_creator 필드 사용
                     "joined_at": row[2],
                 }
                 for row in result
