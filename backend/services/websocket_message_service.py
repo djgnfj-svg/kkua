@@ -55,6 +55,18 @@ class WebSocketMessageService:
 
         current_status = participant.status
 
+        # 방장 확인 - 방장은 항상 준비 상태
+        if participant.is_creator:
+            await self.ws_manager.send_personal_message(
+                {
+                    "type": "ready_status_updated",
+                    "is_ready": True,
+                    "message": "방장은 항상 준비 상태입니다."
+                },
+                websocket,
+            )
+            return
+
         # 현재 상태에 따라 토글
         if current_status == ParticipantStatus.WAITING.value:
             new_status = ParticipantStatus.READY.value
@@ -194,8 +206,9 @@ class WebSocketMessageService:
 
     async def _handle_start_game(self, message_data: Dict[str, Any], websocket: WebSocket, room_id: int, guest: Guest):
         """게임 시작 처리"""
-        room = self.repository.find_by_id(room_id)
-        if room.created_by != guest.guest_id:
+        # 방장 확인 - is_creator 필드 사용
+        participant = self.repository.find_participant(room_id, guest.guest_id)
+        if not participant or not participant.is_creator:
             await self.ws_manager.send_personal_message(
                 {"type": "error", "message": "방장만 게임을 시작할 수 있습니다."},
                 websocket,
@@ -277,8 +290,9 @@ class WebSocketMessageService:
 
     async def _handle_end_game(self, websocket: WebSocket, room_id: int, guest: Guest):
         """게임 종료 처리"""
-        room = self.repository.find_by_id(room_id)
-        if room.created_by != guest.guest_id:
+        # 방장 확인 - is_creator 필드 사용
+        participant = self.repository.find_participant(room_id, guest.guest_id)
+        if not participant or not participant.is_creator:
             await self.ws_manager.send_personal_message(
                 {"type": "error", "message": "방장만 게임을 종료할 수 있습니다."},
                 websocket,
@@ -302,3 +316,38 @@ class WebSocketMessageService:
             await self.ws_manager.send_personal_message(
                 {"type": "error", "message": "게임 종료에 실패했습니다."}, websocket
             )
+
+    async def handle_host_change_notification(
+        self, 
+        room_id: int, 
+        new_host_id: int, 
+        new_host_nickname: str
+    ):
+        """방장 변경 알림 처리"""
+        await self.ws_manager.broadcast_room_update(
+            room_id,
+            "host_changed",
+            {
+                "new_host_id": new_host_id,
+                "new_host_nickname": new_host_nickname,
+                "message": f"{new_host_nickname}님이 새로운 방장이 되었습니다.",
+            },
+        )
+
+    async def handle_participant_list_update(self, room_id: int):
+        """참가자 목록 업데이트 알림"""
+        participants = self.repository.get_participants(room_id)
+        
+        await self.ws_manager.broadcast_room_update(
+            room_id,
+            "participant_list_updated",
+            {
+                "participants": participants,
+                "message": "참가자 목록이 업데이트되었습니다.",
+            },
+        )
+
+    def is_room_owner(self, room_id: int, guest_id: int) -> bool:
+        """특정 게스트가 게임룸의 방장인지 확인합니다."""
+        participant = self.repository.find_participant(room_id, guest_id)
+        return participant is not None and participant.is_creator
