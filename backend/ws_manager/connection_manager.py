@@ -48,6 +48,7 @@ class ConnectionManager:
 
     async def broadcast_ready_status(self, room_id: int, guest_id: int, is_ready: bool, nickname: str = None):
         """게스트의 준비 상태 변경을 브로드캐스트합니다."""
+        print(f"🔊 ConnectionManager: 준비 상태 브로드캐스트 - room_id={room_id}, guest_id={guest_id}, is_ready={is_ready}")
         message = {
             "type": "ready_status_changed",
             "guest_id": guest_id,
@@ -55,6 +56,7 @@ class ConnectionManager:
             "is_ready": is_ready,
         }
         await self.websocket_manager.broadcast_room_update(room_id, "ready_status_changed", message)
+        print(f"✅ WebSocket 메시지 전송 완료")
 
     # ============ 끝말잇기 게임 관리 ============
     

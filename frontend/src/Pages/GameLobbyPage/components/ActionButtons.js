@@ -24,10 +24,12 @@ const ActionButtons = ({
       nickname: p.nickname,
       is_creator: p.is_creator,
       status: p.status,
-      is_ready: p.is_ready
+      is_ready: p.is_ready,
+      ready_check: p.is_creator || p.status === 'READY' || p.status === 'ready' || p.is_ready === true
     })),
     allNonOwnerPlayersReady,
-    participantCount: participants.length
+    participantCount: participants.length,
+    canStartGame: participants.length >= 2 && allNonOwnerPlayersReady
   });
 
   return (

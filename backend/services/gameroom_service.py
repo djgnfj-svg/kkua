@@ -446,19 +446,16 @@ class GameroomService:
             )
 
         # 웹소켓 이벤트 발송 (참가자 상태 변경)
+        print(f"🔄 준비 상태 변경: room_id={room_id}, guest_id={guest.guest_id}, is_ready={is_ready}")
         if self.ws_manager:
+            print(f"📡 WebSocket 알림 전송 중...")
             asyncio.create_task(
-                self.ws_manager.broadcast_room_update(
-                    room_id,
-                    "player_ready_changed",
-                    {
-                        "guest_id": guest.guest_id,
-                        "nickname": guest.nickname,
-                        "status": new_status,
-                        "is_ready": is_ready,
-                    },
+                self.ws_manager.broadcast_ready_status(
+                    room_id, guest.guest_id, is_ready, guest.nickname
                 )
             )
+        else:
+            print(f"❌ WebSocket 관리자가 없습니다!")
 
         return {"status": new_status, "message": message, "is_ready": is_ready}
 
