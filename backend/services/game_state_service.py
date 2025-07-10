@@ -100,27 +100,33 @@ class GameStateService:
             print(f"준비 상태 확인 오류: {str(e)}")
             return False
     
-    def can_start_game(self, room_id: int, host_id: int) -> bool:
-        """게임 시작 가능 여부를 확인합니다."""
+    def can_start_game(self, room_id: int, host_id: int) -> tuple[bool, str]:
+        """게임 시작 가능 여부를 확인합니다. (성공 여부, 에러 메시지) 반환"""
         room = self.repository.find_by_id(room_id)
         if not room:
-            return False
+            return False, "존재하지 않는 방입니다."
             
         # 방장 확인
         if room.created_by != host_id:
-            return False
+            return False, "방장만 게임을 시작할 수 있습니다."
             
         # 게임 상태 확인
         if room.status != GameStatus.WAITING:
-            return False
+            if room.status == GameStatus.PLAYING:
+                return False, "이미 게임이 진행 중입니다."
+            else:
+                return False, "게임을 시작할 수 없는 방 상태입니다."
             
         # 최소 인원 확인
         participants = self.repository.find_room_participants(room_id)
         if len(participants) < 2:
-            return False
+            return False, "게임 시작을 위해 최소 2명의 플레이어가 필요합니다."
             
         # 모든 참가자 준비 상태 확인
-        return self.check_all_ready(room_id)
+        if not self.check_all_ready(room_id):
+            return False, "모든 플레이어가 준비 상태여야 합니다."
+            
+        return True, "게임 시작 가능"
     
     def can_end_game(self, room_id: int, host_id: int) -> bool:
         """게임 종료 가능 여부를 확인합니다."""

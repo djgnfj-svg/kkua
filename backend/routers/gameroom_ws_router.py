@@ -29,10 +29,7 @@ async def validate_websocket_connection(
     cookie_header = None
     
     # 헤더에서 쿠키 찾기
-    for name, value in websocket.headers:
-        if name.lower() == b'cookie':
-            cookie_header = value.decode('utf-8')
-            break
+    cookie_header = websocket.headers.get('cookie')
     
     if cookie_header:
         # 쿠키 파싱
@@ -154,6 +151,7 @@ async def websocket_endpoint(
             if message_type == "chat":
                 await message_service.handle_chat_message(message_data, room_id, guest)
             elif message_type == "toggle_ready":
+                print(f"📩 toggle_ready 메시지 수신: room_id={room_id}, guest_id={guest.guest_id}")
                 await message_service.handle_ready_toggle(websocket, room_id, guest)
             elif message_type == "status_update":
                 await message_service.handle_status_update(message_data, websocket, room_id, guest)

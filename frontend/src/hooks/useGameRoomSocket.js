@@ -86,6 +86,24 @@ export default function useGameRoomSocket(roomId) {
           }
         } else if (data.type === 'game_status') {
           setGameStatus(data.status);
+        } else if (data.type === 'game_started') {
+          // 게임 시작 이벤트 처리 - 모든 참가자를 게임 페이지로 이동
+          console.log('🎮 게임 시작 이벤트 수신:', data);
+          
+          // 게임 페이지로 이동
+          const gameUrl = `/keaing/${data.room_id}`;
+          window.location.href = gameUrl;
+          
+          // 시스템 메시지 추가
+          setMessages((prev) => [
+            ...prev,
+            {
+              nickname: '시스템',
+              message: '게임이 시작되었습니다! 게임 페이지로 이동합니다.',
+              type: 'system',
+              timestamp: new Date().toISOString(),
+            },
+          ]);
         } else if (data.type === 'ready_status_changed') {
           // 준비 상태 변경 처리
           console.log('🔥 준비 상태 변경 수신:', data);
@@ -95,11 +113,15 @@ export default function useGameRoomSocket(roomId) {
             console.log('📌 내 준비 상태 업데이트:', data.is_ready);
             setIsReady(data.is_ready);
           }
-          // 참가자 목록에서 해당 참가자의 is_ready 상태를 업데이트
+          // 참가자 목록에서 해당 참가자의 is_ready와 status 상태를 업데이트
           setParticipants((prev) =>
             prev.map((p) =>
               p.guest_id === data.guest_id
-                ? { ...p, is_ready: data.is_ready }
+                ? { 
+                    ...p, 
+                    is_ready: data.is_ready,
+                    status: data.is_ready ? 'ready' : 'waiting'
+                  }
                 : p
             )
           );

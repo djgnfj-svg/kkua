@@ -15,6 +15,7 @@ function GameLobbyPage() {
     connected,
     messages,
     isReady,
+    isStartingGame,
     sendMessage,
     toggleReady,
     handleClickExit,
@@ -58,6 +59,7 @@ function GameLobbyPage() {
           handleClickStartBtn={handleClickStartBtn}
           handleReady={toggleReady}
           isReady={isReady}
+          isStartingGame={isStartingGame}
         />
         <ParticipantList participants={participants} />
         <ChatWindow messages={messages} sendMessage={sendMessage} />

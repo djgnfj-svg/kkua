@@ -113,7 +113,7 @@ class GameroomService:
         """게임룸을 삭제합니다."""
         return self.repository.delete(room_id)
 
-    def join_gameroom(
+    async def join_gameroom(
         self, room_id: int, guest: Guest
     ) -> JoinGameroomResponse:
         """
@@ -279,10 +279,11 @@ class GameroomService:
     def start_game(self, room_id: int, guest: Guest) -> Dict[str, str]:
         """게임을 시작합니다. 방장만 게임을 시작할 수 있습니다."""
         # 게임 시작 가능 여부 확인
-        if not self.game_state_service.can_start_game(room_id, guest.guest_id):
+        can_start, error_message = self.game_state_service.can_start_game(room_id, guest.guest_id)
+        if not can_start:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="게임 시작에 실패했습니다."
+                detail=error_message
             )
         
         # 게임 시작

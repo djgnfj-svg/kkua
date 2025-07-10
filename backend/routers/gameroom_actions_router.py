@@ -20,13 +20,13 @@ def get_gameroom_service(
 
 
 @router.post("/{room_id}/join", response_model=JoinGameroomResponse)
-def join_gameroom(
+async def join_gameroom(
     room_id: int,
     guest: Guest = Depends(get_current_guest),
     service: GameroomService = Depends(get_gameroom_service),
 ):
     """게임룸에 참가합니다."""
-    return service.join_gameroom(room_id, guest)
+    return await service.join_gameroom(room_id, guest)
 
 
 @router.post("/{room_id}/leave", status_code=status.HTTP_200_OK)

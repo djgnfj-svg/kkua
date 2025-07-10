@@ -14,6 +14,7 @@ const useGameLobby = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isOwner, setIsOwner] = useState(false);
   const [redirectingToGame] = useState(false);
+  const [isStartingGame, setIsStartingGame] = useState(false);
   const navigate = useNavigate();
 
   const {
@@ -175,20 +176,36 @@ const useGameLobby = () => {
 
   /* Start BTN */
   const handleClickStartBtn = async () => {
+    if (isStartingGame) return; // 중복 클릭 방지
+    
     try {
+      setIsStartingGame(true);
+      console.log('🎮 게임 시작 요청 중...');
+      
       const response = await axiosInstance.post(ROOM_API.PLAY_ROOMS(roomId));
       console.log('게임 시작 응답:', response.data);
-      alert('게임이 시작됩니다!');
-      navigate(gameUrl(roomId));
+      
+      // WebSocket을 통해 game_started 이벤트가 오면 자동으로 페이지 이동됨
+      // 따라서 여기서는 성공 메시지만 표시
+      console.log('✅ 게임 시작 성공! WebSocket 이벤트 대기 중...');
+      
     } catch (error) {
-      console.error('게임 시작 오류:', error);
-      if (error.response && error.response.data && error.response.data.detail) {
-        alert(`게임 시작 실패: ${error.response.data.detail}`);
-      } else {
-        alert(
-          '게임을 시작할 수 없습니다. 모든 플레이어가 준비되었는지 확인하세요.'
-        );
+      console.error('❌ 게임 시작 오류:', error);
+      setIsStartingGame(false); // 에러 시 로딩 상태 해제
+      
+      let errorMessage = '게임을 시작할 수 없습니다.';
+      
+      if (error.response?.data?.detail) {
+        errorMessage = error.response.data.detail;
+      } else if (error.response?.status === 400) {
+        errorMessage = '모든 플레이어가 준비되었는지 확인하세요.';
+      } else if (error.response?.status === 403) {
+        errorMessage = '방장만 게임을 시작할 수 있습니다.';
+      } else if (error.code === 'ERR_NETWORK') {
+        errorMessage = '네트워크 연결을 확인해주세요.';
       }
+      
+      alert(`게임 시작 실패: ${errorMessage}`);
     }
   };
 
@@ -248,6 +265,7 @@ const useGameLobby = () => {
     connected,
     messages,
     isReady,
+    isStartingGame,
     sendMessage,
     toggleReady,
     handleClickExit,

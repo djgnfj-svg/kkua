@@ -106,7 +106,14 @@ export function AuthProvider({ children }) {
   const checkAuthStatus = async () => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
-      const response = await axiosInstance.get('/auth/status');
+      
+      // 타임아웃 설정 (3초)
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('TIMEOUT')), 3000);
+      });
+      
+      const apiPromise = axiosInstance.get('/auth/status');
+      const response = await Promise.race([apiPromise, timeoutPromise]);
       
       if (response.data.authenticated) {
         dispatch({ type: 'LOGIN_SUCCESS', payload: response.data.guest });
@@ -115,6 +122,25 @@ export function AuthProvider({ children }) {
       }
     } catch (error) {
       console.error('Auth status check failed:', error);
+      
+      // 실제 서버 연결 불가능한 경우에만 저장된 사용자 정보 유지
+      if (error.message === 'TIMEOUT' || error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK') {
+        console.log('서버 연결 불가 - 저장된 사용자 정보 유지');
+        const savedAuth = localStorage.getItem('auth_state');
+        if (savedAuth) {
+          try {
+            const parsedAuth = JSON.parse(savedAuth);
+            if (parsedAuth.user) {
+              dispatch({ type: 'LOGIN_SUCCESS', payload: parsedAuth.user });
+              return;
+            }
+          } catch (parseError) {
+            console.warn('저장된 인증 정보 파싱 실패:', parseError);
+          }
+        }
+      }
+      
+      // 모든 다른 경우 (서버 응답 있음, Network Error 등) 로그아웃 처리
       dispatch({ type: 'LOGOUT' });
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
