@@ -3,14 +3,18 @@ import asyncio
 from datetime import datetime
 from sqlalchemy.orm import Session
 
-from .websocket_manager import WebSocketManager
+from .websocket_manager import WebSocketConnectionManager
 from repositories.game_log_repository import GameLogRepository
 
 
-class WordChainGameManager:
-    """끝말잇기 게임 전담 매니저"""
+class WordChainGameEngine:
+    """끝말잇기 게임의 핵심 엔진
     
-    def __init__(self, websocket_manager: WebSocketManager, db: Optional[Session] = None):
+    게임 규칙, 상태 관리, 턴 시스템, 점수 계산 등
+    게임의 모든 로직을 담당합니다.
+    """
+    
+    def __init__(self, websocket_manager: WebSocketConnectionManager, db: Optional[Session] = None):
         self.websocket_manager = websocket_manager
         self.db = db
         self.game_log_repository = GameLogRepository(db) if db else None

@@ -8,14 +8,14 @@ import uuid
 from repositories.gameroom_repository import GameroomRepository
 from models.gameroom_model import Gameroom, GameStatus, GameroomParticipant, ParticipantStatus
 from models.guest_model import Guest
-from ws_manager.connection_manager import ConnectionManager
+from websocket.connection_manager import GameRoomWebSocketFacade
 from repositories.guest_repository import GuestRepository
 from repositories.game_log_repository import GameLogRepository
 from services.game_state_service import GameStateService
 from schemas.gameroom_actions_schema import JoinGameroomResponse
 
 # 웹소켓 연결 관리자
-ws_manager = ConnectionManager()
+ws_manager = GameRoomWebSocketFacade()
 
 
 class GameroomService:
@@ -32,10 +32,10 @@ class GameroomService:
         self.guest_repository = GuestRepository(db)
         self.game_state_service = GameStateService(db)
         self.ws_manager = ws_manager
-        # WordChainGameManager에 db 세션 주입
-        if not hasattr(self.ws_manager.word_chain_manager, 'db') or self.ws_manager.word_chain_manager.db is None:
-            self.ws_manager.word_chain_manager.db = db
-            self.ws_manager.word_chain_manager.game_log_repository = GameLogRepository(db)
+        # WordChainGameEngine에 db 세션 주입
+        if not hasattr(self.ws_manager.word_chain_engine, 'db') or self.ws_manager.word_chain_engine.db is None:
+            self.ws_manager.word_chain_engine.db = db
+            self.ws_manager.word_chain_engine.game_log_repository = GameLogRepository(db)
 
     def get_guest_by_cookie(self, request: Request) -> Guest:
         """쿠키에서 게스트 UUID를 추출하고 게스트 정보를 반환합니다."""

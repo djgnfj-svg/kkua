@@ -4,8 +4,11 @@ import json
 from datetime import datetime
 
 
-class WebSocketManager:
-    """간소화된 웹소켓 연결 관리자 - 순수 연결 관리만 담당"""
+class WebSocketConnectionManager:
+    """WebSocket 연결의 생명주기를 관리하는 저수준 매니저
+    
+    순수한 연결 관리, 메시지 전송, 브로드캐스트 기능만 담당합니다.
+    """
     
     def __init__(self):
         # 활성 연결 관리: {room_id: {guest_id: WebSocket}}

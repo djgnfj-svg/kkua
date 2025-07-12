@@ -5,13 +5,13 @@ from sqlalchemy.orm import Session
 from repositories.gameroom_repository import GameroomRepository
 from models.gameroom_model import ParticipantStatus
 from models.guest_model import Guest
-from ws_manager.connection_manager import ConnectionManager
+from websocket.connection_manager import GameRoomWebSocketFacade
 
 
 class WebSocketMessageService:
     """웹소켓 메시지 처리 전담 서비스"""
     
-    def __init__(self, db: Session, ws_manager: ConnectionManager):
+    def __init__(self, db: Session, ws_manager: GameRoomWebSocketFacade):
         self.db = db
         self.ws_manager = ws_manager
         self.repository = GameroomRepository(db)

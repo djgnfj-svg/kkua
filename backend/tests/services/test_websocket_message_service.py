@@ -11,7 +11,7 @@ from services.websocket_message_service import WebSocketMessageService
 from models.guest_model import Guest
 from models.gameroom_model import ParticipantStatus, GameroomParticipant
 from repositories.gameroom_repository import GameroomRepository
-from ws_manager.connection_manager import ConnectionManager
+from websocket.connection_manager import GameRoomWebSocketFacade
 import uuid
 
 
@@ -26,7 +26,7 @@ class TestWebSocketMessageService:
     @pytest.fixture
     def mock_ws_manager(self):
         """Mock WebSocket manager"""
-        manager = Mock(spec=ConnectionManager)
+        manager = Mock(spec=GameRoomWebSocketFacade)
         manager.broadcast_to_room = AsyncMock()
         manager.send_personal_message = AsyncMock()
         manager.broadcast_ready_status = AsyncMock()
