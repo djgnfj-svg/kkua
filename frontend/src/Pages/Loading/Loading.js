@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import './Loading.css';
 import { useNavigate } from 'react-router-dom';
 import TutoModal from './Modal/TutoModal';
-import { lobbyUrl } from '../../Component/urls';
+import { lobbyUrl } from '../../utils/urls';
 import { useAuth } from '../../contexts/AuthContext';
 
 function Loading() {

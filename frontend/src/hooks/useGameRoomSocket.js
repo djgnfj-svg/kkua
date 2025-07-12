@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { gameResultUrl } from '../Component/urls';
+import { gameResultUrl } from '../utils/urls';
 
 export default function useGameRoomSocket(roomId) {
   const [connected, setConnected] = useState(false);

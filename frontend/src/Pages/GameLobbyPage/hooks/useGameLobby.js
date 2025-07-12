@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axiosInstance from '../../../Api/axiosInstance';
-import { gameUrl } from '../../../Component/urls';
+import { gameUrl } from '../../../utils/urls';
 import { ROOM_API } from '../../../Api/roomApi';
 import useGameRoomSocket from '../../../hooks/useGameRoomSocket';
 import { useAuth } from '../../../contexts/AuthContext';

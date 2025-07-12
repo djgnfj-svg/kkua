@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axiosInstance from '../../../Api/axiosInstance';
 import { ROOM_API } from '../../../Api/roomApi';
-import { gameLobbyUrl } from '../../../Component/urls';
+import { gameLobbyUrl } from '../../../utils/urls';
 import { useAuth } from '../../../contexts/AuthContext';
 import { getErrorMessage } from '../../../utils/errorMessages';
 

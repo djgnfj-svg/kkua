@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Modal from 'react-modal';
 import './AddRoomModal.css';
 import axiosInstance from '../../../Api/axiosInstance';
-import { gameLobbyUrl } from '../../../Component/urls';
+import { gameLobbyUrl } from '../../../utils/urls';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
 import { getErrorMessage, SUCCESS_MESSAGES } from '../../../utils/errorMessages';

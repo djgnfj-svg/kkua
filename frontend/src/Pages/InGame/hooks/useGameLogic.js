@@ -2,8 +2,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axiosInstance from '../../../Api/axiosInstance';
 import { ROOM_API } from '../../../Api/roomApi';
-import { gameLobbyUrl, gameResultUrl } from '../../../Component/urls';
-import userIsTrue from '../../../Component/userIsTrue';
+import { gameLobbyUrl, gameResultUrl } from '../../../utils/urls';
+import userIsTrue from '../../../utils/userIsTrue';
 import Timer from '../Timer';
 import useTopMsg from '../TopMsg';
 
