@@ -192,8 +192,10 @@ class WebSocketMessageService:
             if p.left_at is None
         ]
 
-        # 게임 초기화
-        self.ws_manager.initialize_word_chain_game(room_id, participant_data)
+        # 게임 초기화 - max_rounds 정보 가져오기
+        room = self.repository.find_by_id(room_id)
+        max_rounds = room.max_rounds if room else 10
+        self.ws_manager.initialize_word_chain_game(room_id, participant_data, max_rounds)
 
         # 초기화 알림
         await self.ws_manager.broadcast_room_update(
@@ -262,27 +264,58 @@ class WebSocketMessageService:
         result = self.ws_manager.submit_word(room_id, word, guest.guest_id)
 
         if result["success"]:
-            # 단어 제출 성공 알림
-            await self.ws_manager.broadcast_room_update(
-                room_id,
-                "word_chain_word_submitted",
-                {
-                    "word": word,
-                    "submitted_by": {"id": guest.guest_id, "nickname": guest.nickname},
-                    "next_player": result["next_player"],
-                    "last_character": result["last_character"],
-                },
-            )
-
-            # 게임 상태 전송
-            await self.ws_manager.broadcast_word_chain_state(room_id)
-
-            # 턴 타이머 시작
-            game_state = self.ws_manager.get_game_state(room_id)
-            if game_state:
-                await self.ws_manager.start_turn_timer(
-                    room_id, game_state.get("time_limit", 15)
+            # 게임 종료 체크
+            if result.get("game_over"):
+                # 게임 종료 처리
+                await self.ws_manager.broadcast_room_update(
+                    room_id,
+                    "word_chain_game_over",
+                    {
+                        "reason": result.get("game_over_reason"),
+                        "message": f"게임이 종료되었습니다! (라운드 {result['max_rounds']} 완료)",
+                        "final_word": word,
+                        "submitted_by": {"id": guest.guest_id, "nickname": guest.nickname},
+                    },
                 )
+                
+                # 게임 상태를 DB에서도 종료로 변경
+                from services.game_state_service import GameStateService
+                game_state_service = GameStateService(self.db)
+                game_state_service.end_game(room_id)
+                
+                # 게임 종료 WebSocket 메시지 전송 (결과 페이지로 이동)
+                await self.ws_manager.broadcast_room_update(
+                    room_id,
+                    "game_ended",
+                    {
+                        "room_id": room_id,
+                        "message": "게임이 종료되었습니다. 결과 페이지로 이동합니다.",
+                    },
+                )
+            else:
+                # 단어 제출 성공 알림
+                await self.ws_manager.broadcast_room_update(
+                    room_id,
+                    "word_chain_word_submitted",
+                    {
+                        "word": word,
+                        "submitted_by": {"id": guest.guest_id, "nickname": guest.nickname},
+                        "next_player": result["next_player"],
+                        "last_character": result["last_character"],
+                        "current_round": result["current_round"],
+                        "max_rounds": result["max_rounds"],
+                    },
+                )
+
+                # 게임 상태 전송
+                await self.ws_manager.broadcast_word_chain_state(room_id)
+
+                # 턴 타이머 시작
+                game_state = self.ws_manager.get_game_state(room_id)
+                if game_state and not game_state.get("is_game_over"):
+                    await self.ws_manager.start_turn_timer(
+                        room_id, game_state.get("time_limit", 15)
+                    )
         else:
             # 단어 제출 실패 알림
             await self.ws_manager.send_personal_message(

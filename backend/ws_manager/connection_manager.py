@@ -1,6 +1,7 @@
-from typing import Dict, List
+from typing import Dict, List, Optional
 from fastapi import WebSocket
 from datetime import datetime
+from sqlalchemy.orm import Session
 
 from .websocket_manager import WebSocketManager
 from .word_chain_manager import WordChainGameManager
@@ -9,9 +10,9 @@ from .word_chain_manager import WordChainGameManager
 class ConnectionManager:
     """통합 연결 관리자 - 기존 API 호환성 유지"""
     
-    def __init__(self):
+    def __init__(self, db: Optional[Session] = None):
         self.websocket_manager = WebSocketManager()
-        self.word_chain_manager = WordChainGameManager(self.websocket_manager)
+        self.word_chain_manager = WordChainGameManager(self.websocket_manager, db)
 
     # ============ WebSocket 연결 관리 ============
     
@@ -60,9 +61,9 @@ class ConnectionManager:
 
     # ============ 끝말잇기 게임 관리 ============
     
-    def initialize_word_chain_game(self, room_id: int, participants: List[Dict]):
+    def initialize_word_chain_game(self, room_id: int, participants: List[Dict], max_rounds: int = 10):
         """끝말잇기 게임 초기화"""
-        return self.word_chain_manager.initialize_word_chain_game(room_id, participants)
+        return self.word_chain_manager.initialize_word_chain_game(room_id, participants, max_rounds)
 
     def get_game_state(self, room_id: int) -> Dict:
         """현재 게임 상태 반환"""

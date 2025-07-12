@@ -10,3 +10,7 @@ websockets>=10.0,<11.0
 asyncio
 pytest-asyncio
 ruff
+python-jose[cryptography]
+python-multipart
+passlib[bcrypt]
+pytest-cov

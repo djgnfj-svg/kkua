@@ -18,9 +18,31 @@ const useGameResult = (roomId) => {
         setLoading(true);
         setError(null);
 
-        // 게임 결과 데이터를 가져오는 API 호출
-        // 실제 API가 구현되기 전까지는 목업 데이터 사용
-        const mockData = {
+        // 실제 API 호출로 게임 결과 데이터 가져오기
+        try {
+          const response = await axiosInstance.get(`/gamerooms/${roomId}/result`);
+          const data = response.data;
+          
+          setGameData(data);
+          setWinner(data.winner_name);
+          setPlayers(data.players);
+          setUsedWords(data.used_words);
+          setGameStats({
+            totalRounds: data.total_rounds,
+            gameDuration: data.game_duration,
+            totalWords: data.total_words,
+            averageResponseTime: data.average_response_time,
+            longestWord: data.longest_word,
+            fastestResponse: data.fastest_response,
+            slowestResponse: data.slowest_response,
+            mvp: data.mvp_name
+          });
+
+        } catch (apiError) {
+          console.error('API 호출 실패, 목업 데이터 사용:', apiError);
+          
+          // API 실패 시 목업 데이터 사용
+          const mockData = {
           winner: '부러',
           players: [
             { 

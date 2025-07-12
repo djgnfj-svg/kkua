@@ -16,6 +16,7 @@ function AddRoomModal({ isOpen, isClose }) {
   const [maxPlayers, setMaxPlayers] = useState(2);
   const [gameMode, setGameMode] = useState('arcade');
   const [timeLimit] = useState(120);
+  const [maxRounds, setMaxRounds] = useState(10);
   const [isCreating, setIsCreating] = useState(false);
   const [errors, setErrors] = useState({});
   const [isValid, setIsValid] = useState(false);
@@ -67,6 +68,7 @@ function AddRoomModal({ isOpen, isClose }) {
         max_players: maxPlayers,
         game_mode: gameMode,
         time_limit: timeLimit,
+        max_rounds: maxRounds,
       });
 
       // 성공 처리
@@ -173,6 +175,41 @@ function AddRoomModal({ isOpen, isClose }) {
                       {num}인
                     </label>
                   ))}
+                </div>
+              </div>
+
+              <div className="game-rounds-section">
+                <div className="label">라운드 수</div>
+                <div className="rounds-controls">
+                  <div className="rounds-slider">
+                    <input
+                      type="range"
+                      min="5"
+                      max="20"
+                      step="1"
+                      value={maxRounds}
+                      onChange={(e) => setMaxRounds(parseInt(e.target.value))}
+                      className="slider"
+                      disabled={isCreating}
+                    />
+                    <div className="rounds-display">
+                      <span className="rounds-value">{maxRounds}</span>
+                      <span className="rounds-text">라운드</span>
+                    </div>
+                  </div>
+                  <div className="rounds-presets">
+                    {[5, 10, 15, 20].map((rounds) => (
+                      <button
+                        key={rounds}
+                        className={`preset-btn ${maxRounds === rounds ? 'active' : ''}`}
+                        onClick={() => setMaxRounds(rounds)}
+                        disabled={isCreating}
+                        type="button"
+                      >
+                        {rounds}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>

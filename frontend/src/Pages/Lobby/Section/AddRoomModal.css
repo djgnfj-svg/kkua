@@ -364,3 +364,114 @@ input[type="radio"]:checked::before {
   font-size: 1.125rem;
 }
 
+/* 라운드 설정 스타일 */
+.game-rounds-section {
+  margin-top: 1rem;
+}
+
+.game-rounds-section .label {
+  margin-bottom: 10px;
+  font-weight: bold;
+  color: #333;
+}
+
+.rounds-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.rounds-slider {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.slider {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: #ddd;
+  outline: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ff7a00;
+  cursor: pointer;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ff7a00;
+  cursor: pointer;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.rounds-display {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 80px;
+  justify-content: center;
+  background-color: #f0f0f0;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  border: 2px solid #ff7a00;
+}
+
+.rounds-value {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #ff7a00;
+}
+
+.rounds-text {
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.rounds-presets {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.preset-btn {
+  padding: 0.5rem 1rem;
+  border: 2px solid #ddd;
+  background-color: #fff;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 500;
+  min-width: 50px;
+}
+
+.preset-btn:hover:not(:disabled) {
+  border-color: #ff7a00;
+  background-color: #fff5f0;
+}
+
+.preset-btn.active {
+  background-color: #ff7a00;
+  color: #fff;
+  border-color: #ff7a00;
+}
+
+.preset-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+

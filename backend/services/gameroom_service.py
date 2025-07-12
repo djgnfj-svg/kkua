@@ -10,6 +10,7 @@ from models.gameroom_model import Gameroom, GameStatus, GameroomParticipant, Par
 from models.guest_model import Guest
 from ws_manager.connection_manager import ConnectionManager
 from repositories.guest_repository import GuestRepository
+from repositories.game_log_repository import GameLogRepository
 from services.game_state_service import GameStateService
 from schemas.gameroom_actions_schema import JoinGameroomResponse
 
@@ -31,6 +32,10 @@ class GameroomService:
         self.guest_repository = GuestRepository(db)
         self.game_state_service = GameStateService(db)
         self.ws_manager = ws_manager
+        # WordChainGameManager에 db 세션 주입
+        if not hasattr(self.ws_manager.word_chain_manager, 'db') or self.ws_manager.word_chain_manager.db is None:
+            self.ws_manager.word_chain_manager.db = db
+            self.ws_manager.word_chain_manager.game_log_repository = GameLogRepository(db)
 
     def get_guest_by_cookie(self, request: Request) -> Guest:
         """쿠키에서 게스트 UUID를 추출하고 게스트 정보를 반환합니다."""
@@ -276,7 +281,7 @@ class GameroomService:
             self.db.rollback()
             raise e
 
-    def start_game(self, room_id: int, guest: Guest) -> Dict[str, str]:
+    async def start_game(self, room_id: int, guest: Guest) -> Dict[str, str]:
         """게임을 시작합니다. 방장만 게임을 시작할 수 있습니다."""
         # 게임 시작 가능 여부 확인
         can_start, error_message = self.game_state_service.can_start_game(room_id, guest.guest_id)
@@ -294,24 +299,61 @@ class GameroomService:
                 detail="게임 시작에 실패했습니다."
             )
 
-        # 웹소켓 이벤트 발송 (게임 시작)
+        # 끝말잇기 게임 자동 초기화 및 시작
         if self.ws_manager:
-            asyncio.create_task(
-                self.ws_manager.broadcast_room_update(
-                    room_id,
-                    "game_started",
-                    {
-                        "room_id": room_id,
-                        "started_at": datetime.now().isoformat(),
-                        "message": "게임이 시작되었습니다!",
-                    },
-                )
+            # 참가자 목록 조회
+            participants = self.repository.find_room_participants(room_id)
+            participant_data = [
+                {
+                    "guest_id": p.guest.guest_id,
+                    "nickname": p.guest.nickname,
+                    "status": p.status.value if hasattr(p.status, "value") else p.status,
+                    "is_creator": p.guest.guest_id == p.gameroom.created_by,
+                }
+                for p in participants
+                if p.left_at is None
+            ]
+
+            # 게임룸 정보에서 max_rounds 가져오기
+            room = self.repository.find_by_id(room_id)
+            max_rounds = room.max_rounds if room else 10
+
+            # 끝말잇기 게임 초기화
+            self.ws_manager.initialize_word_chain_game(room_id, participant_data, max_rounds)
+            
+            # 끝말잇기 게임 시작
+            self.ws_manager.start_word_chain_game(room_id, "끝말잇기")
+
+            # 웹소켓 이벤트 발송 (게임 시작)
+            await self.ws_manager.broadcast_room_update(
+                room_id,
+                "game_started",
+                {
+                    "room_id": room_id,
+                    "started_at": datetime.now().isoformat(),
+                    "message": "게임이 시작되었습니다!",
+                },
             )
+
+            # 끝말잇기 게임 상태 브로드캐스트
+            await self.ws_manager.broadcast_word_chain_state(room_id)
+
+            # 첫 턴 타이머 시작
+            await self.ws_manager.start_turn_timer(room_id, 15)
 
         return {"message": "게임이 시작되었습니다!", "status": "PLAYING"}
 
     def end_game(self, room_id: int, guest: Guest) -> Dict[str, str]:
-        """게임을 종료하고 대기 상태로 되돌립니다."""
+        """게임을 종료하고 결과를 생성합니다."""
+        # 게임룸 조회
+        room = self.repository.find_by_id(room_id)
+        if not room:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="게임룸을 찾을 수 없습니다"
+            )
+        
+        # 게임 종료 처리
         success = self.game_state_service.end_game(room_id)
         if not success:
             raise HTTPException(
@@ -319,23 +361,43 @@ class GameroomService:
                 detail="게임 종료에 실패했습니다."
             )
 
-        # 웹소켓 이벤트 발송 (게임 종료)
+        # 게임룸 상태를 FINISHED로 변경
+        room.status = GameStatus.FINISHED.value
+        room.ended_at = datetime.now()
+        self.db.commit()
+
+        # 승자 결정 (간단한 로직 - 첫 번째 참가자)
+        participants = self.repository.find_participants_by_room_id(room_id)
+        winner = None
+        if participants and participants[0].guest:
+            winner = participants[0].guest
+
+        # 웹소켓 이벤트 발송 (게임 종료 및 결과 페이지 이동 알림)
         if self.ws_manager:
+            from schemas.gameroom_ws_schema import GameEndedMessage
+            
+            end_message = GameEndedMessage(
+                room_id=room_id,
+                winner_id=winner.guest_id if winner else None,
+                winner_name=winner.nickname if winner else None,
+                message=f"게임이 종료되었습니다! {winner.nickname if winner else '무승부'}",
+                result_available=True,
+                timestamp=datetime.now()
+            )
+            
             asyncio.create_task(
                 self.ws_manager.broadcast_room_update(
                     room_id,
                     "game_ended",
-                    {
-                        "room_id": room_id,
-                        "ended_at": datetime.now().isoformat(),
-                        "message": "게임이 종료되었습니다! 다시 준비해주세요.",
-                    },
+                    end_message.dict(),
                 )
             )
 
         return {
-            "message": "게임이 종료되었습니다! 다시 준비해주세요.",
-            "status": "WAITING",
+            "message": f"게임이 종료되었습니다! 승자: {winner.nickname if winner else '무승부'}",
+            "status": "FINISHED",
+            "winner": winner.nickname if winner else None,
+            "result_available": True
         }
 
     def get_participants(self, room_id: int) -> List[Dict[str, Any]]:
@@ -386,7 +448,7 @@ class GameroomService:
 
         return {"detail": "참가자 상태가 업데이트되었습니다."}
 
-    def toggle_ready_status_with_ws(self, room_id: int, guest: Guest) -> Dict[str, Any]:
+    async def toggle_ready_status_with_ws(self, room_id: int, guest: Guest) -> Dict[str, Any]:
         """참가자의 준비 상태를 토글합니다. (웹소켓 알림 포함)"""
         # 게임룸 조회
         room = self.repository.find_by_id(room_id)
@@ -449,10 +511,8 @@ class GameroomService:
         print(f"🔄 준비 상태 변경: room_id={room_id}, guest_id={guest.guest_id}, is_ready={is_ready}")
         if self.ws_manager:
             print(f"📡 WebSocket 알림 전송 중...")
-            asyncio.create_task(
-                self.ws_manager.broadcast_ready_status(
-                    room_id, guest.guest_id, is_ready, guest.nickname
-                )
+            await self.ws_manager.broadcast_ready_status(
+                room_id, guest.guest_id, is_ready, guest.nickname
             )
         else:
             print(f"❌ WebSocket 관리자가 없습니다!")
@@ -499,3 +559,164 @@ class GameroomService:
             return {"is_owner": is_owner}
         except HTTPException:
             return {"is_owner": False}
+    
+    def get_game_result(self, room_id: int, guest: Guest) -> Dict[str, Any]:
+        """게임 결과를 조회합니다."""
+        from schemas.gameroom_schema import GameResultResponse, PlayerGameResult, WordChainEntry
+        
+        # 게임룸 조회
+        room = self.repository.find_by_id(room_id)
+        if not room:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="게임룸을 찾을 수 없습니다"
+            )
+        
+        # 참가자 권한 확인 (게임이 끝나지 않아도 결과 조회 허용)
+        participant = self.repository.find_participant(room_id, guest.guest_id)
+        if not participant:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="게임 참가자만 결과를 조회할 수 있습니다"
+            )
+        
+        # 게임 로그 조회
+        game_log_repo = GameLogRepository(self.db)
+        game_log = game_log_repo.find_game_log_by_room_id(room_id)
+        
+        if game_log:
+            # 실제 게임 데이터 사용
+            players_stats = game_log_repo.get_player_stats_by_game_log(game_log.id)
+            word_entries = game_log_repo.get_word_entries_by_game_log(game_log.id)
+            
+            # 플레이어 통계 데이터 변환
+            players_data = []
+            for stats in players_stats:
+                if stats.player:
+                    players_data.append(PlayerGameResult(
+                        guest_id=stats.player_id,
+                        nickname=stats.player.nickname,
+                        words_submitted=stats.words_submitted,
+                        total_score=stats.total_score,
+                        avg_response_time=stats.avg_response_time or 0.0,
+                        longest_word=stats.longest_word or "단어없음",
+                        rank=stats.rank
+                    ))
+            
+            # 단어 엔트리 데이터 변환
+            used_words_data = []
+            for entry in word_entries:
+                if entry.player:
+                    used_words_data.append(WordChainEntry(
+                        word=entry.word,
+                        player_id=entry.player_id,
+                        player_name=entry.player.nickname,
+                        timestamp=entry.submitted_at,
+                        response_time=entry.response_time or 0.0
+                    ))
+            
+            # 승자 결정
+            winner = None
+            if game_log.winner:
+                winner_stats = next((p for p in players_data if p.guest_id == game_log.winner_id), None)
+                winner = winner_stats
+            elif players_data:
+                winner = players_data[0]  # 순위 1위
+                
+            # 게임 지속 시간
+            game_duration = game_log.get_game_duration_formatted()
+            
+            # 실제 통계 사용
+            total_rounds = game_log.total_rounds
+            total_words = game_log.total_words
+            average_response_time = game_log.average_response_time or 0.0
+            longest_word = game_log.longest_word or "없음"
+            fastest_response = game_log.fastest_response_time or 0.0
+            slowest_response = game_log.slowest_response_time or 0.0
+            mvp_name = winner.nickname if winner else "없음"
+            
+        else:
+            # 게임 로그가 없는 경우 목업 데이터 사용
+            participants = self.repository.find_room_participants(room_id)
+            
+            players_data = []
+            used_words_data = []
+            
+            # 플레이어별 통계 생성
+            for i, p in enumerate(participants):
+                if not p.guest:
+                    continue
+                    
+                # 목업 통계 데이터
+                words_count = max(1, 8 - i)  # 다양한 단어 수
+                avg_time = 2.5 + (i * 0.7)  # 다양한 응답시간
+                score = words_count * 3 + (10 - i)  # 점수 계산
+                
+                players_data.append(PlayerGameResult(
+                    guest_id=p.guest.guest_id,
+                    nickname=p.guest.nickname,
+                    words_submitted=words_count,
+                    total_score=score,
+                    avg_response_time=round(avg_time, 1),
+                    longest_word=f"프로그래밍{i}" if i == 0 else f"단어{i}",
+                    rank=i + 1
+                ))
+            
+            # 사용된 단어 목업 데이터
+            sample_words = ["사과", "과일", "일기", "기술", "컴퓨터", "터미널", "널뛰기", "기계학습"]
+            for i, word in enumerate(sample_words[:min(len(sample_words), len(participants) * 2)]):
+                player_idx = i % len(participants)
+                if participants[player_idx].guest:
+                    used_words_data.append(WordChainEntry(
+                        word=word,
+                        player_id=participants[player_idx].guest.guest_id,
+                        player_name=participants[player_idx].guest.nickname,
+                        timestamp=datetime.now(),
+                        response_time=round(2.0 + (i * 0.3), 1)
+                    ))
+            
+            # 승자 결정 (첫 번째 플레이어)
+            winner = players_data[0] if players_data else None
+            
+            # 목업 통계
+            game_duration = "5분 23초"
+            total_rounds = room.max_rounds or 10
+            total_words = len(used_words_data)
+            average_response_time = 4.2
+            longest_word = "프로그래밍"
+            fastest_response = 2.1
+            slowest_response = 6.2
+            mvp_name = winner.nickname if winner else "없음"
+        if room.started_at and room.ended_at:
+            duration = room.ended_at - room.started_at
+            duration_str = f"{duration.seconds // 60}분 {duration.seconds % 60}초"
+        else:
+            duration_str = "5분 23초"  # 기본값
+        
+        # 통계 계산
+        total_words = len(used_words_data)
+        avg_response_time = sum(w.response_time or 0 for w in used_words_data) / max(total_words, 1)
+        fastest_response = min((w.response_time or 10 for w in used_words_data), default=2.1)
+        slowest_response = max((w.response_time or 0 for w in used_words_data), default=6.2)
+        longest_word = max((w.word for w in used_words_data), key=len, default="")
+        
+        result = GameResultResponse(
+            room_id=room_id,
+            winner_id=winner.guest_id if winner else None,
+            winner_name=winner.nickname if winner else None,
+            players=players_data,
+            used_words=used_words_data,
+            total_rounds=room.max_rounds,
+            game_duration=duration_str,
+            total_words=total_words,
+            average_response_time=round(avg_response_time, 1),
+            longest_word=longest_word,
+            fastest_response=round(fastest_response, 1),
+            slowest_response=round(slowest_response, 1),
+            mvp_id=winner.guest_id if winner else None,
+            mvp_name=winner.nickname if winner else None,
+            started_at=room.started_at,
+            ended_at=room.ended_at
+        )
+        
+        return result

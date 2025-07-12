@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import { gameResultUrl } from '../Component/urls';
 
 export default function useGameRoomSocket(roomId) {
   const [connected, setConnected] = useState(false);
@@ -11,6 +13,7 @@ export default function useGameRoomSocket(roomId) {
   const [isReady, setIsReady] = useState(false);
 
   const { user, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (roomId && isAuthenticated && user) {
@@ -174,6 +177,23 @@ export default function useGameRoomSocket(roomId) {
             setParticipants(data.participants);
             setRoomUpdated(true);
           }
+        } else if (data.type === 'game_ended') {
+          // 게임 종료 이벤트 처리 - 모든 참가자를 결과 페이지로 이동
+          console.log('🏁 게임 종료 이벤트 수신:', data);
+          
+          // 게임 결과 페이지로 이동
+          navigate(gameResultUrl(data.room_id));
+          
+          // 시스템 메시지 추가
+          setMessages((prev) => [
+            ...prev,
+            {
+              nickname: '시스템',
+              message: '게임이 종료되었습니다! 결과 페이지로 이동합니다.',
+              type: 'system',
+              timestamp: new Date().toISOString(),
+            },
+          ]);
         }
       };
 

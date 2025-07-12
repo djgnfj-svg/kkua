@@ -7,9 +7,19 @@ from routers import (
     gamerooms_router,
     gameroom_ws_router,
     gameroom_actions_router,
+    csrf_router,
 )
 from fastapi.openapi.utils import get_openapi
 from app_config import settings
+from middleware.csrf_middleware import CSRFProtectionMiddleware
+from middleware.security_headers_middleware import SecurityHeadersMiddleware
+from middleware.logging_middleware import RequestLoggingMiddleware
+from config.logging_config import setup_logging
+import logging
+
+# Setup logging before creating app
+setup_logging()
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="끄아 (KKUA) - 게임방 관리 API",
@@ -30,6 +40,8 @@ app = FastAPI(
     debug=settings.debug,
 )
 
+logger.info(f"Starting KKUA application - Environment: {settings.environment}")
+
 # CORS 미들웨어 설정
 app.add_middleware(
     CORSMiddleware,
@@ -37,6 +49,28 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+# 로깅 미들웨어 설정 (가장 먼저 적용)
+app.add_middleware(RequestLoggingMiddleware)
+
+# 보안 헤더 미들웨어 설정
+app.add_middleware(SecurityHeadersMiddleware)
+
+# CSRF 보호 미들웨어 설정
+app.add_middleware(
+    CSRFProtectionMiddleware,
+    exclude_paths=[
+        "/docs",
+        "/redoc", 
+        "/openapi.json",
+        "/health",
+        "/",
+        "/ws",
+        "/auth/login",
+        "/csrf/token",
+        "/csrf/status"
+    ]
 )
 
 # DB 테이블 생성
@@ -48,6 +82,7 @@ app.include_router(guests_router.router)
 app.include_router(gamerooms_router.router)  # 기본 CRUD 기능
 app.include_router(gameroom_actions_router.router)  # 게임룸 액션 기능
 app.include_router(gameroom_ws_router.router)  # 웹소켓 기능
+app.include_router(csrf_router.router)  # CSRF 보호 API
 
 
 @app.get("/")

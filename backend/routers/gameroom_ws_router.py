@@ -30,6 +30,7 @@ async def validate_websocket_connection(
     
     # 헤더에서 쿠키 찾기
     cookie_header = websocket.headers.get('cookie')
+    print(f"🍪 WebSocket Cookie Header: {cookie_header}")
     
     if cookie_header:
         # 쿠키 파싱
@@ -37,16 +38,31 @@ async def validate_websocket_connection(
             if '=' in cookie:
                 key, val = cookie.strip().split('=', 1)
                 cookies[key] = val
+        print(f"🍪 Parsed cookies: {cookies}")
     
     # 세션 토큰 추출
     session_token = cookies.get('session_token')
+    print(f"🔑 Raw session_token: {session_token}")
+    
     if not session_token:
         await websocket.close(code=4000, reason="세션 토큰이 필요합니다")
         return None, False
     
-    # 세션 유효성 검사
-    session_store = get_session_store()
-    session_data = session_store.get_session(session_token)
+    # 세션 토큰에서 따옴표 제거 (브라우저가 "token" 형태로 보낼 수 있음)
+    session_token = session_token.strip('"')
+    print(f"🔑 Cleaned session_token: {session_token}")
+    
+    # 세션 유효성 검사 - SecurityUtils 사용
+    from utils.security import SecurityUtils
+    session_data = SecurityUtils.verify_secure_token(session_token)
+    print(f"🔑 Session data from SecurityUtils: {session_data}")
+    
+    if not session_data:
+        # 세션 스토어에서도 시도
+        session_store = get_session_store()
+        session_data = session_store.get_session(session_token)
+        print(f"🔑 Session data from store: {session_data}")
+    
     if not session_data:
         await websocket.close(code=4001, reason="유효하지 않거나 만료된 세션입니다")
         return None, False

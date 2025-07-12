@@ -8,6 +8,7 @@ import threading
 from typing import Optional, Dict, Any
 from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor
+from utils.security import SecurityUtils
 
 
 class SessionStore:
@@ -27,7 +28,8 @@ class SessionStore:
             # 동일 사용자의 기존 세션 정리 (단일 세션 정책)
             self._cleanup_user_sessions(guest_id)
             
-            session_token = secrets.token_urlsafe(32)
+            # Use secure token generation with SECRET_KEY
+            session_token = SecurityUtils.generate_secure_token(guest_id, nickname or "")
             session_data = {
                 'guest_id': guest_id,
                 'nickname': nickname,

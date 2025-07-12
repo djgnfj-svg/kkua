@@ -28,6 +28,7 @@ class Gameroom(Base):
     max_players = Column(Integer, nullable=False, default=8)
     game_mode = Column(String, nullable=False, default="standard")
     time_limit = Column(Integer, nullable=False, default=300)
+    max_rounds = Column(Integer, nullable=False, default=10)  # 최대 라운드 수
     status = Column(
         String, nullable=False, default=GameStatus.WAITING.value
     )  # Enum.value로 저장
@@ -43,6 +44,7 @@ class Gameroom(Base):
     participants = relationship(
         "GameroomParticipant", back_populates="gameroom", cascade="all, delete-orphan"
     )
+    game_logs = relationship("GameLog", back_populates="gameroom", cascade="all, delete-orphan")
 
 
 class GameroomParticipant(Base):

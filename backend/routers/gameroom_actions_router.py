@@ -6,6 +6,7 @@ from middleware.auth_middleware import get_current_guest
 from models.guest_model import Guest
 from services.gameroom_service import GameroomService
 from schemas.gameroom_actions_schema import JoinGameroomResponse
+from schemas.gameroom_schema import GameResultResponse
 
 router = APIRouter(
     prefix="/gamerooms",
@@ -40,23 +41,23 @@ def leave_gameroom(
 
 
 @router.post("/{room_id}/ready", status_code=status.HTTP_200_OK)
-def toggle_ready_status(
+async def toggle_ready_status(
     room_id: int,
     guest: Guest = Depends(get_current_guest),
     service: GameroomService = Depends(get_gameroom_service),
 ):
     """참가자의 준비 상태를 토글합니다."""
-    return service.toggle_ready_status_with_ws(room_id, guest)
+    return await service.toggle_ready_status_with_ws(room_id, guest)
 
 
 @router.post("/{room_id}/start", status_code=status.HTTP_200_OK)
-def start_game(
+async def start_game(
     room_id: int,
     guest: Guest = Depends(get_current_guest),
     service: GameroomService = Depends(get_gameroom_service),
 ):
     """게임을 시작합니다. 방장만 게임을 시작할 수 있습니다."""
-    return service.start_game(room_id, guest)
+    return await service.start_game(room_id, guest)
 
 
 @router.post("/{room_id}/end", status_code=status.HTTP_200_OK)
@@ -85,6 +86,16 @@ def check_active_game(
 ):
     """유저가 현재 참여 중인 게임이 있는지 확인합니다."""
     return service.check_active_game(guest_uuid_str)
+
+
+@router.get("/{room_id}/result", response_model=GameResultResponse, status_code=status.HTTP_200_OK)
+def get_game_result(
+    room_id: int,
+    guest: Guest = Depends(get_current_guest),
+    service: GameroomService = Depends(get_gameroom_service),
+):
+    """게임 결과를 조회합니다. 게임이 종료된 방의 참가자만 조회할 수 있습니다."""
+    return service.get_game_result(room_id, guest)
 
 
 @router.get("/{room_id}/is-owner", status_code=status.HTTP_200_OK)

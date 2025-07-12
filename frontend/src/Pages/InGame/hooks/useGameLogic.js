@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axiosInstance from '../../../Api/axiosInstance';
 import { ROOM_API } from '../../../Api/roomApi';
-import { gameLobbyUrl } from '../../../Component/urls';
+import { gameLobbyUrl, gameResultUrl } from '../../../Component/urls';
 import userIsTrue from '../../../Component/userIsTrue';
 import Timer from '../Timer';
 import useTopMsg from '../TopMsg';
@@ -147,11 +147,18 @@ const useGameLogic = () => {
 
   const handleClickFinish = async () => {
     try {
-      await axiosInstance.post(ROOM_API.END_ROOMS(gameid));
-      navigate(gameLobbyUrl(gameid));
+      const response = await axiosInstance.post(ROOM_API.END_ROOMS(gameid));
+      console.log('게임 종료 응답:', response.data);
+      
+      // 게임 결과가 준비되었으면 결과 페이지로, 아니면 로비로
+      if (response.data.result_available) {
+        navigate(gameResultUrl(gameid));
+      } else {
+        navigate(gameLobbyUrl(gameid));
+      }
     } catch (error) {
       console.log(error);
-      alert('5252 난아직 이 게임을 끝낼 생각이 없다고');
+      alert('게임 종료 중 오류가 발생했습니다');
     }
   };
 

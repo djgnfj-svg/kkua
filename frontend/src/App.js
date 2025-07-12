@@ -6,6 +6,8 @@ import Loading from './Pages/Loading/Loading';
 import InGame from './Pages/InGame/InGame';
 import Lobby from './Pages/Lobby/Lobby';
 import GameLobbyPage from './Pages/GameLobbyPage/GameLobbyPage';
+import GameResult from './Pages/GameResult/GameResult';
+import NotFound from './Pages/NotFound/NotFound';
 
 function App() {
   return (
@@ -38,6 +40,15 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/gamerooms/:roomId/result"
+              element={
+                <ProtectedRoute>
+                  <GameResult />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </Router>
       </AuthProvider>

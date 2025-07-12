@@ -19,7 +19,7 @@ const RoomInfo = ({ roomInfo, participants, connected }) => {
         </div>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 text-center">
         <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
           <div className="text-white/70 text-sm mb-1">게임 모드</div>
           <div className="text-white font-bold text-lg">
@@ -40,6 +40,20 @@ const RoomInfo = ({ roomInfo, participants, connected }) => {
           <div className="text-white/70 text-sm mb-1">참가자</div>
           <div className="text-white font-bold text-lg">
             👥 {participants.length} / {roomInfo?.max_players || 8}
+          </div>
+        </div>
+
+        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
+          <div className="text-white/70 text-sm mb-1">라운드 수</div>
+          <div className="text-white font-bold text-lg">
+            🎯 {roomInfo?.max_rounds || 10}
+          </div>
+        </div>
+
+        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
+          <div className="text-white/70 text-sm mb-1">제한 시간</div>
+          <div className="text-white font-bold text-lg">
+            ⏱️ {roomInfo?.time_limit ? Math.floor(roomInfo.time_limit / 60) : 2}분
           </div>
         </div>
       </div>

@@ -8,6 +8,8 @@ import uuid
 from repositories.guest_repository import GuestRepository
 from models.guest_model import Guest
 from services.session_service import get_session_store
+from middleware.csrf_middleware import CSRFTokenManager
+from app_config import settings
 
 
 class AuthService:
@@ -89,7 +91,9 @@ class AuthService:
         if session_token:
             self.session_store.delete_session(session_token)
         
+        # Clear both session and CSRF tokens
         response.delete_cookie("session_token")
+        response.delete_cookie("csrf_token")
         return {"message": "로그아웃되었습니다"}
     
     def update_profile(self, request: Request, nickname: str) -> Guest:
@@ -139,15 +143,21 @@ class AuthService:
     
     def set_auth_cookies(self, response: Response, session_token: str) -> None:
         """
-        Set authentication cookies with session token
+        Set authentication cookies with session token and CSRF token
         """
+        # Set session token (HTTP-only)
         response.set_cookie(
             key="session_token",
             value=session_token,
             httponly=True,
-            max_age=24 * 60 * 60,  # 24 hours
-            samesite="lax"
+            secure=settings.session_secure,
+            samesite=settings.session_samesite,
+            max_age=settings.session_timeout
         )
+        
+        # Set CSRF token (accessible to JavaScript)
+        csrf_token = CSRFTokenManager.get_csrf_token_for_response(response)
+        return csrf_token
     
     def get_session_stats(self) -> dict:
         """

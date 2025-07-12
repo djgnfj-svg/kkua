@@ -38,3 +38,14 @@ class WordChainSubmission(BaseModel):
     word: str
     guest_id: int
     timestamp: datetime.datetime
+
+
+# 게임 종료 관련 메시지
+class GameEndedMessage(BaseModel):
+    type: str = "game_ended"
+    room_id: int
+    winner_id: int = None
+    winner_name: str = None
+    message: str = "게임이 종료되었습니다!"
+    result_available: bool = True
+    timestamp: datetime.datetime
