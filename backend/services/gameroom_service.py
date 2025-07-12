@@ -14,7 +14,6 @@ from repositories.game_log_repository import GameLogRepository
 from services.game_state_service import GameStateService
 from schemas.gameroom_actions_schema import JoinGameroomResponse
 
-# 웹소켓 연결 관리자
 ws_manager = GameRoomWebSocketFacade()
 
 
@@ -32,7 +31,6 @@ class GameroomService:
         self.guest_repository = GuestRepository(db)
         self.game_state_service = GameStateService(db)
         self.ws_manager = ws_manager
-        # WordChainGameEngine에 db 세션 주입
         if not hasattr(self.ws_manager.word_chain_engine, 'db') or self.ws_manager.word_chain_engine.db is None:
             self.ws_manager.word_chain_engine.db = db
             self.ws_manager.word_chain_engine.game_log_repository = GameLogRepository(db)
@@ -70,8 +68,7 @@ class GameroomService:
 
 
     def list_gamerooms(self, status=None, limit=10, offset=0):
-        """게임룸 목록을 조회합니다. 정렬 기능을 제거했습니다."""
-        # 상태 필터링 적용
+        """게임룸 목록을 조회합니다."""
         filter_args = {}
         if status:
             filter_args["status"] = status
@@ -89,18 +86,14 @@ class GameroomService:
     ) -> Optional[Gameroom]:
         """게임룸을 생성하고 방장을 자동으로 참가자로 추가합니다."""
         try:
-            # 트랜잭션 시작
-            # 1. 게임룸 생성
             room_data = data.copy()
             room_data["created_by"] = guest_id
             new_room = self.repository.create(room_data)
 
-            # 2. 방장을 참가자로 추가 (참가자 수는 repository에서 자동 업데이트)
             self.repository.add_participant(
                 room_id=new_room.room_id, guest_id=guest_id, is_creator=True
             )
 
-            # 변경사항 저장
             self.db.commit()
             self.db.refresh(new_room)
 
@@ -135,7 +128,6 @@ class GameroomService:
             HTTPException: 게임룸이 존재하지 않거나 참가 불가능한 경우
         """
         try:
-            # 게임룸 존재 여부 확인
             room = self.repository.find_by_id(room_id)
             if not room or room.status != GameStatus.WAITING:
                 raise HTTPException(
@@ -143,7 +135,6 @@ class GameroomService:
                     detail="게임룸 참가에 실패했습니다."
                 )
 
-            # 이미 참가 중인지 확인
             existing = self.repository.find_participant(room_id, guest.guest_id)
             if existing:
                 return JoinGameroomResponse(
@@ -152,20 +143,17 @@ class GameroomService:
                     message="이미 참가 중인 게임룸입니다."
                 )
 
-            # 정원 초과 확인
             if room.participant_count >= room.max_players:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="게임룸이 가득 찼습니다."
                 )
 
-            # 참가자 추가
             participant = self.repository.add_participant(room_id, guest.guest_id)
             
             self.db.commit()
             self.db.refresh(participant)
 
-            # 웹소켓 이벤트 발송 (게임룸 참가 알림)
             if self.ws_manager:
                 asyncio.create_task(
                     self.ws_manager.broadcast_room_update(
@@ -193,7 +181,6 @@ class GameroomService:
     def leave_gameroom(self, room_id: int, guest: Guest) -> Dict[str, str]:
         """게임룸을 떠납니다."""
         try:
-            # 게임룸과 참가자 확인
             room = self.repository.find_by_id(room_id)
             participant = self.repository.find_participant(room_id, guest.guest_id)
 
@@ -203,21 +190,15 @@ class GameroomService:
                     detail="게임룸 퇴장에 실패했습니다."
                 )
 
-            # 참가자 제거 (참가자 수는 repository에서 자동 업데이트)
             self.repository.remove_participant(room_id, guest.guest_id)
 
-            # 방장이 나간 경우 처리
             if participant.is_creator:
                 remaining = self.repository.find_room_participants(room_id)
                 if remaining:
-                    # 다른 참가자 중 한 명을 방장으로 지정
                     new_host = remaining[0]
                     new_host.is_creator = True
-                    # 방장 이양 시 created_by 필드도 업데이트
                     room.created_by = new_host.guest_id
-                    # 상태는 강제로 변경하지 않음 (기존 상태 유지)
                     
-                    # 웹소켓으로 방장 변경 알림 전송
                     if self.ws_manager:
                         asyncio.create_task(
                             self.ws_manager.broadcast_room_update(
@@ -367,7 +348,7 @@ class GameroomService:
         self.db.commit()
 
         # 승자 결정 (간단한 로직 - 첫 번째 참가자)
-        participants = self.repository.find_participants_by_room_id(room_id)
+        participants = self.repository.find_room_participants(room_id)
         winner = None
         if participants and participants[0].guest:
             winner = participants[0].guest
@@ -508,14 +489,10 @@ class GameroomService:
             )
 
         # 웹소켓 이벤트 발송 (참가자 상태 변경)
-        print(f"🔄 준비 상태 변경: room_id={room_id}, guest_id={guest.guest_id}, is_ready={is_ready}")
         if self.ws_manager:
-            print(f"📡 WebSocket 알림 전송 중...")
             await self.ws_manager.broadcast_ready_status(
                 room_id, guest.guest_id, is_ready, guest.nickname
             )
-        else:
-            print(f"❌ WebSocket 관리자가 없습니다!")
 
         return {"status": new_status, "message": message, "is_ready": is_ready}
 

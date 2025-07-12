@@ -14,10 +14,10 @@ class GameStatus(str, enum.Enum):
 
 
 class ParticipantStatus(str, enum.Enum):
-    WAITING = "waiting"  # 대기 중
-    READY = "ready"  # 준비 완료
-    PLAYING = "playing"  # 게임 중
-    LEFT = "left"  # 나감
+    WAITING = "waiting"
+    READY = "ready"
+    PLAYING = "playing"
+    LEFT = "left"
 
 
 class Gameroom(Base):
@@ -28,10 +28,10 @@ class Gameroom(Base):
     max_players = Column(Integer, nullable=False, default=8)
     game_mode = Column(String, nullable=False, default="standard")
     time_limit = Column(Integer, nullable=False, default=300)
-    max_rounds = Column(Integer, nullable=False, default=10)  # 최대 라운드 수
+    max_rounds = Column(Integer, nullable=False, default=10)
     status = Column(
         String, nullable=False, default=GameStatus.WAITING.value
-    )  # Enum.value로 저장
+    )
     created_by = Column(Integer, ForeignKey("guests.guest_id"), nullable=False)
     created_at = Column(DateTime, nullable=False, default=datetime.now)
     updated_at = Column(DateTime, nullable=False, default=datetime.now)

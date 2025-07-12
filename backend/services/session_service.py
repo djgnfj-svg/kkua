@@ -17,18 +17,16 @@ class SessionStore:
     def __init__(self):
         self.sessions: Dict[str, Dict[str, Any]] = {}
         self.session_timeout = 24 * 60 * 60  # 24 hours in seconds
-        self._lock = threading.RLock()  # 재진입 가능한 락
+        self._lock = threading.RLock()
         self._cleanup_executor = ThreadPoolExecutor(max_workers=1)
         self._last_cleanup = datetime.utcnow()
-        self._cleanup_interval = 300  # 5분마다 자동 정리
+        self._cleanup_interval = 300
     
     def create_session(self, guest_id: int, nickname: str = None) -> str:
         """Create a new session and return session token"""
         with self._lock:
-            # 동일 사용자의 기존 세션 정리 (단일 세션 정책)
             self._cleanup_user_sessions(guest_id)
             
-            # Use secure token generation with SECRET_KEY
             session_token = SecurityUtils.generate_secure_token(guest_id, nickname or "")
             session_data = {
                 'guest_id': guest_id,
@@ -43,7 +41,7 @@ class SessionStore:
             return session_token
     
     def _cleanup_user_sessions(self, guest_id: int):
-        """동일 사용자의 기존 세션 정리 (단일 세션 정책)"""
+        """동일 사용자의 기존 세션 정리"""
         tokens_to_remove = []
         for token, session_data in self.sessions.items():
             if session_data['guest_id'] == guest_id:
@@ -67,14 +65,12 @@ class SessionStore:
                 
             session_data = self.sessions[session_token]
             
-            # Check if session has expired
             if datetime.utcnow() > session_data['expires_at']:
                 del self.sessions[session_token]
                 return None
             
-            # Update last accessed time
             session_data['last_accessed'] = datetime.utcnow()
-            return session_data.copy()  # 불변성 보장을 위한 복사본 반환
+            return session_data.copy()
     
     def update_session(self, session_token: str, **kwargs) -> bool:
         """Update session data"""
@@ -84,12 +80,10 @@ class SessionStore:
                 
             session_data = self.sessions[session_token]
             
-            # Check if session has expired
             if datetime.utcnow() > session_data['expires_at']:
                 del self.sessions[session_token]
                 return False
             
-            # Update session data
             for key, value in kwargs.items():
                 if key in ['guest_id', 'nickname']:
                     session_data[key] = value
@@ -122,10 +116,9 @@ class SessionStore:
         for token in expired_tokens:
             del self.sessions[token]
             
-        print(f"세션 정리 완료: {len(expired_tokens)}개 만료된 세션 제거")
     
     def _cleanup_expired_sessions_async(self):
-        """비동기 세션 정리 (백그라운드 실행용)"""
+        """비동기 세션 정리"""
         with self._lock:
             self._cleanup_expired_sessions_sync()
     
@@ -162,7 +155,6 @@ class SessionStore:
             }
 
 
-# Global session store instance
 session_store = SessionStore()
 
 

@@ -23,21 +23,17 @@ class AuthService:
         Returns: (Guest object, session_token)
         """
         if nickname:
-            # Check if nickname already exists
             existing_guest = self.guest_repo.find_by_nickname(nickname)
             if existing_guest:
-                # Update last login and create new session
                 guest = self.guest_repo.update_last_login(existing_guest, device_info)
                 session_token = self.session_store.create_session(guest.guest_id, guest.nickname)
                 return guest, session_token
             else:
-                # Create new guest with nickname
                 guest_uuid_obj = uuid.uuid4()
                 guest = self.guest_repo.create(guest_uuid_obj, nickname, device_info)
                 session_token = self.session_store.create_session(guest.guest_id, guest.nickname)
                 return guest, session_token
         else:
-            # Create anonymous guest
             guest_uuid_obj = uuid.uuid4()
             auto_nickname = f"게스트_{str(guest_uuid_obj)[:8]}"
             guest = self.guest_repo.create(guest_uuid_obj, auto_nickname, device_info)
@@ -53,17 +49,14 @@ class AuthService:
         if not session_token:
             return {"authenticated": False, "guest": None}
         
-        # Get session data
         session_data = self.session_store.get_session(session_token)
         
         if not session_data:
             return {"authenticated": False, "guest": None}
         
-        # Get guest from database
         guest = self.guest_repo.find_by_id(session_data['guest_id'])
         
         if guest:
-            # Check if guest has active game
             has_active_game, room_id = self.guest_repo.check_active_game(guest.guest_id)
             
             return {
@@ -78,7 +71,6 @@ class AuthService:
                 "room_id": room_id if has_active_game else None
             }
         else:
-            # Clean up invalid session
             self.session_store.delete_session(session_token)
             return {"authenticated": False, "guest": None}
     
@@ -91,7 +83,6 @@ class AuthService:
         if session_token:
             self.session_store.delete_session(session_token)
         
-        # Clear both session and CSRF tokens
         response.delete_cookie("session_token")
         response.delete_cookie("csrf_token")
         return {"message": "로그아웃되었습니다"}
@@ -108,7 +99,6 @@ class AuthService:
                 detail="Authentication required"
             )
         
-        # Get session data
         session_data = self.session_store.get_session(session_token)
         
         if not session_data:
@@ -120,14 +110,12 @@ class AuthService:
         guest = self.guest_repo.find_by_id(session_data['guest_id'])
         
         if not guest:
-            # Clean up invalid session
             self.session_store.delete_session(session_token)
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid authentication"
             )
         
-        # Check if nickname is already taken by another user
         existing_guest = self.guest_repo.find_by_nickname(nickname)
         if existing_guest and existing_guest.guest_id != guest.guest_id:
             raise HTTPException(
@@ -135,7 +123,6 @@ class AuthService:
                 detail="닉네임이 이미 사용 중입니다"
             )
         
-        # Update nickname in database and session
         updated_guest = self.guest_repo.update_nickname(guest, nickname)
         self.session_store.update_session(session_token, nickname=nickname)
         
@@ -145,7 +132,6 @@ class AuthService:
         """
         Set authentication cookies with session token and CSRF token
         """
-        # Set session token (HTTP-only)
         response.set_cookie(
             key="session_token",
             value=session_token,
@@ -155,7 +141,6 @@ class AuthService:
             max_age=settings.session_timeout
         )
         
-        # Set CSRF token (accessible to JavaScript)
         csrf_token = CSRFTokenManager.get_csrf_token_for_response(response)
         return csrf_token
     

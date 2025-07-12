@@ -17,7 +17,6 @@ from middleware.logging_middleware import RequestLoggingMiddleware
 from config.logging_config import setup_logging
 import logging
 
-# Setup logging before creating app
 setup_logging()
 logger = logging.getLogger(__name__)
 
@@ -42,7 +41,6 @@ app = FastAPI(
 
 logger.info(f"Starting KKUA application - Environment: {settings.environment}")
 
-# CORS 미들웨어 설정
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -51,13 +49,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 로깅 미들웨어 설정 (가장 먼저 적용)
 app.add_middleware(RequestLoggingMiddleware)
 
-# 보안 헤더 미들웨어 설정
 app.add_middleware(SecurityHeadersMiddleware)
 
-# CSRF 보호 미들웨어 설정
 app.add_middleware(
     CSRFProtectionMiddleware,
     exclude_paths=[
@@ -73,16 +68,14 @@ app.add_middleware(
     ]
 )
 
-# DB 테이블 생성
 Base.metadata.create_all(bind=engine)
 
-# 라우터 등록
-app.include_router(auth_router.router)  # 인증 API
+app.include_router(auth_router.router)
 app.include_router(guests_router.router)
-app.include_router(gamerooms_router.router)  # 기본 CRUD 기능
-app.include_router(gameroom_actions_router.router)  # 게임룸 액션 기능
-app.include_router(gameroom_ws_router.router)  # 웹소켓 기능
-app.include_router(csrf_router.router)  # CSRF 보호 API
+app.include_router(gamerooms_router.router)
+app.include_router(gameroom_actions_router.router)
+app.include_router(gameroom_ws_router.router)
+app.include_router(csrf_router.router)
 
 
 @app.get("/")
@@ -100,7 +93,6 @@ async def health_check():
     return {"status": "healthy", "environment": settings.environment}
 
 
-# OpenAPI 스키마 커스터마이징 (선택 사항)
 def custom_openapi():
     if app.openapi_schema:
         return app.openapi_schema
@@ -112,13 +104,11 @@ def custom_openapi():
         routes=app.routes,
     )
 
-    # WebSocket 태그에 대한 설명 추가
     openapi_schema["tags"] = [
         {
             "name": "websockets",
             "description": "웹소켓 관련 API (웹소켓 자체는 Swagger에서 테스트할 수 없음)",
         },
-        # 기타 태그들...
     ]
 
     app.openapi_schema = openapi_schema

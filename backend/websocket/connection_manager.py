@@ -23,13 +23,11 @@ class GameRoomWebSocketFacade:
     async def connect(self, websocket: WebSocket, room_id: int, guest_id: int):
         """웹소켓 연결을 관리합니다."""
         await self.websocket_manager.connect(websocket, room_id, guest_id)
-        # 방 참가자 업데이트 브로드캐스트
         await self.broadcast_room_update(room_id, "user_joined", {"guest_id": guest_id})
 
     async def disconnect(self, websocket: WebSocket, room_id: int, guest_id: int):
         """웹소켓 연결 제거"""
         await self.websocket_manager.disconnect(websocket, room_id, guest_id)
-        # 사용자 퇴장 알림
         await self.broadcast_to_room(
             room_id,
             {
@@ -53,7 +51,6 @@ class GameRoomWebSocketFacade:
 
     async def broadcast_ready_status(self, room_id: int, guest_id: int, is_ready: bool, nickname: str = None):
         """게스트의 준비 상태 변경을 브로드캐스트합니다."""
-        print(f"🔊 GameRoomWebSocketFacade: 준비 상태 브로드캐스트 - room_id={room_id}, guest_id={guest_id}, is_ready={is_ready}")
         message = {
             "type": "ready_status_changed",
             "guest_id": guest_id,
@@ -61,7 +58,6 @@ class GameRoomWebSocketFacade:
             "is_ready": is_ready,
         }
         await self.websocket_manager.broadcast_room_update(room_id, "ready_status_changed", message)
-        print(f"✅ WebSocket 메시지 전송 완료")
 
     # ============ 끝말잇기 게임 관리 ============
     
@@ -100,6 +96,5 @@ class GameRoomWebSocketFacade:
     # ============ 편의 메서드 ============
     
     def get_user_connection(self, guest_id: int):
-        """특정 사용자의 연결 정보 조회 (구 API 호환성용)"""
-        # 이 메서드는 구 버전에서 사용되었지만 새 버전에서는 사용하지 않음
+        """특정 사용자의 연결 정보 조회"""
         return None
