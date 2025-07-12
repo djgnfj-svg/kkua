@@ -3,16 +3,15 @@ import axiosInstance from '../Api/axiosInstance';
 
 const AuthContext = createContext();
 
-// 로컬 스토리지에서 초기 상태 복원 (서버 검증 없이는 인증하지 않음)
 const getInitialState = () => {
   try {
     const savedAuth = localStorage.getItem('auth_state');
     if (savedAuth) {
       const parsedAuth = JSON.parse(savedAuth);
       return {
-        isAuthenticated: false, // 항상 false로 시작, 서버 검증 후 결정
-        user: parsedAuth.user || null, // 사용자 정보만 복원
-        loading: true, // 서버 확인 필요
+        isAuthenticated: false,
+        user: parsedAuth.user || null,
+        loading: true,
         error: null,
       };
     }
@@ -80,7 +79,6 @@ function authReducer(state, action) {
       newState = state;
   }
   
-  // 인증 상태가 변경된 경우 localStorage에 저장
   if (action.type === 'LOGIN_SUCCESS' || action.type === 'LOGOUT' || action.type === 'UPDATE_PROFILE') {
     try {
       localStorage.setItem('auth_state', JSON.stringify({
@@ -98,7 +96,6 @@ function authReducer(state, action) {
 export function AuthProvider({ children }) {
   const [state, dispatch] = useReducer(authReducer, initialState);
 
-  // Check authentication status on app load
   useEffect(() => {
     checkAuthStatus();
   }, []);
@@ -107,7 +104,6 @@ export function AuthProvider({ children }) {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       
-      // 타임아웃 설정 (3초)
       const timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => reject(new Error('TIMEOUT')), 3000);
       });
@@ -123,7 +119,6 @@ export function AuthProvider({ children }) {
     } catch (error) {
       console.error('Auth status check failed:', error);
       
-      // 실제 서버 연결 불가능한 경우에만 저장된 사용자 정보 유지
       if (error.message === 'TIMEOUT' || error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK') {
         console.log('서버 연결 불가 - 저장된 사용자 정보 유지');
         const savedAuth = localStorage.getItem('auth_state');
@@ -140,7 +135,6 @@ export function AuthProvider({ children }) {
         }
       }
       
-      // 모든 다른 경우 (서버 응답 있음, Network Error 등) 로그아웃 처리
       dispatch({ type: 'LOGOUT' });
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
@@ -171,7 +165,6 @@ export function AuthProvider({ children }) {
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
-      // localStorage 정리
       try {
         localStorage.removeItem('auth_state');
       } catch (error) {

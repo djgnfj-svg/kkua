@@ -118,6 +118,7 @@ const useGameResult = (roomId) => {
         setPlayers(mockData.players);
         setUsedWords(mockData.usedWords);
         setGameStats(mockData.gameStats);
+        }
 
       } catch (err) {
         console.error('게임 결과 로딩 실패:', err);

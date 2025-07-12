@@ -44,7 +44,6 @@ function InGame() {
   return (
     <>
       <GameLayout
-        // WebSocket 기반 실시간 데이터
         wordChainState={wordChainState}
         inputWord={inputWord}
         isMyTurn={isMyTurn}
@@ -54,7 +53,6 @@ function InGame() {
         handleInputChange={handleInputChange}
         handleKeyPress={handleKeyPress}
         submitWord={submitWord}
-        // 기존 mock 데이터 (fallback)
         typingText={typingText}
         handleTypingDone={handleTypingDone}
         quizMsg={wordChainState.lastCharacter || quizMsg}

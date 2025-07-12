@@ -17,20 +17,6 @@ const ActionButtons = ({
       player.is_ready === true
   );
 
-  // 디버깅용 로그
-  console.log('🎮 게임시작 버튼 상태 체크:', {
-    participants: participants.map(p => ({
-      guest_id: p.guest_id,
-      nickname: p.nickname,
-      is_creator: p.is_creator,
-      status: p.status,
-      is_ready: p.is_ready,
-      ready_check: p.is_creator || p.status === 'READY' || p.status === 'ready' || p.is_ready === true
-    })),
-    allNonOwnerPlayersReady,
-    participantCount: participants.length,
-    canStartGame: participants.length >= 2 && allNonOwnerPlayersReady
-  });
 
   return (
     <div className="w-full bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20 shadow-lg">

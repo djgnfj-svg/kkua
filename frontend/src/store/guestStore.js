@@ -1,12 +1,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-// Simplified guest store focused on guest-specific data only
-// Authentication is now handled by AuthContext
 const guestStore = create(
   persist(
     (set, get) => ({
-      // Guest profile information
       nickname: '',
       lastLogin: null,
       preferences: {
@@ -14,11 +11,9 @@ const guestStore = create(
         sound: true,
       },
 
-      // Game-related state
       activeGameId: null,
       gameHistory: [],
 
-      // Actions
       setNickname: (nickname) =>
         set(() => ({
           nickname,
@@ -36,7 +31,7 @@ const guestStore = create(
 
       addToGameHistory: (gameData) =>
         set((state) => ({
-          gameHistory: [gameData, ...state.gameHistory.slice(0, 9)], // Keep last 10 games
+          gameHistory: [gameData, ...state.gameHistory.slice(0, 9)],
         })),
 
       resetGuestData: () =>

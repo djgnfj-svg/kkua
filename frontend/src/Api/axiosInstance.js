@@ -8,8 +8,8 @@ const axiosInstance = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 5000, // 요청 제한 시간 (원하는 대로 조절)
-  withCredentials: true, // ✅ 쿠키 포함되도록 설정
+  timeout: 5000,
+  withCredentials: true,
 });
 
 export default axiosInstance;

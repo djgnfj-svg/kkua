@@ -27,7 +27,7 @@ const useLobbyData = () => {
         setRoomsData([]);
       }
     } catch (error) {
-      console.log('방 요청 실패 ' + error);
+      console.error('방 요청 실패:', error);
       setRoomsData([]);
     } finally {
       setIsLoading(false);
@@ -35,13 +35,11 @@ const useLobbyData = () => {
   };
 
   useEffect(() => {
-    // AuthContext가 이미 인증을 확인하므로 여기서는 단순히 방 목록만 가져옴
     if (isAuthenticated) {
       fetchRoom();
       
-      // 실시간 업데이트를 위한 interval 설정 (10초마다)
       const interval = setInterval(() => {
-        if (!isEntering) { // 입장 중이 아닐 때만 새로고침
+        if (!isEntering) {
           fetchRoom();
         }
       }, 10000);
@@ -69,7 +67,6 @@ const useLobbyData = () => {
   }, [isAuthenticated, user, navigate]);
 
   const handleEnterGame = async (room_id) => {
-    // 중복 요청 방지
     if (isEntering || enteringRoomId === room_id) {
       return;
     }
@@ -80,7 +77,6 @@ const useLobbyData = () => {
       
       const response = await axiosInstance.post(ROOM_API.JOIN_ROOMS(room_id));
       
-      // 성공 시 즉시 이동
       navigate(gameLobbyUrl(room_id));
     } catch (err) {
       console.error('방 입장 실패:', err);
@@ -88,7 +84,6 @@ const useLobbyData = () => {
       const errorMessage = getErrorMessage(err);
       alert(errorMessage);
       
-      // 에러 발생 시 방 목록 새로고침
       await fetchRoom();
     } finally {
       setIsEntering(false);
@@ -97,7 +92,6 @@ const useLobbyData = () => {
   };
 
   const handleRandomEnter = async () => {
-    // 이미 처리 중이면 중단
     if (isLoading || isEntering) {
       return;
     }
@@ -105,7 +99,6 @@ const useLobbyData = () => {
     try {
       setIsLoading(true);
       
-      // 최신 방 목록 가져오기
       const res = await axiosInstance.get(ROOM_API.get_ROOMS);
       let currentRooms = [];
       
@@ -126,7 +119,6 @@ const useLobbyData = () => {
 
       const randomRoom = availableRooms[Math.floor(Math.random() * availableRooms.length)];
       
-      // setTimeout 제거하고 즉시 입장 처리
       await handleEnterGame(randomRoom.room_id);
     } catch (err) {
       console.error('랜덤 입장 실패:', err);

@@ -30,7 +30,6 @@ const useWordChain = () => {
     sendMessage: sendSocketMessage
   } = useGameRoomSocket(gameid);
 
-  // WebSocket 메시지 처리
   useEffect(() => {
     const handleWordChainMessages = () => {
       messages.forEach(message => {
@@ -80,19 +79,11 @@ const useWordChain = () => {
     }
   }, [messages]);
 
-  // 내 차례인지 확인
   useEffect(() => {
     if (gameState.currentPlayerId && user?.guest_id) {
       setIsMyTurn(gameState.currentPlayerId === user.guest_id);
-      console.log('차례 확인:', {
-        currentPlayerId: gameState.currentPlayerId,
-        myGuestId: user.guest_id,
-        isMyTurn: gameState.currentPlayerId === user.guest_id
-      });
     }
   }, [gameState.currentPlayerId, user?.guest_id]);
-
-  // 단어 제출
   const submitWord = useCallback((word) => {
     if (!word || !word.trim()) {
       setErrorMessage('단어를 입력해주세요.');
@@ -104,7 +95,6 @@ const useWordChain = () => {
       return;
     }
 
-    // WebSocket으로 단어 제출 메시지 전송
     if (sendSocketMessage) {
       const wordChainMessage = {
         type: 'word_chain',
@@ -114,11 +104,9 @@ const useWordChain = () => {
       };
 
       sendSocketMessage(JSON.stringify(wordChainMessage));
-      console.log('단어 제출:', word.trim());
     }
   }, [isMyTurn, sendSocketMessage]);
 
-  // 입력 단어 변경 처리
   const handleInputChange = useCallback((value) => {
     setInputWord(value);
     if (errorMessage) {
@@ -126,7 +114,6 @@ const useWordChain = () => {
     }
   }, [errorMessage]);
 
-  // 엔터키 처리
   const handleKeyPress = useCallback((e) => {
     if (e.key === 'Enter' && inputWord.trim()) {
       submitWord(inputWord.trim());

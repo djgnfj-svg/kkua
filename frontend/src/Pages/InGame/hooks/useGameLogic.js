@@ -148,16 +148,14 @@ const useGameLogic = () => {
   const handleClickFinish = async () => {
     try {
       const response = await axiosInstance.post(ROOM_API.END_ROOMS(gameid));
-      console.log('게임 종료 응답:', response.data);
       
-      // 게임 결과가 준비되었으면 결과 페이지로, 아니면 로비로
       if (response.data.result_available) {
         navigate(gameResultUrl(gameid));
       } else {
         navigate(gameLobbyUrl(gameid));
       }
     } catch (error) {
-      console.log(error);
+      console.error('게임 종료 실패:', error);
       alert('게임 종료 중 오류가 발생했습니다');
     }
   };

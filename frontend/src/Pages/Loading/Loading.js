@@ -13,7 +13,6 @@ function Loading() {
   const { isAuthenticated, login, loading } = useAuth();
 
   useEffect(() => {
-    // 이미 로그인된 경우 로비로 리다이렉트 (로딩 완료 후)
     if (!loading && isAuthenticated) {
       navigate(lobbyUrl);
     }
@@ -22,7 +21,7 @@ function Loading() {
   const handleQuickStart = async () => {
     try {
       setIsLoading(true);
-      await login(); // 닉네임 없이 로그인 (자동 생성)
+      await login();
       setShowModal(true);
       setIsLoading(false);
     } catch (error) {
@@ -54,11 +53,8 @@ function Loading() {
 
   const handleModalClose = () => {
     setShowModal(false);
-    // useEffect에서 isAuthenticated가 true일 때 자동으로 navigate하므로 
-    // 여기서는 navigate하지 않음
   };
 
-  // 인증 상태 로딩 중
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
@@ -75,7 +71,6 @@ function Loading() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4">
       <div className="max-w-md w-full">
-        {/* 게임 로고 및 제목 */}
         <div className="text-center mb-10">
           <div className="bg-white rounded-full w-24 h-24 mx-auto mb-6 flex items-center justify-center shadow-2xl">
             <img
@@ -97,10 +92,8 @@ function Loading() {
           </div>
         </div>
 
-        {/* 로그인 카드 */}
         <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 shadow-2xl border border-white/20">
           <div className="space-y-6">
-            {/* 빠른 시작 버튼 */}
             <button
               onClick={handleQuickStart}
               disabled={isLoading}
@@ -131,7 +124,6 @@ function Loading() {
               )}
             </button>
 
-            {/* 구분선 */}
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-white/20"></div>
@@ -143,7 +135,6 @@ function Loading() {
               </div>
             </div>
 
-            {/* 닉네임 입력 */}
             <div className="space-y-4">
               <div className="relative">
                 <input
@@ -205,7 +196,6 @@ function Loading() {
             </div>
           </div>
 
-          {/* 게임 정보 */}
           <div className="mt-8 text-center">
             <p className="text-white/60 text-sm">
               친구들과 함께 즐기는 실시간 끝말잇기
@@ -218,7 +208,6 @@ function Loading() {
           </div>
         </div>
 
-        {/* 하단 버전 정보 */}
         <div className="text-center mt-8">
           <p className="text-white/40 text-sm">KKUA v1.0.0 | Made with ❤️</p>
         </div>

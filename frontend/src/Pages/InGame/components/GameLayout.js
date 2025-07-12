@@ -2,7 +2,6 @@ import React from 'react';
 import TopMsgAni from '../TopMsg_Ani';
 
 const GameLayout = ({
-  // WebSocket 기반 실시간 데이터
   wordChainState,
   inputWord,
   isMyTurn,
@@ -12,7 +11,6 @@ const GameLayout = ({
   handleInputChange,
   handleKeyPress,
   submitWord,
-  // 기존 props (fallback)
   typingText,
   handleTypingDone,
   quizMsg,
@@ -36,9 +34,7 @@ const GameLayout = ({
 }) => {
   return (
     <div className="w-full h-screen bg-gradient-to-br from-blue-50 to-purple-50 overflow-hidden">
-      {/* 상단 영역 - 게임 정보 및 메시지 */}
       <div className="h-1/5 flex flex-col items-center justify-center relative">
-        {/* 게임 상태 정보 */}
         <div className="absolute top-4 left-4 flex items-center space-x-4">
           <img src="/imgs/logo/kkeua_logoA.png" alt="끄아 로고" className="h-12" />
           {wordChainState && (
@@ -51,7 +47,6 @@ const GameLayout = ({
           )}
         </div>
 
-        {/* 에러 메시지 또는 일반 메시지 */}
         {errorMessage ? (
           <div className="text-red-500 text-xl font-bold animate-bounce">
             {errorMessage}
@@ -64,7 +59,6 @@ const GameLayout = ({
           />
         )}
         
-        {/* 타이머 영역 */}
         <div className="absolute top-4 right-4 text-center">
           <div className="text-sm text-gray-600 mb-1">남은 시간</div>
           <div className={`text-3xl font-bold ${timeLeft <= 10 ? 'text-red-500 animate-pulse' : 'text-gray-800'}`}>
@@ -74,9 +68,7 @@ const GameLayout = ({
         </div>
       </div>
 
-      {/* 중앙 영역 - 게임 플레이 */}
       <div className="h-3/5 flex flex-col items-center justify-center px-4">
-        {/* 현재 단어 표시 */}
         <div className="mb-8 text-center">
           <div className="text-lg text-gray-600 mb-2">
             {wordChainState?.lastCharacter ? 
@@ -93,7 +85,6 @@ const GameLayout = ({
           )}
         </div>
 
-        {/* 입력 영역 */}
         <div className="w-full max-w-md mb-6">
           <div className="relative">
             <input
@@ -111,7 +102,6 @@ const GameLayout = ({
               autoFocus={isMyTurn}
             />
             
-            {/* 입력 시간 게이지 */}
             <div className="absolute -bottom-2 left-0 right-0 h-2 bg-gray-200 rounded-full overflow-hidden">
               <div
                 className={`h-full transition-all duration-1000 ${
@@ -135,7 +125,6 @@ const GameLayout = ({
           </button>
         </div>
 
-        {/* 사용된 단어 미리보기 */}
         <div className="w-full max-w-2xl">
           <div className="text-sm text-gray-600 mb-2 text-center">최근 사용된 단어들</div>
           <div className="flex flex-wrap justify-center gap-2">
@@ -154,10 +143,8 @@ const GameLayout = ({
         </div>
       </div>
 
-      {/* 하단 영역 - 플레이어 정보 */}
       <div className="h-1/5 bg-white/80 backdrop-blur-sm border-t border-gray-200 px-4 py-4">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
-          {/* 현재 플레이어 */}
           <div className="flex items-center space-x-4">
             <div className="text-sm text-gray-600">현재 차례</div>
             <div className="flex items-center space-x-2">
@@ -173,7 +160,6 @@ const GameLayout = ({
             </div>
           </div>
 
-          {/* 고양이 캐릭터 */}
           <div className="flex items-center">
             {catActive ? (
               <img
@@ -190,7 +176,6 @@ const GameLayout = ({
             )}
           </div>
 
-          {/* 플레이어 목록 */}
           <div className="hidden md:flex items-center space-x-2">
             {players.map((player, index) => (
               <div
@@ -208,7 +193,6 @@ const GameLayout = ({
         </div>
       </div>
 
-      {/* 애니메이션 스타일 */}
       <style jsx>{`
         @keyframes fadeIn {
           from {

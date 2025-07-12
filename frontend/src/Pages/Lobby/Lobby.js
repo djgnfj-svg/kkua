@@ -25,7 +25,6 @@ function Lobby() {
   const handleClickRefresh = async () => {
     try {
       await fetchRoom();
-      // 성공적인 새로고침 피드백 (조용한 방식)
       const button = document.querySelector('[data-refresh-btn]');
       if (button) {
         button.style.transform = 'rotate(360deg)';
@@ -40,8 +39,7 @@ function Lobby() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex">
-      {/* 왼쪽 사이드바 - 온라인 사용자 */}
-      <div className="hidden lg:flex w-64 bg-white/10 backdrop-blur-md border-r border-white/20 flex-col p-4">
+        <div className="hidden lg:flex w-64 bg-white/10 backdrop-blur-md border-r border-white/20 flex-col p-4">
         <h3 className="text-white font-bold text-lg mb-4">🎮 온라인 사용자</h3>
         <div className="space-y-2">
           <div className="flex items-center space-x-2 p-2 bg-white/5 rounded-lg">
@@ -73,7 +71,6 @@ function Lobby() {
         </div>
       </div>
 
-      {/* 메인 콘텐츠 */}
       <div className="flex-1 flex flex-col bg-white/5 backdrop-blur-md mx-4 lg:mx-8 my-4 rounded-2xl border border-white/20 shadow-2xl relative overflow-hidden">
         {isEntering && (
           <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
@@ -82,7 +79,6 @@ function Lobby() {
             </div>
           </div>
         )}
-        {/* 상단 프로필 섹션 */}
         <div className="flex flex-col items-center p-6 border-b border-white/10">
           <div className="relative mb-4">
             <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center shadow-lg border-4 border-white/20">
@@ -119,7 +115,6 @@ function Lobby() {
             </button>
           </div>
         </div>
-        {/* 액션 버튼 영역 */}
         <div className="flex justify-between items-center px-6 py-4 border-b border-white/10">
           <div className="flex items-center space-x-2 text-white/70">
             <span className="text-sm">🏆 활성 게임</span>
@@ -132,7 +127,6 @@ function Lobby() {
             🎲 랜덤 입장
           </button>
         </div>
-        {/* 메인 콘텐츠 영역 */}
         <div className="flex-1 overflow-hidden">
           {isLoading ? (
             <div className="flex items-center justify-center h-full">
@@ -151,7 +145,6 @@ function Lobby() {
           )}
         </div>
 
-        {/* 하단 방 생성 버튼 */}
         <div className="p-6 border-t border-white/10">
           <button 
             onClick={handleClickOpenModal}
@@ -167,7 +160,6 @@ function Lobby() {
         )}
       </div>
       
-      {/* 오른쪽 사이드바 - 게임 가이드 */}
       <div className="hidden lg:flex w-64 bg-white/10 backdrop-blur-md border-l border-white/20 flex-col p-4">
         <h3 className="text-white font-bold text-lg mb-4">🎯 게임 가이드</h3>
         <div className="space-y-3">
