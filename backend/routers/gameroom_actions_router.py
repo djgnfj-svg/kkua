@@ -116,14 +116,28 @@ def check_active_game(
     return service.check_active_game(guest_uuid_str)
 
 
-@router.get("/{room_id}/result", response_model=GameResultResponse, status_code=status.HTTP_200_OK)
+@router.get("/{room_id}/result", status_code=status.HTTP_200_OK)
 async def get_game_result(
     room_id: int,
     guest: Guest = Depends(get_current_guest),
     service: GameroomService = Depends(get_gameroom_service),
 ):
     """게임 결과를 조회합니다. 게임이 종료된 방의 참가자만 조회할 수 있습니다."""
-    return await service.get_game_result(room_id, guest)
+    print(f"🔍 게임 결과 API 호출: room_id={room_id}, guest_id={guest.guest_id}")
+    
+    # 실제 게임 결과 데이터 조회
+    try:
+        result = await service.get_game_result(room_id, guest)
+        print(f"✅ 실제 게임 결과 반환: room_id={room_id}")
+        return result
+    except Exception as e:
+        print(f"❌ 게임 결과 조회 실패: {e}")
+        # 에러 발생 시 적절한 HTTP 예외 발생
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=404, 
+            detail=f"게임 결과를 찾을 수 없습니다: {str(e)}"
+        )
 
 
 @router.get("/{room_id}/is-owner", status_code=status.HTTP_200_OK)

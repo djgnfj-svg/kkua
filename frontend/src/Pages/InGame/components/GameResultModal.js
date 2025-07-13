@@ -167,7 +167,7 @@ const GameResultModal = ({ isOpen, onClose, roomId, winnerData }) => {
             {Array.isArray(players) && players.length > 0 ? (
               <div className="space-y-4">
                 {players.map((player, index) => {
-                  // 안전한 데이터 접근
+                  // 안전한 데이터 접근 (백엔드 API 응답 형식에 맞춤)
                   const nickname = player?.nickname || player?.name || '플레이어';
                   const totalScore = player?.total_score || player?.totalScore || 0;
                   const wordsSubmitted = player?.words_submitted || player?.wordsSubmitted || 0;

@@ -34,11 +34,11 @@ class GameLog(Base):
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    # 관계 설정
-    gameroom = relationship("Gameroom", back_populates="game_logs")
-    winner = relationship("Guest", foreign_keys=[winner_id])
-    word_chain_entries = relationship("WordChainEntry", back_populates="game_log", cascade="all, delete-orphan")
-    player_game_stats = relationship("PlayerGameStats", back_populates="game_log", cascade="all, delete-orphan")
+    # 관계 설정은 순환 import 문제로 인해 주석 처리
+    # gameroom = relationship("Gameroom", back_populates="game_logs")
+    # winner = relationship("Guest", foreign_keys=[winner_id])
+    # word_chain_entries = relationship("WordChainEntry", back_populates="game_log", cascade="all, delete-orphan")
+    # player_game_stats = relationship("PlayerGameStats", back_populates="game_log", cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<GameLog(id={self.id}, room_id={self.room_id}, winner_id={self.winner_id}, total_words={self.total_words})>"

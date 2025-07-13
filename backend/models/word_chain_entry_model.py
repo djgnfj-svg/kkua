@@ -32,9 +32,9 @@ class WordChainEntry(Base):
     # 생성 시간
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     
-    # 관계 설정
-    game_log = relationship("GameLog", back_populates="word_chain_entries")
-    player = relationship("Guest")
+    # 관계 설정 (순환 import 문제로 주석 처리)
+    # game_log = relationship("GameLog", back_populates="word_chain_entries")
+    # player = relationship("Guest")
     
     def __repr__(self):
         return f"<WordChainEntry(id={self.id}, word='{self.word}', player_id={self.player_id}, turn_number={self.turn_number})>"

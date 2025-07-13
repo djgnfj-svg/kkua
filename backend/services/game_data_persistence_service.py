@@ -247,11 +247,14 @@ class GameDataPersistenceService:
         """
         try:
             # 최신 게임 로그 조회
-            game_log = self.game_log_repository.find_latest_by_room_id(room_id)
+            game_log = self.game_log_repository.find_game_log_by_room_id(room_id)
             if not game_log:
                 return None
             
-            # 플레이어 통계 조회
+            # 플레이어 통계 조회 (직접 import)
+            from models.player_game_stats_model import PlayerGameStats
+            from models.word_chain_entry_model import WordChainEntry
+            
             player_stats = self.db.query(PlayerGameStats).filter(
                 PlayerGameStats.game_log_id == game_log.id
             ).order_by(PlayerGameStats.rank).all()

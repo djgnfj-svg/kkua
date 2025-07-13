@@ -744,167 +744,94 @@ class GameroomService:
                 detail="게임 참가자만 결과를 조회할 수 있습니다"
             )
         
-        # 게임 로그 조회 - GameDataPersistenceService 활용
+        # Redis에서 실시간 게임 데이터 조회
         try:
             from services.redis_game_service import get_redis_game_service
             redis_game = await get_redis_game_service()
-            persistence_service = GameDataPersistenceService(self.db, redis_game)
-            game_result_data = await persistence_service.get_game_result_data(room_id)
             
-            if game_result_data:
-                # 실제 게임 데이터 사용 - 이미 프론트엔드 형식으로 변환됨
+            # Redis에서 게임 상태 확인
+            game_state = await redis_game.get_game_state(room_id)
+            all_player_stats = await redis_game.get_all_player_stats(room_id)
+            word_entries = await redis_game.get_word_entries(room_id)
+            game_stats = await redis_game.get_game_stats(room_id)
+            
+            print(f"🔍 Redis 게임 데이터: game_state={bool(game_state)}, stats={len(all_player_stats)}, words={len(word_entries)}")
+            
+            if game_state and all_player_stats:
+                # Redis에서 실제 게임 데이터가 있는 경우
+                print(f"✅ Redis에서 실제 게임 데이터 발견")
                 
                 # 플레이어 데이터 변환
                 players_data = []
-                for player_data in game_result_data['players']:
+                for i, player_stats in enumerate(all_player_stats):
                     players_data.append(PlayerGameResult(
-                        guest_id=player_data['guest_id'],
-                        nickname=player_data['nickname'],
-                        words_submitted=player_data['words_submitted'],
-                        total_score=player_data['total_score'],
-                        avg_response_time=player_data['avg_response_time'],
-                        longest_word=player_data['longest_word'],
-                        rank=player_data['rank']
+                        guest_id=player_stats['guest_id'],
+                        nickname=player_stats['nickname'],
+                        words_submitted=player_stats.get('words_submitted', 0),
+                        total_score=player_stats.get('score', 0),
+                        avg_response_time=player_stats.get('average_response_time', 0.0),
+                        longest_word=player_stats.get('longest_word', ''),
+                        rank=i + 1
                     ))
                 
                 # 단어 체인 데이터 변환
                 used_words_data = []
-                for word_data in game_result_data['used_words']:
+                for word_entry in word_entries:
                     used_words_data.append(WordChainEntry(
-                        word=word_data['word'],
-                        player_id=word_data['player_id'],
-                        player_name=word_data['player_name'],
-                        timestamp=word_data['timestamp'] if isinstance(word_data['timestamp'], datetime) else datetime.fromisoformat(word_data['timestamp']) if word_data['timestamp'] else datetime.now(),
-                        response_time=word_data['response_time']
+                        word=word_entry['word'],
+                        player_id=word_entry['player_id'],
+                        player_name=word_entry['player_nickname'],
+                        timestamp=datetime.fromisoformat(word_entry['submitted_at']) if word_entry.get('submitted_at') else datetime.now(),
+                        response_time=word_entry.get('response_time', 0.0)
                     ))
                 
-                # 승자 결정
-                winner = None
-                if game_result_data['winner_name']:
-                    winner_data = next((p for p in players_data if p.nickname == game_result_data['winner_name']), None)
-                    winner = winner_data
-                elif players_data:
-                    winner = players_data[0]  # 순위 1위
-                    
-                # 게임 통계 직접 사용
-                game_duration = game_result_data['game_duration']
-                total_rounds = game_result_data['total_rounds']
-                total_words = game_result_data['total_words']
-                average_response_time = game_result_data['average_response_time']
-                longest_word = game_result_data['longest_word']
-                fastest_response = game_result_data['fastest_response']
-                slowest_response = game_result_data['slowest_response']
-                mvp_name = game_result_data['mvp_name']
+                # 승자 결정 (점수 1위)
+                winner = players_data[0] if players_data else None
+                
+                # 게임 통계
+                game_duration = f"{len(word_entries)}턴 완료"
+                total_rounds = game_state.get('round_number', 1)
+                total_words = len(word_entries)
+                average_response_time = game_stats.get('average_response_time', 0.0)
+                longest_word = game_stats.get('longest_word', '')
+                fastest_response = game_stats.get('fastest_response', 0.0)
+                slowest_response = game_stats.get('slowest_response', 0.0)
+                mvp_name = winner.nickname if winner else "없음"
+                
+                game_result_data = True  # 실제 데이터가 있음을 표시
+                
+            else:
+                print(f"❌ Redis에 게임 데이터 없음")
+                game_result_data = None
                 
         except Exception as e:
-            print(f"❌ 실제 게임 데이터 조회 실패: {e}")
+            print(f"❌ Redis 게임 데이터 조회 실패: {e}")
             game_result_data = None
             
         if not game_result_data:
-            # 게임 로그가 없는 경우 목업 데이터 사용
-            participants = self.repository.find_room_participants(room_id)
-            
-            players_data = []
-            used_words_data = []
-            
-            # 플레이어별 통계 생성
-            for i, p in enumerate(participants):
-                if not p.guest:
-                    continue
-                    
-                # 목업 통계 데이터
-                words_count = max(1, 8 - i)  # 다양한 단어 수
-                avg_time = 2.5 + (i * 0.7)  # 다양한 응답시간
-                score = words_count * 3 + (10 - i)  # 점수 계산
-                
-                players_data.append(PlayerGameResult(
-                    guest_id=p.guest.guest_id,
-                    nickname=p.guest.nickname,
-                    words_submitted=words_count,
-                    total_score=score,
-                    avg_response_time=round(avg_time, 1),
-                    longest_word=f"프로그래밍{i}" if i == 0 else f"단어{i}",
-                    rank=i + 1
-                ))
-            
-            # 사용된 단어 목업 데이터
-            sample_words = ["사과", "과일", "일기", "기술", "컴퓨터", "터미널", "널뛰기", "기계학습"]
-            for i, word in enumerate(sample_words[:min(len(sample_words), len(participants) * 2)]):
-                player_idx = i % len(participants)
-                if participants[player_idx].guest:
-                    used_words_data.append(WordChainEntry(
-                        word=word,
-                        player_id=participants[player_idx].guest.guest_id,
-                        player_name=participants[player_idx].guest.nickname,
-                        timestamp=datetime.now(),
-                        response_time=round(2.0 + (i * 0.3), 1)
-                    ))
-            
-            # 승자 결정 (첫 번째 플레이어)
-            winner = players_data[0] if players_data else None
-            
-            # 목업 통계
-            game_duration = "5분 23초"
-            total_rounds = room.max_rounds or 10
-            total_words = len(used_words_data)
-            average_response_time = 4.2
-            longest_word = "프로그래밍"
-            fastest_response = 2.1
-            slowest_response = 6.2
-            mvp_name = winner.nickname if winner else "없음"
-        # 응답 생성 - 실제 데이터 우선 사용, 없으면 계산된 값 사용
-        if game_result_data:
-            # 실제 데이터가 있는 경우
-            result = GameResultResponse(
-                room_id=room_id,
-                winner_id=game_result_data.get('winner_id'),
-                winner_name=game_result_data.get('winner_name'),
-                players=players_data,
-                used_words=used_words_data,
-                total_rounds=total_rounds,
-                game_duration=game_duration,
-                total_words=total_words,
-                average_response_time=round(average_response_time, 1),
-                longest_word=longest_word,
-                fastest_response=round(fastest_response, 1),
-                slowest_response=round(slowest_response, 1),
-                mvp_id=game_result_data.get('mvp_id'),
-                mvp_name=mvp_name,
-                started_at=game_result_data.get('started_at'),
-                ended_at=game_result_data.get('ended_at')
+            # 실제 게임 데이터가 없는 경우 에러 발생
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="게임 결과 데이터를 찾을 수 없습니다. 게임이 아직 시작되지 않았거나 진행 중입니다."
             )
-        else:
-            # 목업 데이터 사용 - 기존 로직 유지
-            if room.started_at and room.ended_at:
-                duration = room.ended_at - room.started_at
-                duration_str = f"{duration.seconds // 60}분 {duration.seconds % 60}초"
-            else:
-                duration_str = game_duration  # 이미 설정된 목업 값 사용
-            
-            # 통계 재계산
-            total_words_calc = len(used_words_data)
-            avg_response_time_calc = sum(w.response_time or 0 for w in used_words_data) / max(total_words_calc, 1)
-            fastest_response_calc = min((w.response_time or 10 for w in used_words_data), default=fastest_response)
-            slowest_response_calc = max((w.response_time or 0 for w in used_words_data), default=slowest_response)
-            longest_word_calc = max((w.word for w in used_words_data), key=len, default=longest_word)
-            
-            result = GameResultResponse(
-                room_id=room_id,
-                winner_id=winner.guest_id if winner else None,
-                winner_name=winner.nickname if winner else None,
-                players=players_data,
-                used_words=used_words_data,
-                total_rounds=total_rounds,
-                game_duration=duration_str,
-                total_words=total_words_calc,
-                average_response_time=round(avg_response_time_calc, 1),
-                longest_word=longest_word_calc,
-                fastest_response=round(fastest_response_calc, 1),
-                slowest_response=round(slowest_response_calc, 1),
-                mvp_id=winner.guest_id if winner else None,
-                mvp_name=mvp_name,
-                started_at=room.started_at,
-                ended_at=room.ended_at
-            )
+        # 실제 Redis 데이터로 응답 생성
+        result = GameResultResponse(
+            room_id=room_id,
+            winner_id=winner.guest_id if winner else None,
+            winner_name=winner.nickname if winner else None,
+            players=players_data,
+            used_words=used_words_data,
+            total_rounds=total_rounds,
+            game_duration=game_duration,
+            total_words=total_words,
+            average_response_time=round(average_response_time, 1),
+            longest_word=longest_word,
+            fastest_response=round(fastest_response, 1),
+            slowest_response=round(slowest_response, 1),
+            mvp_id=winner.guest_id if winner else None,
+            mvp_name=mvp_name,
+            started_at=datetime.fromisoformat(game_state['created_at']) if game_state.get('created_at') else datetime.now(),
+            ended_at=datetime.now()
+        )
         
         return result

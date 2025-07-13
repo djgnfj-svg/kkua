@@ -46,9 +46,9 @@ class PlayerGameStats(Base):
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    # 관계 설정
-    game_log = relationship("GameLog", back_populates="player_game_stats")
-    player = relationship("Guest")
+    # 관계 설정 (순환 import 문제로 주석 처리)
+    # game_log = relationship("GameLog", back_populates="player_game_stats")
+    # player = relationship("Guest")
     
     def __repr__(self):
         return f"<PlayerGameStats(id={self.id}, player_id={self.player_id}, rank={self.rank}, total_score={self.total_score})>"

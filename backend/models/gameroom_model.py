@@ -44,7 +44,7 @@ class Gameroom(Base):
     participants = relationship(
         "GameroomParticipant", back_populates="gameroom", cascade="all, delete-orphan"
     )
-    game_logs = relationship("GameLog", back_populates="gameroom", cascade="all, delete-orphan")
+    # game_logs = relationship("GameLog", back_populates="gameroom", cascade="all, delete-orphan")
 
     # 인덱스 정의
     __table_args__ = (

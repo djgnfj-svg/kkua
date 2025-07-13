@@ -13,6 +13,14 @@ class GameLogRepository:
     def __init__(self, db: Session):
         self.db = db
 
+    def create(self, game_log_data: dict) -> GameLog:
+        """게임 로그를 생성합니다 (범용 메서드)"""
+        game_log = GameLog(**game_log_data)
+        self.db.add(game_log)
+        self.db.commit()
+        self.db.refresh(game_log)
+        return game_log
+
     def create_game_log(self, room_id: int, max_rounds: int) -> GameLog:
         """새 게임 로그를 생성합니다"""
         game_log = GameLog(

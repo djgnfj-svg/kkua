@@ -18,113 +18,47 @@ const useGameResult = (roomId) => {
         setLoading(true);
         setError(null);
 
+        // roomId를 숫자로 변환
+        const numericRoomId = parseInt(roomId, 10);
+        console.log('게임 결과 조회 시작:', { roomId, numericRoomId });
+
         // 실제 API 호출로 게임 결과 데이터 가져오기
-        try {
-          const response = await axiosInstance.get(`/gamerooms/${roomId}/result`);
-          const data = response.data;
-          
-          console.log('API 응답 데이터:', data); // 디버깅용
-          
-          setGameData(data);
-          setWinner(data.winner_name);
-          setPlayers(data.players || []);
-          setUsedWords(data.used_words || []);
-          setGameStats({
-            totalRounds: data.total_rounds || 0,
-            gameDuration: data.game_duration || '0분 0초',
-            totalWords: data.total_words || 0,
-            averageResponseTime: data.average_response_time || 0,
-            longestWord: data.longest_word || '없음',
-            fastestResponse: data.fastest_response || 0,
-            slowestResponse: data.slowest_response || 0,
-            mvp: data.mvp_name || '없음'
-          });
-
-        } catch (apiError) {
-          console.error('API 호출 실패, 목업 데이터 사용:', apiError);
-          
-          // API 실패 시 목업 데이터 사용
-          const mockData = {
-          winner: '부러',
-          players: [
-            { 
-              name: '부러', 
-              wordsSubmitted: 8, 
-              totalScore: 24, 
-              avgResponseTime: 3.2,
-              longestWord: '컴퓨터과학',
-              rank: 1
-            },
-            { 
-              name: '하우두유', 
-              wordsSubmitted: 6, 
-              totalScore: 18, 
-              avgResponseTime: 4.1,
-              longestWord: '프로그래밍',
-              rank: 2
-            },
-            { 
-              name: '김밥', 
-              wordsSubmitted: 5, 
-              totalScore: 15, 
-              avgResponseTime: 5.2,
-              longestWord: '데이터베이스',
-              rank: 3
-            },
-            { 
-              name: '후러', 
-              wordsSubmitted: 4, 
-              totalScore: 12, 
-              avgResponseTime: 6.1,
-              longestWord: '알고리즘',
-              rank: 4
-            }
-          ],
-          usedWords: [
-            { word: '사과', player: '부러', timestamp: new Date(Date.now() - 300000), responseTime: 2.1 },
-            { word: '과일', player: '하우두유', timestamp: new Date(Date.now() - 280000), responseTime: 3.5 },
-            { word: '일기', player: '김밥', timestamp: new Date(Date.now() - 260000), responseTime: 4.2 },
-            { word: '기술', player: '후러', timestamp: new Date(Date.now() - 240000), responseTime: 5.8 },
-            { word: '컴퓨터', player: '부러', timestamp: new Date(Date.now() - 220000), responseTime: 2.9 },
-            { word: '터미널', player: '하우두유', timestamp: new Date(Date.now() - 200000), responseTime: 3.8 },
-            { word: '널뛰기', player: '김밥', timestamp: new Date(Date.now() - 180000), responseTime: 6.1 },
-            { word: '기계학습', player: '후러', timestamp: new Date(Date.now() - 160000), responseTime: 4.5 },
-            { word: '프로그래밍', player: '부러', timestamp: new Date(Date.now() - 140000), responseTime: 2.3 },
-            { word: '밍크코트', player: '하우두유', timestamp: new Date(Date.now() - 120000), responseTime: 4.7 },
-            { word: '트레이닝', player: '김밥', timestamp: new Date(Date.now() - 100000), responseTime: 5.3 },
-            { word: '글쓰기', player: '후러', timestamp: new Date(Date.now() - 80000), responseTime: 6.2 },
-            { word: '기능개발', player: '부러', timestamp: new Date(Date.now() - 60000), responseTime: 3.1 },
-            { word: '발전소', player: '하우두유', timestamp: new Date(Date.now() - 40000), responseTime: 4.9 },
-            { word: '소프트웨어', player: '김밥', timestamp: new Date(Date.now() - 20000), responseTime: 5.8 }
-          ],
-          gameStats: {
-            totalRounds: 15,
-            gameDuration: '5분 23초',
-            totalWords: 15,
-            averageResponseTime: 4.2,
-            longestWord: '프로그래밍',
-            fastestResponse: 2.1,
-            slowestResponse: 6.2,
-            mvp: '부러'
-          }
-        };
-
-        // API 호출 시뮬레이션 (실제로는 아래와 같이 호출)
-        // const response = await axiosInstance.get(`/gamerooms/${roomId}/result`);
-        // const data = response.data.data;
-
-        await new Promise(resolve => setTimeout(resolve, 1500)); // 로딩 시뮬레이션
-
-        setGameData(mockData);
-        setWinner(mockData.winner);
-        setPlayers(mockData.players);
-        setUsedWords(mockData.usedWords);
-        setGameStats(mockData.gameStats);
-        }
+        const response = await axiosInstance.get(`/gamerooms/${numericRoomId}/result`);
+        const data = response.data;
+        
+        console.log('API 응답 데이터:', data); // 디버깅용
+        
+        setGameData(data);
+        setWinner(data.winner_name);
+        setPlayers(data.players || []);
+        setUsedWords(data.used_words || []);
+        setGameStats({
+          totalRounds: data.total_rounds || 0,
+          gameDuration: data.game_duration || '0분 0초',
+          totalWords: data.total_words || 0,
+          averageResponseTime: data.average_response_time || 0,
+          longestWord: data.longest_word || '없음',
+          fastestResponse: data.fastest_response || 0,
+          slowestResponse: data.slowest_response || 0,
+          mvp: data.mvp_name || '없음'
+        });
 
       } catch (err) {
         console.error('게임 결과 로딩 실패:', err);
-        setError('게임 결과를 불러오는 중 오류가 발생했습니다.');
+        console.error('응답 상태:', err.response?.status);
+        console.error('응답 데이터:', err.response?.data);
+        
+        // 구체적인 에러 메시지 설정
+        let errorMessage = '게임 결과를 불러오는 중 오류가 발생했습니다.';
+        if (err.response?.status === 404) {
+          errorMessage = '게임 결과를 찾을 수 없습니다. 게임이 아직 끝나지 않았거나 데이터가 저장되지 않았을 수 있습니다.';
+        } else if (err.response?.status === 403) {
+          errorMessage = '게임 결과를 조회할 권한이 없습니다.';
+        } else if (err.response?.status === 401) {
+          errorMessage = '로그인이 필요합니다.';
+        }
+        
+        setError(errorMessage);
       } finally {
         setLoading(false);
       }
