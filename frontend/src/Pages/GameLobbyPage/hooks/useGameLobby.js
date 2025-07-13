@@ -28,6 +28,62 @@ const useGameLobby = () => {
     setRoomUpdated,
   } = useGameRoomSocket(roomId);
 
+  // 브라우저 뒤로가기 처리 - DB 상태 동기화
+  useEffect(() => {
+    const handlePopState = async (event) => {
+      // 뒤로가기 시 무조건 방 나가기 API 호출 (DB 동기화)
+      try {
+        if (isOwner) {
+          // 방장인 경우 방 삭제 여부 확인
+          if (window.confirm('방장이 나가면 방이 삭제됩니다. 정말 나가시겠습니까?')) {
+            await axiosInstance.delete(ROOM_API.DELET_ROOMSID(roomId));
+            navigate('/lobby', { replace: true });
+          } else {
+            // 취소하면 현재 페이지 유지
+            window.history.pushState(null, '', window.location.href);
+          }
+        } else {
+          // 일반 참가자인 경우 방 나가기
+          await axiosInstance.post(ROOM_API.LEAVE_ROOMS(roomId));
+          navigate('/lobby', { replace: true });
+        }
+      } catch (error) {
+        console.error('방 나가기 실패:', error);
+        // API 실패해도 프론트엔드에서는 로비로 이동 (UI 일관성)
+        navigate('/lobby', { replace: true });
+      }
+    };
+
+    // beforeunload 이벤트로 새로고침/창 닫기도 처리
+    const handleBeforeUnload = () => {
+      // 페이지를 떠날 때 방 나가기 (fetch 사용으로 변경)
+      if (roomId) {
+        try {
+          fetch(ROOM_API.LEAVE_ROOMS(roomId), {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({})
+          }).catch(() => {
+            // 에러 무시 (페이지 종료 시점이므로)
+          });
+        } catch (error) {
+          // 에러 무시 (페이지 종료 시점이므로)
+        }
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [roomId, isOwner, navigate]);
+
   useEffect(() => {
     if (!isAuthenticated || !user) {
       navigate('/');
@@ -160,12 +216,26 @@ const useGameLobby = () => {
   };
 
   const handleClickStartBtn = async () => {
-    if (isStartingGame) return;
+    console.log('🚀 handleClickStartBtn 함수 시작');
+    console.log('현재 isStartingGame:', isStartingGame);
+    
+    if (isStartingGame) {
+      console.log('❌ 이미 시작 중이므로 리턴');
+      return;
+    }
     
     try {
+      console.log('🎯 게임 시작 API 호출 시작');
       setIsStartingGame(true);
       
-      const response = await axiosInstance.post(ROOM_API.PLAY_ROOMS(roomId));
+      const apiUrl = ROOM_API.PLAY_ROOMS(roomId);
+      console.log('API URL:', apiUrl);
+      
+      const response = await axiosInstance.post(apiUrl);
+      console.log('✅ 게임 시작 API 응답:', response.data);
+      
+      // 게임 시작 성공 시 상태 리셋 (WebSocket으로 navigate 처리)
+      // setIsStartingGame(false); // WebSocket에서 페이지 이동하므로 리셋하지 않음
       
     } catch (error) {
       console.error('게임 시작 오류:', error);

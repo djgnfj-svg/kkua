@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Index
 from sqlalchemy.orm import relationship
 from db.postgres import Base
 import enum
@@ -46,6 +46,13 @@ class Gameroom(Base):
     )
     game_logs = relationship("GameLog", back_populates="gameroom", cascade="all, delete-orphan")
 
+    # 인덱스 정의
+    __table_args__ = (
+        Index('idx_gamerooms_status_created', 'status', 'created_at'),
+        Index('idx_gamerooms_created_by', 'created_by'),
+        Index('idx_gamerooms_status', 'status'),
+    )
+
 
 class GameroomParticipant(Base):
     __tablename__ = "gameroom_participants"
@@ -62,6 +69,14 @@ class GameroomParticipant(Base):
 
     gameroom = relationship("Gameroom", back_populates="participants")
     guest = relationship("Guest")
+
+    # 인덱스 정의
+    __table_args__ = (
+        Index('idx_participants_room_guest', 'room_id', 'guest_id'),
+        Index('idx_participants_guest_active', 'guest_id', 'left_at'),
+        Index('idx_participants_room_active', 'room_id', 'left_at'),
+        Index('idx_participants_status', 'status'),
+    )
 
     @staticmethod
     def should_redirect_to_game(db, guest_id):

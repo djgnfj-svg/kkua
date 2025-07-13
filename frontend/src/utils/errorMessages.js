@@ -16,6 +16,11 @@ export const ERROR_MESSAGES = {
   ROOM_FULL: '방이 가득 찼습니다.',
   ROOM_NOT_FOUND: '존재하지 않는 방입니다.',
   ROOM_ALREADY_STARTED: '이미 시작된 게임입니다.',
+  RATE_LIMIT_EXCEEDED: '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.',
+  
+  // WebSocket 관련 에러
+  WS_CONNECTION_FAILED: '실시간 연결에 실패했습니다.',
+  WS_MESSAGE_INVALID: '잘못된 메시지 형식입니다.',
   
   // 유효성 검사 에러
   INVALID_ROOM_TITLE: '방 제목은 2-20자 사이여야 합니다.',

@@ -1,11 +1,18 @@
 from typing import Dict, Any
-from fastapi import WebSocket
+from fastapi import WebSocket, HTTPException
 from sqlalchemy.orm import Session
+from pydantic import ValidationError
+import logging
+import time
+from datetime import datetime
 
 from repositories.gameroom_repository import GameroomRepository
 from models.gameroom_model import ParticipantStatus
 from models.guest_model import Guest
 from websocket.connection_manager import GameRoomWebSocketFacade
+from schemas.websocket_schema import validate_websocket_message, MessageType, GameActionType
+
+logger = logging.getLogger(__name__)
 
 
 class WebSocketMessageService:
@@ -15,6 +22,118 @@ class WebSocketMessageService:
         self.db = db
         self.ws_manager = ws_manager
         self.repository = GameroomRepository(db)
+    
+    async def validate_and_process_message(
+        self, 
+        message_data: Dict[str, Any], 
+        room_id: int, 
+        guest: Guest,
+        websocket: WebSocket
+    ) -> bool:
+        """메시지 검증 및 처리"""
+        try:
+            # 메시지 검증
+            validated_message = validate_websocket_message(message_data)
+            
+            # 타입별 처리
+            if validated_message.type == MessageType.CHAT:
+                await self.handle_chat_message(validated_message.dict(), room_id, guest)
+            elif validated_message.type == MessageType.GAME_ACTION:
+                await self.handle_game_action(validated_message.dict(), room_id, guest, websocket)
+            elif validated_message.type == MessageType.WORD_CHAIN:
+                await self.handle_word_chain(validated_message.dict(), room_id, guest, websocket)
+            elif validated_message.type == MessageType.PING:
+                await self.handle_ping(websocket)
+            else:
+                logger.warning(f"처리되지 않은 메시지 타입: {validated_message.type}")
+                return False
+            
+            return True
+            
+        except ValidationError as e:
+            logger.warning(f"메시지 검증 실패: {e}")
+            await self.send_error_message(websocket, f"잘못된 메시지 형식: {str(e)}")
+            return False
+        except Exception as e:
+            logger.error(f"메시지 처리 중 오류: {e}")
+            await self.send_error_message(websocket, "메시지 처리 중 오류가 발생했습니다")
+            return False
+    
+    async def send_error_message(self, websocket: WebSocket, error_message: str):
+        """에러 메시지 전송"""
+        try:
+            await self.ws_manager.send_personal_message(
+                {
+                    "type": "error",
+                    "message": error_message,
+                    "timestamp": str(datetime.utcnow())
+                },
+                websocket
+            )
+        except Exception as e:
+            logger.error(f"에러 메시지 전송 실패: {e}")
+    
+    async def handle_ping(self, websocket: WebSocket):
+        """Ping 메시지 처리 - Pong 응답"""
+        try:
+            await self.ws_manager.send_personal_message(
+                {
+                    "type": "pong",
+                    "timestamp": time.time()
+                },
+                websocket
+            )
+        except Exception as e:
+            logger.error(f"Pong 응답 실패: {e}")
+    
+    async def handle_game_action(
+        self, 
+        message_data: Dict[str, Any], 
+        room_id: int, 
+        guest: Guest,
+        websocket: WebSocket
+    ):
+        """게임 액션 처리"""
+        action = message_data.get('action')
+        
+        if action == GameActionType.TOGGLE_READY:
+            await self.handle_ready_toggle(websocket, room_id, guest)
+        elif action == GameActionType.START_GAME:
+            await self.handle_start_game(websocket, room_id, guest)
+        elif action == GameActionType.END_GAME:
+            await self.handle_end_game(websocket, room_id, guest)
+        else:
+            await self.send_error_message(websocket, f"지원되지 않는 게임 액션: {action}")
+    
+    async def handle_word_chain(
+        self, 
+        message_data: Dict[str, Any], 
+        room_id: int, 
+        guest: Guest,
+        websocket: WebSocket
+    ):
+        """끝말잇기 단어 처리"""
+        word = message_data.get('word')
+        
+        # WordChainGameEngine을 통한 처리
+        if hasattr(self.ws_manager, 'word_chain_engine'):
+            try:
+                result = await self.ws_manager.word_chain_engine.handle_word_submission(
+                    room_id, guest.guest_id, word
+                )
+                
+                # 결과를 방 전체에 브로드캐스트
+                await self.ws_manager.broadcast_to_room(room_id, {
+                    "type": "word_chain_result",
+                    "guest_id": guest.guest_id,
+                    "word": word,
+                    "result": result,
+                    "timestamp": message_data.get('timestamp')
+                })
+                
+            except Exception as e:
+                logger.error(f"단어 처리 중 오류: {e}")
+                await self.send_error_message(websocket, "단어 처리 중 오류가 발생했습니다")
 
     async def handle_chat_message(
         self, 
@@ -98,6 +217,66 @@ class WebSocketMessageService:
         await self.ws_manager.send_personal_message(
             {"type": "ready_status_updated", "is_ready": is_ready}, websocket
         )
+
+    async def handle_start_game(
+        self, 
+        websocket: WebSocket, 
+        room_id: int, 
+        guest: Guest
+    ):
+        """게임 시작 처리"""
+        try:
+            # GameroomService를 통해 게임 시작
+            from services.gameroom_service import GameroomService
+            gameroom_service = GameroomService(self.db)
+            
+            result = await gameroom_service.start_game(room_id, guest)
+            
+            # 성공 응답 전송
+            await self.ws_manager.send_personal_message(
+                {
+                    "type": "game_start_success",
+                    "message": result.get("message", "게임이 시작되었습니다!"),
+                    "status": result.get("status", "PLAYING")
+                },
+                websocket
+            )
+            
+        except HTTPException as e:
+            await self.send_error_message(websocket, e.detail)
+        except Exception as e:
+            logger.error(f"게임 시작 중 오류: {e}")
+            await self.send_error_message(websocket, "게임 시작 중 오류가 발생했습니다")
+    
+    async def handle_end_game(
+        self, 
+        websocket: WebSocket, 
+        room_id: int, 
+        guest: Guest
+    ):
+        """게임 종료 처리"""
+        try:
+            # GameroomService를 통해 게임 종료
+            from services.gameroom_service import GameroomService
+            gameroom_service = GameroomService(self.db)
+            
+            result = gameroom_service.end_game(room_id, guest)
+            
+            # 성공 응답 전송
+            await self.ws_manager.send_personal_message(
+                {
+                    "type": "game_end_success",
+                    "message": result.get("message", "게임이 종료되었습니다!"),
+                    "status": result.get("status", "FINISHED")
+                },
+                websocket
+            )
+            
+        except HTTPException as e:
+            await self.send_error_message(websocket, e.detail)
+        except Exception as e:
+            logger.error(f"게임 종료 중 오류: {e}")
+            await self.send_error_message(websocket, "게임 종료 중 오류가 발생했습니다")
 
     async def handle_status_update(
         self, 

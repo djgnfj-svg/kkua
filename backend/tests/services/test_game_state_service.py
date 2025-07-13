@@ -42,7 +42,7 @@ class TestGameStateService:
         """Create a sample game room"""
         return Gameroom(
             room_id=1,
-            room_name="테스트방",
+            title="테스트방",
             created_by=1,
             max_players=4,
             status=GameStatus.WAITING,

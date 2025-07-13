@@ -71,19 +71,30 @@ class GameroomRepository:
         return True
 
     def find_all(self, limit=10, offset=0, filter_args=None) -> Tuple[List[Gameroom], int]:
-        """모든 게임룸을 조회합니다."""
-        query = self.db.query(Gameroom)
+        """모든 게임룸을 조회합니다 (생성자 정보 포함, 최적화된 쿼리)."""
+        from sqlalchemy.orm import joinedload
+        
+        query = self.db.query(Gameroom).options(joinedload(Gameroom.creator))
 
-        # 필터링 적용
+        # 필터링 적용 (인덱스 활용)
         if filter_args:
             for key, value in filter_args.items():
                 if hasattr(Gameroom, key) and value is not None:
-                    query = query.filter(getattr(Gameroom, key) == value)
+                    if key == 'status':
+                        # 상태별 필터링 (인덱스 활용)
+                        query = query.filter(Gameroom.status == value)
+                    else:
+                        query = query.filter(getattr(Gameroom, key) == value)
 
-        # 총 개수 계산
-        total = query.count()
+        # 총 개수 계산 (최적화된 카운트 쿼리)
+        count_query = self.db.query(Gameroom.room_id)
+        if filter_args:
+            for key, value in filter_args.items():
+                if hasattr(Gameroom, key) and value is not None:
+                    count_query = count_query.filter(getattr(Gameroom, key) == value)
+        total = count_query.count()
 
-        # 기본 정렬: 생성일시 기준 내림차순
+        # 기본 정렬: 생성일시 기준 내림차순 (인덱스 활용)
         query = query.order_by(Gameroom.created_at.desc())
 
         # 페이지네이션 적용
@@ -105,13 +116,17 @@ class GameroomRepository:
         )
 
     def find_room_participants(self, room_id: int) -> List[GameroomParticipant]:
-        """특정 게임룸의 모든 활성 참가자를 조회합니다."""
+        """특정 게임룸의 모든 활성 참가자를 조회합니다 (Guest 정보 포함, N+1 쿼리 방지)."""
+        from sqlalchemy.orm import joinedload
+        
         return (
             self.db.query(GameroomParticipant)
+            .options(joinedload(GameroomParticipant.guest))  # N+1 쿼리 방지
             .filter(
                 GameroomParticipant.room_id == room_id,
                 GameroomParticipant.left_at.is_(None),
             )
+            .order_by(GameroomParticipant.joined_at)
             .all()
         )
 

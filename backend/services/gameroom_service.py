@@ -67,7 +67,7 @@ class GameroomService:
         return participant is not None and participant.is_creator
 
 
-    def list_gamerooms(self, status=None, limit=10, offset=0):
+    def list_gamerooms(self, status: Optional[str] = None, limit: int = 10, offset: int = 0) -> Tuple[List[Gameroom], int]:
         """게임룸 목록을 조회합니다."""
         filter_args = {}
         if status:
@@ -280,32 +280,59 @@ class GameroomService:
                 detail="게임 시작에 실패했습니다."
             )
 
-        # 끝말잇기 게임 자동 초기화 및 시작
-        if self.ws_manager:
-            # 참가자 목록 조회
+        # Redis 기반 게임 시스템 초기화
+        try:
+            from services.redis_game_service import get_redis_game_service
+            redis_game = await get_redis_game_service()
+            
+            # 참가자 목록 준비
             participants = self.repository.find_room_participants(room_id)
             participant_data = [
                 {
                     "guest_id": p.guest.guest_id,
                     "nickname": p.guest.nickname,
-                    "status": p.status.value if hasattr(p.status, "value") else p.status,
                     "is_creator": p.guest.guest_id == p.gameroom.created_by,
                 }
-                for p in participants
-                if p.left_at is None
+                for p in participants if p.left_at is None
             ]
-
-            # 게임룸 정보에서 max_rounds 가져오기
-            room = self.repository.find_by_id(room_id)
-            max_rounds = room.max_rounds if room else 10
-
-            # 끝말잇기 게임 초기화
-            self.ws_manager.initialize_word_chain_game(room_id, participant_data, max_rounds)
             
-            # 끝말잇기 게임 시작
-            self.ws_manager.start_word_chain_game(room_id, "끝말잇기")
+            # 게임룸 정보에서 설정 가져오기
+            room = self.repository.find_by_id(room_id)
+            game_settings = {
+                'turn_time_limit': 30,
+                'max_rounds': room.max_rounds if room else 10,
+                'word_min_length': 2,
+                'use_items': True
+            }
+            
+            # Redis에 게임 생성 및 시작
+            await redis_game.create_game(room_id, participant_data, game_settings)
+            await redis_game.start_game(room_id, "끝말잇기")
+            
+            print(f"🎮 Redis 게임 초기화 완료: room_id={room_id}")
+            
+        except Exception as e:
+            print(f"❌ Redis 게임 초기화 실패: {e}")
+            # Redis 실패 시 기존 메모리 기반 시스템으로 fallback
+            if self.ws_manager:
+                participants = self.repository.find_room_participants(room_id)
+                participant_data = [
+                    {
+                        "guest_id": p.guest.guest_id,
+                        "nickname": p.guest.nickname,
+                        "status": p.status.value if hasattr(p.status, "value") else p.status,
+                        "is_creator": p.guest.guest_id == p.gameroom.created_by,
+                    }
+                    for p in participants if p.left_at is None
+                ]
+                room = self.repository.find_by_id(room_id)
+                max_rounds = room.max_rounds if room else 10
+                self.ws_manager.initialize_word_chain_game(room_id, participant_data, max_rounds)
+                self.ws_manager.start_word_chain_game(room_id, "끝말잇기")
 
-            # 웹소켓 이벤트 발송 (게임 시작)
+        # 웹소켓 이벤트 발송 (게임 시작) - Redis 성공/실패 관계없이 실행
+        print(f"🎮 게임 시작 WebSocket 브로드캐스트 시작: room_id={room_id}")
+        try:
             await self.ws_manager.broadcast_room_update(
                 room_id,
                 "game_started",
@@ -315,12 +342,16 @@ class GameroomService:
                     "message": "게임이 시작되었습니다!",
                 },
             )
+            print(f"✅ 게임 시작 WebSocket 브로드캐스트 완료: room_id={room_id}")
 
             # 끝말잇기 게임 상태 브로드캐스트
             await self.ws_manager.broadcast_word_chain_state(room_id)
 
             # 첫 턴 타이머 시작
             await self.ws_manager.start_turn_timer(room_id, 15)
+        except Exception as e:
+            print(f"❌ WebSocket 브로드캐스트 실패: {e}")
+            # WebSocket 실패해도 게임 시작은 성공으로 처리
 
         return {"message": "게임이 시작되었습니다!", "status": "PLAYING"}
 

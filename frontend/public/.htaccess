@@ -2,3 +2,29 @@ Options -MultiViews
 RewriteEngine On
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteRule ^ index.html [QSA,L]
+
+# 캐시 제어 설정
+
+# HTML 파일은 즉시 만료 (항상 최신 버전 로드)
+<Files "*.html">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires 0
+</Files>
+
+# JavaScript와 CSS는 파일명에 해시가 있으므로 장기 캐시 허용
+<FilesMatch "\.(js|css)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+</FilesMatch>
+
+# 이미지 등 정적 리소스
+<FilesMatch "\.(png|jpg|jpeg|gif|ico|svg)$">
+    Header set Cache-Control "public, max-age=2592000"
+</FilesMatch>
+
+# Service Worker 파일도 캐시하지 않음
+<Files "service-worker.js">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires 0
+</Files>

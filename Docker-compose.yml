@@ -9,11 +9,14 @@ services:
       - ./backend:/app
     environment:
       - DATABASE_URL=postgresql://postgres:mysecretpassword@db:5432/mydb
+      - REDIS_URL=redis://redis:6379/0
       - ENVIRONMENT=development
       - DEBUG=true
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_started
     restart: unless-stopped
 
   # 테스트 서비스 추가
@@ -23,10 +26,13 @@ services:
       - ./backend:/app
     environment:
       - DATABASE_URL=postgresql://postgres:mysecretpassword@db:5432/mydb
+      - REDIS_URL=redis://redis:6379/0
       - TESTING=true
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_started
     # 테스트 실행 명령으로 덮어씀
     command: python -m pytest tests/ -v
 
@@ -62,5 +68,19 @@ services:
       start_period: 10s
     restart: unless-stopped
 
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
 volumes:
   postgres_data:
+  redis_data:

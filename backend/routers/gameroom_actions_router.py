@@ -37,7 +37,16 @@ def leave_gameroom(
     service: GameroomService = Depends(get_gameroom_service),
 ):
     """게임룸에서 나갑니다."""
-    return service.leave_gameroom(room_id, guest)
+    print(f"🚪 방 나가기 API 호출: room_id={room_id}, guest_id={guest.guest_id}")
+    try:
+        result = service.leave_gameroom(room_id, guest)
+        print(f"✅ 방 나가기 성공: {result}")
+        return result
+    except Exception as e:
+        print(f"❌ 방 나가기 실패: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
 
 
 @router.post("/{room_id}/ready", status_code=status.HTTP_200_OK)
@@ -47,7 +56,16 @@ async def toggle_ready_status(
     service: GameroomService = Depends(get_gameroom_service),
 ):
     """참가자의 준비 상태를 토글합니다."""
-    return await service.toggle_ready_status_with_ws(room_id, guest)
+    print(f"🔄 준비 상태 토글 API 호출: room_id={room_id}, guest_id={guest.guest_id}")
+    try:
+        result = await service.toggle_ready_status_with_ws(room_id, guest)
+        print(f"✅ 준비 상태 토글 성공: {result}")
+        return result
+    except Exception as e:
+        print(f"❌ 준비 상태 토글 실패: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
 
 
 @router.post("/{room_id}/start", status_code=status.HTTP_200_OK)

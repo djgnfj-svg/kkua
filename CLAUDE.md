@@ -7,6 +7,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **끄아 (KKUA)** is a real-time multiplayer word chain game (끝말잇기) with item mechanics. The project uses a FastAPI backend with PostgreSQL database and a React frontend with TailwindCSS for styling.
 
 ### Recent Updates
+- **Code Quality**: Complete codebase cleanup and comment optimization
+  - Removed 20+ legacy files and unused components
+  - Cleaned unnecessary debug comments and console.log statements
+  - Standardized code documentation with focus on 'why' over 'what'
+- **Bug Fixes**: Resolved critical game ending functionality
 - **Authentication System**: Migrated from UUID-based to secure session-based authentication with HTTP-only cookies
 - **Backend Refactoring**: Consolidated services following Single Responsibility Principle
   - Merged GameroomActions into GameroomService
@@ -141,6 +146,7 @@ docker build -f frontend/Dockerfile.prod -t kkua-frontend-prod frontend/
 - **models/**: SQLAlchemy models for database entities
   - `gameroom_model.py`: Game room and participant models with status enums
   - `guest_model.py`: Guest/user model with UUID and session token support
+  - `game_log_model.py`: Game result tracking with comprehensive statistics
 - **routers/**: API endpoint definitions
   - `auth_router.py`: Authentication endpoints for session management
   - `gamerooms_router.py`: Basic CRUD operations for game rooms
@@ -154,9 +160,6 @@ docker build -f frontend/Dockerfile.prod -t kkua-frontend-prod frontend/
   - `session_service.py`: Session storage and validation with Redis-like in-memory store
   - `game_state_service.py`: Game state management and word chain validation
   - `websocket_message_service.py`: WebSocket message processing and routing
-- **repositories/**: Data access layer with database operations
-  - `gameroom_repository.py`: Game room and participant data access
-  - `guest_repository.py`: Guest/user data access
 - **schemas/**: Pydantic models for request/response validation
   - `auth_schema.py`: Authentication request/response models
   - `gameroom_schema.py`: Game room data models
@@ -165,10 +168,14 @@ docker build -f frontend/Dockerfile.prod -t kkua-frontend-prod frontend/
   - `guest_schema.py`: Guest/user data models
 - **middleware/**: Custom middleware components
   - `auth_middleware.py`: Request authentication and session validation
-- **ws_manager/**: WebSocket connection management
-  - `connection_manager.py`: WebSocket connection handling
-  - `websocket_manager.py`: Room-based WebSocket management
-  - `word_chain_manager.py`: Word chain game logic
+- **websocket/**: WebSocket connection management
+  - `connection_manager.py`: Game room WebSocket facade (renamed from ws_manager)
+  - `websocket_manager.py`: WebSocket connection management
+  - `word_chain_manager.py`: Word chain game engine
+- **repositories/**: Data access layer with database operations
+  - `gameroom_repository.py`: Game room and participant data access
+  - `guest_repository.py`: Guest/user data access
+  - `game_log_repository.py`: Game result and statistics data access
 - **db/**: Database configuration and setup
 - **config/**: Configuration files for cookies, logging, etc.
 
@@ -179,6 +186,7 @@ docker build -f frontend/Dockerfile.prod -t kkua-frontend-prod frontend/
   - `Lobby/`: Game room lobby with room list and creation
   - `GameLobbyPage/`: Individual game room lobby with chat and participant management
   - `InGame/`: Active game interface with word chain gameplay
+  - `GameResult/`: Game results and statistics display page
 - **src/store/**: Zustand state management
   - `guestStore.js`: Guest authentication and session management
 - **src/Api/**: API communication layer
@@ -187,7 +195,7 @@ docker build -f frontend/Dockerfile.prod -t kkua-frontend-prod frontend/
   - `roomApi.js`: Game room API calls
   - `userApi.js`: User/guest API calls
   - `wsUrl.js`: WebSocket URL configuration
-- **src/Component/**: Shared utilities and components
+- **src/utils/**: Shared utilities and components (renamed from Component)
   - `socket.js`: WebSocket connection management
   - `urls.js`: URL configuration
 - **src/hooks/**: Custom React hooks
@@ -197,6 +205,9 @@ docker build -f frontend/Dockerfile.prod -t kkua-frontend-prod frontend/
 - **guests**: User/guest management with guest_id, UUID, nickname, and session tracking
 - **gamerooms**: Game room information with status tracking and owner reference
 - **gameroom_participants**: Many-to-many relationship between guests and game rooms with ready status
+- **game_logs**: Game session records with duration, winner, and statistics
+- **word_chain_entries**: Individual word entries with player and timing data
+- **player_game_stats**: Detailed per-player statistics for each game
 
 ### Key Architectural Patterns
 1. **Layered Architecture**: Controllers (routers) → Services → Repositories → Models
@@ -448,7 +459,7 @@ All API responses follow a consistent format:
 5. Add routing in `src/App.js`
 
 ### WebSocket Integration
-1. Use `ws_manager/connection_manager.py` for backend WebSocket handling
+1. Use `websocket/connection_manager.py` for backend WebSocket handling
 2. Implement frontend WebSocket logic in custom hooks
 3. Handle connection lifecycle (connect, disconnect, reconnect)
 4. Manage message routing and state updates

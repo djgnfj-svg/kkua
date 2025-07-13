@@ -8,12 +8,15 @@ from routers import (
     gameroom_ws_router,
     gameroom_actions_router,
     csrf_router,
+    game_api_router,
 )
 from fastapi.openapi.utils import get_openapi
 from app_config import settings
 from middleware.csrf_middleware import CSRFProtectionMiddleware
 from middleware.security_headers_middleware import SecurityHeadersMiddleware
 from middleware.logging_middleware import RequestLoggingMiddleware
+from middleware.rate_limiter import RateLimitMiddleware
+from middleware.exception_handler import GlobalExceptionHandler
 from config.logging_config import setup_logging
 import logging
 
@@ -53,6 +56,10 @@ app.add_middleware(RequestLoggingMiddleware)
 
 app.add_middleware(SecurityHeadersMiddleware)
 
+app.add_middleware(RateLimitMiddleware)
+
+app.add_middleware(GlobalExceptionHandler)
+
 app.add_middleware(
     CSRFProtectionMiddleware,
     exclude_paths=[
@@ -76,6 +83,7 @@ app.include_router(gamerooms_router.router)
 app.include_router(gameroom_actions_router.router)
 app.include_router(gameroom_ws_router.router)
 app.include_router(csrf_router.router)
+app.include_router(game_api_router.router)
 
 
 @app.get("/")

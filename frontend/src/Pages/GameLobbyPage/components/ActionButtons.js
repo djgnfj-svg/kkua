@@ -32,19 +32,46 @@ const ActionButtons = ({
           {isOwner ? '👑 방장' : '👤 참가자'}
         </div>
       </div>
+      
+      {/* 디버깅 정보 */}
+      <div className="mb-4 p-3 bg-black/30 rounded-lg text-xs text-white/80 space-y-1">
+        <div>참가자 수: {participants.length}</div>
+        <div>모든 플레이어 준비됨: {allNonOwnerPlayersReady ? '✅' : '❌'}</div>
+        <div className="space-y-1">
+          {participants.map((player, index) => (
+            <div key={index} className="text-xs">
+              👤 {player.nickname || `게스트_${player.guest_id}`}: 
+              방장={player.is_creator ? '✅' : '❌'}, 
+              status="{player.status}", 
+              is_ready={player.is_ready ? '✅' : '❌'}
+            </div>
+          ))}
+        </div>
+      </div>
 
       {isOwner ? (
         <div className="text-center">
           <div className="relative inline-block group">
             <button
               onClick={() => {
-                if (isStartingGame) return;
+                console.log('🎮 게임 시작 버튼 클릭됨');
+                console.log('isStartingGame:', isStartingGame);
+                console.log('participants.length:', participants.length);
+                console.log('allNonOwnerPlayersReady:', allNonOwnerPlayersReady);
+                
+                if (isStartingGame) {
+                  console.log('❌ 이미 게임 시작 중이므로 무시');
+                  return;
+                }
                 
                 if (participants.length >= 2 && allNonOwnerPlayersReady) {
+                  console.log('✅ 조건 만족, handleClickStartBtn 호출');
                   handleClickStartBtn();
                 } else if (participants.length < 2) {
+                  console.log('❌ 참가자 수 부족');
                   alert('게임 시작을 위해 최소 2명의 플레이어가 필요합니다.');
                 } else {
+                  console.log('❌ 모든 플레이어가 준비되지 않음');
                   alert('모든 플레이어가 준비 상태여야 합니다.');
                 }
               }}

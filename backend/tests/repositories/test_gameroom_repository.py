@@ -166,8 +166,8 @@ class TestGameroomRepository:
         # 참가자 추가
         repo.add_participant(room.room_id, guest.guest_id)
 
-        # 게임 상태 변경 (WAITING -> PLAYING)
-        updated_room = repo.update_game_status(room, GameStatus.PLAYING)
+        # 게임 상태 변경 (WAITING -> PLAYING) - update 메서드 사용
+        updated_room = repo.update(room.room_id, {"status": GameStatus.PLAYING})
 
         # 검증
         assert updated_room.status == GameStatus.PLAYING.value

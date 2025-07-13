@@ -3,7 +3,7 @@ from models.guest_model import Guest
 from models.gameroom_model import GameroomParticipant
 import uuid
 import datetime
-from typing import Optional
+from typing import Optional, Tuple
 
 
 class GuestRepository:
@@ -30,7 +30,7 @@ class GuestRepository:
             logging.error(f"게스트 검색 중 오류 발생: {str(e)}")
             return None
 
-    def find_by_nickname(self, nickname: str) -> Guest:
+    def find_by_nickname(self, nickname: str) -> Optional[Guest]:
         return self.db.query(Guest).filter(Guest.nickname == nickname).first()
 
     def create(
@@ -60,6 +60,6 @@ class GuestRepository:
         self.db.refresh(guest)
         return guest
 
-    def check_active_game(self, guest_id: int) -> tuple[bool, int]:
+    def check_active_game(self, guest_id: int) -> Tuple[bool, int]:
         """게스트가 현재 참여 중인 게임이 있는지 확인합니다."""
         return GameroomParticipant.should_redirect_to_game(self.db, guest_id)

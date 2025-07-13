@@ -14,3 +14,5 @@ python-jose[cryptography]
 python-multipart
 passlib[bcrypt]
 pytest-cov
+redis>=4.0.0
+aioredis>=2.0.0
