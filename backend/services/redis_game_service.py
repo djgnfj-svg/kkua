@@ -43,6 +43,8 @@ class RedisGameService:
     async def create_game(self, room_id: int, participants: List[Dict], settings: Dict = None) -> bool:
         """새 게임 생성"""
         try:
+            # 기존 게임 데이터가 있다면 정리
+            await self.cleanup_game(room_id)
             default_settings = {
                 'turn_time_limit': 30,  # 30초 제한
                 'max_rounds': 10,
@@ -511,6 +513,18 @@ class RedisGameService:
     async def get_player_stats(self, room_id: int, guest_id: int) -> Optional[Dict]:
         """플레이어 통계 조회"""
         try:
+            # 게임 상태 먼저 확인
+            game_state = await self.get_game_state(room_id)
+            if not game_state:
+                logger.warning(f"게임 상태 없음: room_id={room_id}")
+                return None
+            
+            # 해당 플레이어가 이 게임의 참가자인지 확인
+            is_participant = any(p['guest_id'] == guest_id for p in game_state.get('participants', []))
+            if not is_participant:
+                logger.warning(f"플레이어가 게임 참가자가 아님: room_id={room_id}, guest_id={guest_id}")
+                return None
+            
             stats_str = await self.redis_client.get(f"game:{room_id}:player:{guest_id}")
             if stats_str:
                 return json.loads(stats_str)
@@ -593,6 +607,48 @@ class RedisGameService:
             )
         except Exception as e:
             logger.error(f"게임 상태 저장 실패: {e}")
+    
+    async def check_player_active_games(self, guest_id: int) -> List[int]:
+        """플레이어가 참여 중인 활성 게임 목록 조회"""
+        try:
+            active_games = []
+            # 모든 게임 키 조회
+            game_keys = await self.redis_client.keys("game:*")
+            for key in game_keys:
+                if ":player:" in key or ":words" in key or ":stats" in key:
+                    continue
+                
+                # 게임 상태 조회
+                game_state_str = await self.redis_client.get(key)
+                if game_state_str:
+                    game_state = json.loads(game_state_str)
+                    if game_state.get('status') in ['playing', 'waiting']:
+                        # 해당 플레이어가 참가자인지 확인
+                        participants = game_state.get('participants', [])
+                        if any(p['guest_id'] == guest_id for p in participants):
+                            room_id = game_state.get('room_id')
+                            if room_id:
+                                active_games.append(room_id)
+            
+            return active_games
+        except Exception as e:
+            logger.error(f"플레이어 활성 게임 조회 실패: {e}")
+            return []
+    
+    async def validate_player_can_join(self, room_id: int, guest_id: int) -> tuple[bool, str]:
+        """플레이어가 게임에 참여할 수 있는지 검증"""
+        try:
+            # 해당 플레이어의 다른 활성 게임 확인
+            active_games = await self.check_player_active_games(guest_id)
+            other_games = [game for game in active_games if game != room_id]
+            
+            if other_games:
+                return False, f"다른 게임({other_games[0]})에 이미 참여 중입니다. 먼저 해당 게임을 종료해주세요."
+            
+            return True, "참여 가능"
+        except Exception as e:
+            logger.error(f"플레이어 참여 가능성 검증 실패: {e}")
+            return True, "검증 실패하지만 허용"
     
     # === 게임 종료 ===
     

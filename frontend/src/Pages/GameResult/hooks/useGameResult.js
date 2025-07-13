@@ -12,7 +12,11 @@ const useGameResult = (roomId) => {
 
   useEffect(() => {
     const fetchGameResult = async () => {
-      if (!roomId) return;
+      console.log('🔍 useGameResult 실행:', { roomId, type: typeof roomId });
+      if (!roomId) {
+        console.log('❌ roomId가 없어서 API 호출 건너뜀');
+        return;
+      }
 
       try {
         setLoading(true);
@@ -20,13 +24,13 @@ const useGameResult = (roomId) => {
 
         // roomId를 숫자로 변환
         const numericRoomId = parseInt(roomId, 10);
-        console.log('게임 결과 조회 시작:', { roomId, numericRoomId });
+        console.log('🚀 게임 결과 조회 시작:', { roomId, numericRoomId });
 
         // 실제 API 호출로 게임 결과 데이터 가져오기
         const response = await axiosInstance.get(`/gamerooms/${numericRoomId}/result`);
         const data = response.data;
         
-        console.log('API 응답 데이터:', data); // 디버깅용
+        console.log('✅ API 응답 데이터:', data); // 디버깅용
         
         setGameData(data);
         setWinner(data.winner_name);
@@ -44,9 +48,10 @@ const useGameResult = (roomId) => {
         });
 
       } catch (err) {
-        console.error('게임 결과 로딩 실패:', err);
-        console.error('응답 상태:', err.response?.status);
-        console.error('응답 데이터:', err.response?.data);
+        console.error('❌ 게임 결과 로딩 실패:', err);
+        console.error('❌ 응답 상태:', err.response?.status);
+        console.error('❌ 응답 데이터:', err.response?.data);
+        console.error('❌ API URL:', `/gamerooms/${parseInt(roomId, 10)}/result`);
         
         // 구체적인 에러 메시지 설정
         let errorMessage = '게임 결과를 불러오는 중 오류가 발생했습니다.';
@@ -59,7 +64,9 @@ const useGameResult = (roomId) => {
         }
         
         setError(errorMessage);
+        console.log('💡 에러로 인해 기본값 표시:', { players: [], winner: null });
       } finally {
+        console.log('🏁 useGameResult 완료');
         setLoading(false);
       }
     };

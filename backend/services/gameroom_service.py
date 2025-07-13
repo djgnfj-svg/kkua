@@ -435,8 +435,8 @@ class GameroomService:
             )
             print(f"✅ 게임 데이터 PostgreSQL 저장 완료: game_log_id={game_log.id if game_log else 'None'}")
             
-            # Redis 게임 데이터 정리 (PostgreSQL 저장 후)
-            await redis_game.cleanup_game(room_id)
+            # Redis 게임 데이터는 PostgreSQL 저장 후 지연 정리 (30분 후)
+            asyncio.create_task(self._delayed_cleanup(redis_game, room_id, delay_minutes=30))
         except Exception as e:
             print(f"❌ 승자 결정 및 데이터 저장 실패: {e}")
             # 기본적으로 방장을 승자로 설정
@@ -537,8 +537,8 @@ class GameroomService:
             )
             print(f"✅ 게임 데이터 PostgreSQL 저장 완료: game_log_id={game_log.id if game_log else 'None'}")
             
-            # Redis 게임 데이터는 결과 조회를 위해 유지 (나중에 백그라운드에서 정리)
-            # await redis_game.cleanup_game(room_id)
+            # Redis 게임 데이터는 PostgreSQL 저장 후 지연 정리 (30분 후)
+            asyncio.create_task(self._delayed_cleanup(redis_game, room_id, delay_minutes=30))
         except Exception as e:
             print(f"❌ 승자 결정 및 데이터 저장 실패: {e}")
             # 기본적으로 요청한 사용자를 승자로 설정
@@ -567,6 +567,16 @@ class GameroomService:
             "winner": winner.nickname if winner else None,
             "show_modal": True
         }
+
+    async def _delayed_cleanup(self, redis_game, room_id: int, delay_minutes: int = 30):
+        """Redis 게임 데이터를 지연 정리합니다."""
+        try:
+            import asyncio
+            await asyncio.sleep(delay_minutes * 60)  # 분을 초로 변환
+            await redis_game.cleanup_game(room_id)
+            print(f"🧹 Redis 게임 데이터 지연 정리 완료: room_id={room_id}, delay={delay_minutes}분")
+        except Exception as e:
+            print(f"❌ Redis 게임 데이터 지연 정리 실패: {e}")
 
     def get_participants(self, room_id: int) -> List[Dict[str, Any]]:
         """게임룸 참가자 목록을 조회합니다."""

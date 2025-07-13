@@ -15,6 +15,14 @@ const GameResultModal = ({ isOpen, onClose, roomId, winnerData }) => {
     error
   } = useGameResult(roomId);
 
+  // 디버깅을 위한 로그
+  useEffect(() => {
+    if (isOpen) {
+      console.log('🎭 GameResultModal 열림:', { roomId, winnerData, loading, error });
+      console.log('📊 플레이어 데이터:', players);
+    }
+  }, [isOpen, roomId, players, loading, error]);
+
   useEffect(() => {
     // 모달이 열리고 우승자가 있으면 confetti 효과
     if (isOpen && (winner || winnerData) && !loading) {
