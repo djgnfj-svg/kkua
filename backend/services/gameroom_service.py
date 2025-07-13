@@ -537,8 +537,8 @@ class GameroomService:
             )
             print(f"✅ 게임 데이터 PostgreSQL 저장 완료: game_log_id={game_log.id if game_log else 'None'}")
             
-            # Redis 게임 데이터 정리 (PostgreSQL 저장 후)
-            await redis_game.cleanup_game(room_id)
+            # Redis 게임 데이터는 결과 조회를 위해 유지 (나중에 백그라운드에서 정리)
+            # await redis_game.cleanup_game(room_id)
         except Exception as e:
             print(f"❌ 승자 결정 및 데이터 저장 실패: {e}")
             # 기본적으로 요청한 사용자를 승자로 설정
@@ -744,12 +744,23 @@ class GameroomService:
                 detail="게임 참가자만 결과를 조회할 수 있습니다"
             )
         
-        # Redis에서 실시간 게임 데이터 조회
+        # 먼저 PostgreSQL에서 저장된 게임 결과 조회 시도
         try:
             from services.redis_game_service import get_redis_game_service
             redis_game = await get_redis_game_service()
+            persistence_service = GameDataPersistenceService(self.db, redis_game)
             
-            # Redis에서 게임 상태 확인
+            # PostgreSQL에서 게임 결과 조회 우선 시도
+            saved_game_result = await persistence_service.get_game_result_data(room_id)
+            if saved_game_result:
+                print(f"✅ PostgreSQL에서 저장된 게임 결과 발견")
+                # PostgreSQL 데이터를 사용하여 응답 생성
+                result = GameResultResponse(**saved_game_result)
+                return result
+            
+            print(f"📝 PostgreSQL에 저장된 데이터 없음, Redis 확인 중...")
+            
+            # PostgreSQL에 없으면 Redis에서 실시간 데이터 조회
             game_state = await redis_game.get_game_state(room_id)
             all_player_stats = await redis_game.get_all_player_stats(room_id)
             word_entries = await redis_game.get_word_entries(room_id)
