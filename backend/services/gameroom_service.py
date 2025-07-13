@@ -781,16 +781,11 @@ class GameroomService:
                 
                 # 플레이어 데이터 변환
                 players_data = []
-                has_actual_gameplay = False
                 
                 for i, player_stats in enumerate(all_player_stats):
                     words_submitted = player_stats.get('words_submitted', 0)
                     total_score = player_stats.get('score', 0)
                     print(f"🎮 플레이어 {player_stats.get('nickname', 'Unknown')}: words={words_submitted}, score={total_score}")
-                    
-                    # 실제 게임 플레이가 있는지 확인
-                    if words_submitted > 0 or total_score > 0:
-                        has_actual_gameplay = True
                     
                     players_data.append(PlayerGameResult(
                         guest_id=player_stats['guest_id'],
@@ -801,14 +796,6 @@ class GameroomService:
                         longest_word=player_stats.get('longest_word', ''),
                         rank=i + 1  # 임시 순위, 아래에서 정렬 후 재계산
                     ))
-                
-                # 실제 게임 플레이가 없는 경우 에러 반환
-                if not has_actual_gameplay:
-                    print(f"❌ 실제 게임 플레이 데이터 없음")
-                    raise HTTPException(
-                        status_code=status.HTTP_404_NOT_FOUND,
-                        detail="게임 결과 데이터를 찾을 수 없습니다. 게임이 시작되었지만 아무도 단어를 제출하지 않았습니다."
-                    )
                 
                 # 점수 기준으로 플레이어 정렬 및 순위 재계산
                 players_data.sort(key=lambda x: x.total_score, reverse=True)

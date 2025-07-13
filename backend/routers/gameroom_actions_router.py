@@ -140,6 +140,26 @@ async def get_game_result(
         )
 
 
+@router.get("/{room_id}/test-redis", status_code=status.HTTP_200_OK)
+async def test_redis_data(room_id: int):
+    """Redis 게임 데이터 테스트용 엔드포인트"""
+    try:
+        from services.redis_game_service import get_redis_game_service
+        redis_game = await get_redis_game_service()
+        
+        game_state = await redis_game.get_game_state(room_id)
+        all_player_stats = await redis_game.get_all_player_stats(room_id)
+        word_entries = await redis_game.get_word_entries(room_id)
+        
+        return {
+            "game_state": game_state,
+            "player_stats": all_player_stats,
+            "word_entries": word_entries
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
 @router.get("/{room_id}/is-owner", status_code=status.HTTP_200_OK)
 def check_if_owner(
     room_id: int,
