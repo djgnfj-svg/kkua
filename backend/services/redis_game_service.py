@@ -164,18 +164,51 @@ class RedisGameService:
             if game_state['current_player_id'] != guest_id:
                 return {'success': False, 'message': '당신의 턴이 아닙니다.'}
             
+            # 응답 시간 계산
+            turn_start_time = game_state.get('turn_start_time')
+            response_time = 0.0
+            if turn_start_time:
+                try:
+                    start_dt = datetime.fromisoformat(turn_start_time)
+                    response_time = (datetime.utcnow() - start_dt).total_seconds()
+                except Exception as e:
+                    logger.warning(f"응답 시간 계산 실패: {e}")
+                    response_time = 0.0
+            
             # 단어 검증
             validation_result = await self._validate_word(game_state, word)
             if not validation_result['valid']:
                 return {'success': False, 'message': validation_result['message']}
+            
+            # 현재 플레이어 정보 가져오기
+            current_player = None
+            for participant in game_state.get('participants', []):
+                if participant['guest_id'] == guest_id:
+                    current_player = participant
+                    break
+            
+            # 단어별 상세 정보 저장
+            word_entry = {
+                'word': word,
+                'player_id': guest_id,
+                'player_nickname': current_player['nickname'] if current_player else '알 수 없음',
+                'submitted_at': datetime.utcnow().isoformat(),
+                'response_time': round(response_time, 2),
+                'turn_number': len(game_state['used_words']) + 1,
+                'word_length': len(word),
+                'round_number': game_state.get('round_number', 1)
+            }
+            
+            # Redis에 단어별 상세 정보 저장
+            await self._save_word_entry(room_id, word_entry)
             
             # 단어 추가
             game_state['used_words'].append(word)
             game_state['last_word'] = word
             game_state['last_character'] = word[-1]
             
-            # 플레이어 정보 업데이트
-            await self._update_player_stats(room_id, guest_id, word)
+            # 플레이어 정보 업데이트 (응답 시간 포함)
+            await self._update_player_stats(room_id, guest_id, word, response_time)
             
             # 다음 턴으로 이동
             await self._advance_turn(room_id, game_state)
@@ -235,7 +268,70 @@ class RedisGameService:
         
         return {'valid': True}
     
-    async def _update_player_stats(self, room_id: int, guest_id: int, word: str):
+    async def _save_word_entry(self, room_id: int, word_entry: Dict):
+        """단어별 상세 정보를 Redis에 저장"""
+        try:
+            # 단어별 상세 정보 리스트에 추가
+            words_key = f"game:{room_id}:words"
+            words_data_str = await self.redis_client.get(words_key)
+            
+            if words_data_str:
+                words_data = json.loads(words_data_str)
+            else:
+                words_data = []
+                
+            words_data.append(word_entry)
+            await self.redis_client.setex(words_key, 86400, json.dumps(words_data))
+            
+            # 게임 통계 업데이트
+            await self._update_game_stats(room_id, word_entry)
+            
+        except Exception as e:
+            logger.error(f"단어 정보 저장 실패: {e}")
+    
+    async def _update_game_stats(self, room_id: int, word_entry: Dict):
+        """게임 전체 통계 업데이트"""
+        try:
+            stats_key = f"game:{room_id}:stats"
+            stats_data_str = await self.redis_client.get(stats_key)
+            
+            if stats_data_str:
+                stats_data = json.loads(stats_data_str)
+            else:
+                stats_data = {
+                    'fastest_response': None,
+                    'slowest_response': None,
+                    'longest_word': '',
+                    'shortest_word': '',
+                    'total_response_time': 0.0,
+                    'total_words': 0
+                }
+            
+            response_time = word_entry['response_time']
+            word = word_entry['word']
+            
+            # 최단/최장 응답시간 업데이트
+            if response_time > 0:
+                if stats_data['fastest_response'] is None or response_time < stats_data['fastest_response']:
+                    stats_data['fastest_response'] = response_time
+                if stats_data['slowest_response'] is None or response_time > stats_data['slowest_response']:
+                    stats_data['slowest_response'] = response_time
+                stats_data['total_response_time'] += response_time
+            
+            # 최장/최단 단어 업데이트
+            if len(word) > len(stats_data['longest_word']):
+                stats_data['longest_word'] = word
+            if not stats_data['shortest_word'] or len(word) < len(stats_data['shortest_word']):
+                stats_data['shortest_word'] = word
+                
+            stats_data['total_words'] += 1
+            
+            await self.redis_client.setex(stats_key, 86400, json.dumps(stats_data))
+            
+        except Exception as e:
+            logger.error(f"게임 통계 업데이트 실패: {e}")
+
+    async def _update_player_stats(self, room_id: int, guest_id: int, word: str, response_time: float = 0.0):
         """플레이어 통계 업데이트"""
         try:
             player_key = f"game:{room_id}:player:{guest_id}"
@@ -243,8 +339,28 @@ class RedisGameService:
             
             if player_data_str:
                 player_data = json.loads(player_data_str)
-                player_data['score'] += len(word)  # 글자 수만큼 점수
+                player_data['score'] += len(word) * 10  # 글자당 10점
                 player_data['words_submitted'] += 1
+                
+                # 응답 시간 통계 추가
+                if response_time > 0:
+                    if 'total_response_time' not in player_data:
+                        player_data['total_response_time'] = 0.0
+                    if 'fastest_response' not in player_data:
+                        player_data['fastest_response'] = None
+                    if 'slowest_response' not in player_data:
+                        player_data['slowest_response'] = None
+                    if 'longest_word' not in player_data:
+                        player_data['longest_word'] = ''
+                        
+                    player_data['total_response_time'] += response_time
+                    
+                    if player_data['fastest_response'] is None or response_time < player_data['fastest_response']:
+                        player_data['fastest_response'] = response_time
+                    if player_data['slowest_response'] is None or response_time > player_data['slowest_response']:
+                        player_data['slowest_response'] = response_time
+                    if len(word) > len(player_data['longest_word']):
+                        player_data['longest_word'] = word
                 
                 await self.redis_client.setex(player_key, 86400, json.dumps(player_data))
                 
@@ -414,6 +530,13 @@ class RedisGameService:
             for participant in game_state['participants']:
                 player_stats = await self.get_player_stats(room_id, participant['guest_id'])
                 if player_stats:
+                    # 평균 응답 시간 계산
+                    if player_stats.get('words_submitted', 0) > 0 and player_stats.get('total_response_time', 0) > 0:
+                        player_stats['average_response_time'] = round(
+                            player_stats['total_response_time'] / player_stats['words_submitted'], 2
+                        )
+                    else:
+                        player_stats['average_response_time'] = 0.0
                     stats.append(player_stats)
             
             return sorted(stats, key=lambda x: x['score'], reverse=True)
@@ -421,6 +544,44 @@ class RedisGameService:
         except Exception as e:
             logger.error(f"전체 플레이어 통계 조회 실패: {e}")
             return []
+    
+    async def get_word_entries(self, room_id: int) -> List[Dict]:
+        """단어별 상세 정보 조회"""
+        try:
+            words_key = f"game:{room_id}:words"
+            words_data_str = await self.redis_client.get(words_key)
+            
+            if words_data_str:
+                return json.loads(words_data_str)
+            return []
+            
+        except Exception as e:
+            logger.error(f"단어 정보 조회 실패: {e}")
+            return []
+    
+    async def get_game_stats(self, room_id: int) -> Dict:
+        """게임 전체 통계 조회"""
+        try:
+            stats_key = f"game:{room_id}:stats"
+            stats_data_str = await self.redis_client.get(stats_key)
+            
+            if stats_data_str:
+                stats_data = json.loads(stats_data_str)
+                
+                # 평균 응답 시간 계산
+                if stats_data.get('total_words', 0) > 0 and stats_data.get('total_response_time', 0) > 0:
+                    stats_data['average_response_time'] = round(
+                        stats_data['total_response_time'] / stats_data['total_words'], 2
+                    )
+                else:
+                    stats_data['average_response_time'] = 0.0
+                    
+                return stats_data
+            return {}
+            
+        except Exception as e:
+            logger.error(f"게임 통계 조회 실패: {e}")
+            return {}
     
     async def _save_game_state(self, room_id: int, game_state: Dict):
         """게임 상태 저장"""

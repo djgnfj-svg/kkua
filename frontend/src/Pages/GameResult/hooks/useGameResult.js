@@ -23,19 +23,21 @@ const useGameResult = (roomId) => {
           const response = await axiosInstance.get(`/gamerooms/${roomId}/result`);
           const data = response.data;
           
+          console.log('API 응답 데이터:', data); // 디버깅용
+          
           setGameData(data);
           setWinner(data.winner_name);
-          setPlayers(data.players);
-          setUsedWords(data.used_words);
+          setPlayers(data.players || []);
+          setUsedWords(data.used_words || []);
           setGameStats({
-            totalRounds: data.total_rounds,
-            gameDuration: data.game_duration,
-            totalWords: data.total_words,
-            averageResponseTime: data.average_response_time,
-            longestWord: data.longest_word,
-            fastestResponse: data.fastest_response,
-            slowestResponse: data.slowest_response,
-            mvp: data.mvp_name
+            totalRounds: data.total_rounds || 0,
+            gameDuration: data.game_duration || '0분 0초',
+            totalWords: data.total_words || 0,
+            averageResponseTime: data.average_response_time || 0,
+            longestWord: data.longest_word || '없음',
+            fastestResponse: data.fastest_response || 0,
+            slowestResponse: data.slowest_response || 0,
+            mvp: data.mvp_name || '없음'
           });
 
         } catch (apiError) {

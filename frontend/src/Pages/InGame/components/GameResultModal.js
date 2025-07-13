@@ -1,9 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import WinnerAnnouncement from '../../GameResult/components/WinnerAnnouncement';
-import GameStatistics from '../../GameResult/components/GameStatistics';
-import PlayerRanking from '../../GameResult/components/PlayerRanking';
-import WordTimeline from '../../GameResult/components/WordTimeline';
 import useGameResult from '../../GameResult/hooks/useGameResult';
 
 const GameResultModal = ({ isOpen, onClose, roomId, winnerData }) => {
@@ -14,8 +11,6 @@ const GameResultModal = ({ isOpen, onClose, roomId, winnerData }) => {
     gameData,
     winner,
     players,
-    usedWords,
-    gameStats,
     loading,
     error
   } = useGameResult(roomId);
@@ -166,48 +161,78 @@ const GameResultModal = ({ isOpen, onClose, roomId, winnerData }) => {
           {/* 우승자 발표 */}
           <WinnerAnnouncement winner={winner || winnerData} />
 
-          {/* 게임 통계 및 순위 */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <GameStatistics gameStats={gameStats} />
-            
-            {/* 간단한 플레이어 순위 */}
-            <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg p-6">
-              <h3 className="text-2xl font-bold text-gray-800 mb-6">🏆 플레이어 순위</h3>
-              {Array.isArray(players) && players.length > 0 ? (
-                <div className="space-y-3">
-                  {players.slice(0, 5).map((player, index) => {
-                    // 디버깅: 플레이어 데이터 확인
-                    console.log('Player data:', player);
-                    return (
-                    <div key={player.guest_id || index} className="flex items-center justify-between p-3 bg-white rounded-lg shadow">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center text-sm font-bold">
-                          {((player.nickname || player.name || '?') + '').charAt(0).toUpperCase()}
+          {/* 플레이어 순위 (단순화된 버전) */}
+          <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg p-8">
+            <h2 className="text-3xl font-bold text-gray-800 mb-8 text-center">🏆 최종 순위</h2>
+            {Array.isArray(players) && players.length > 0 ? (
+              <div className="space-y-4">
+                {players.map((player, index) => {
+                  // 안전한 데이터 접근
+                  const nickname = player?.nickname || player?.name || '플레이어';
+                  const totalScore = player?.total_score || player?.totalScore || 0;
+                  const wordsSubmitted = player?.words_submitted || player?.wordsSubmitted || 0;
+                  const guestId = player?.guest_id || player?.id || index;
+                  
+                  // 순위별 스타일링
+                  const getRankStyle = (rank) => {
+                    switch(rank) {
+                      case 0: return 'bg-gradient-to-r from-yellow-100 to-yellow-200 border-yellow-300 text-yellow-800';
+                      case 1: return 'bg-gradient-to-r from-gray-100 to-gray-200 border-gray-300 text-gray-800';
+                      case 2: return 'bg-gradient-to-r from-orange-100 to-orange-200 border-orange-300 text-orange-800';
+                      default: return 'bg-white border-gray-200 text-gray-700';
+                    }
+                  };
+
+                  const getRankIcon = (rank) => {
+                    switch(rank) {
+                      case 0: return { icon: '🥇', size: 'text-4xl' };
+                      case 1: return { icon: '🥈', size: 'text-4xl' };
+                      case 2: return { icon: '🥉', size: 'text-4xl' };
+                      default: return { icon: '🏅', size: 'text-3xl' };
+                    }
+                  };
+
+                  const rankStyle = getRankStyle(index);
+                  const rankIcon = getRankIcon(index);
+                  
+                  return (
+                    <div key={guestId} className={`flex items-center justify-between p-6 rounded-xl border-2 ${rankStyle} shadow-lg transform transition-all duration-300 hover:scale-105`}>
+                      <div className="flex items-center space-x-6">
+                        {/* 순위 아이콘 */}
+                        <div className={`${rankIcon.size} flex-shrink-0`}>
+                          {rankIcon.icon}
                         </div>
-                        <div>
-                          <div className="font-semibold">{player.nickname || player.name || '플레이어'}</div>
-                          <div className="text-sm text-gray-600">
-                            점수: {player.total_score || player.totalScore || 0}
+                        
+                        {/* 플레이어 정보 */}
+                        <div className="flex items-center space-x-4">
+                          <div className="w-12 h-12 bg-purple-500 text-white rounded-full flex items-center justify-center text-lg font-bold">
+                            {nickname.toString().charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <div className="text-xl font-bold">{nickname}</div>
+                            <div className="text-sm opacity-75">
+                              {wordsSubmitted}개 단어 제출
+                            </div>
                           </div>
                         </div>
                       </div>
-                      <div className="text-2xl">
-                        {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '🏅'}
+                      
+                      {/* 점수 */}
+                      <div className="text-right">
+                        <div className="text-3xl font-bold">{totalScore.toLocaleString()}</div>
+                        <div className="text-sm opacity-75">점</div>
                       </div>
                     </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-center text-gray-500 py-8">
-                  플레이어 데이터를 불러오는 중...
-                </div>
-              )}
-            </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center text-gray-500 py-12">
+                <div className="text-4xl mb-4">🎮</div>
+                <div className="text-lg">순위 데이터를 불러오는 중...</div>
+              </div>
+            )}
           </div>
-
-          {/* 단어 타임라인 */}
-          <WordTimeline usedWords={usedWords} players={players} />
 
           {/* 액션 버튼들 */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center">

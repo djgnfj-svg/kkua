@@ -117,13 +117,13 @@ def check_active_game(
 
 
 @router.get("/{room_id}/result", response_model=GameResultResponse, status_code=status.HTTP_200_OK)
-def get_game_result(
+async def get_game_result(
     room_id: int,
     guest: Guest = Depends(get_current_guest),
     service: GameroomService = Depends(get_gameroom_service),
 ):
     """게임 결과를 조회합니다. 게임이 종료된 방의 참가자만 조회할 수 있습니다."""
-    return service.get_game_result(room_id, guest)
+    return await service.get_game_result(room_id, guest)
 
 
 @router.get("/{room_id}/is-owner", status_code=status.HTTP_200_OK)

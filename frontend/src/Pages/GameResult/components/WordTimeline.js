@@ -12,10 +12,10 @@ const WordTimeline = ({ usedWords = [], players = [] }) => {
     '후러': 'bg-red-500 text-red-700 border-red-300',
   };
 
-  // 플레이어 필터링
+  // 플레이어 필터링 - player_name과 player 필드 모두 지원
   const filteredWords = selectedPlayer === 'all' 
     ? usedWords 
-    : usedWords.filter(word => word.player === selectedPlayer);
+    : usedWords.filter(word => (word.player_name || word.player) === selectedPlayer);
 
   // 표시할 단어 수 결정
   const displayWords = showAll ? filteredWords : filteredWords.slice(0, 10);
@@ -39,9 +39,14 @@ const WordTimeline = ({ usedWords = [], players = [] }) => {
             className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-purple-500"
           >
             <option value="all">전체 플레이어</option>
-            {players.map(player => (
-              <option key={player.name} value={player.name}>{player.name}</option>
-            ))}
+            {players.map(player => {
+              const playerName = player.nickname || player.name || '플레이어';
+              return (
+                <option key={player.guest_id || player.name || playerName} value={playerName}>
+                  {playerName}
+                </option>
+              );
+            })}
           </select>
           
           <button
@@ -61,9 +66,16 @@ const WordTimeline = ({ usedWords = [], players = [] }) => {
         </div>
         <div className="text-center p-3 bg-green-50 rounded-lg">
           <div className="text-lg font-bold text-green-600">
-            {filteredWords.length > 0 ? (filteredWords.reduce((sum, word) => sum + word.word.length, 0) / filteredWords.length).toFixed(1) : 0}
+            {(() => {
+              const validResponseTimes = filteredWords
+                .map(w => w.response_time || w.responseTime || 0)
+                .filter(time => time > 0);
+              return validResponseTimes.length > 0 
+                ? (validResponseTimes.reduce((sum, time) => sum + time, 0) / validResponseTimes.length).toFixed(1)
+                : '측정 중';
+            })()}
           </div>
-          <div className="text-xs text-gray-600">평균 길이</div>
+          <div className="text-xs text-gray-600">평균 응답시간</div>
         </div>
         <div className="text-center p-3 bg-purple-50 rounded-lg">
           <div className="text-lg font-bold text-purple-600">
@@ -73,7 +85,14 @@ const WordTimeline = ({ usedWords = [], players = [] }) => {
         </div>
         <div className="text-center p-3 bg-yellow-50 rounded-lg">
           <div className="text-lg font-bold text-yellow-600">
-            {filteredWords.length > 0 ? Math.min(...filteredWords.map(w => w.responseTime || 0)).toFixed(1) : 0}
+            {(() => {
+              const validResponseTimes = filteredWords
+                .map(w => w.response_time || w.responseTime || 0)
+                .filter(time => time > 0);
+              return validResponseTimes.length > 0 
+                ? Math.min(...validResponseTimes).toFixed(1)
+                : '측정 중';
+            })()}
           </div>
           <div className="text-xs text-gray-600">최단 시간</div>
         </div>
@@ -91,9 +110,10 @@ const WordTimeline = ({ usedWords = [], players = [] }) => {
             </div>
           ) : (
             displayWords.map((wordData, index) => {
-              const colorClass = getPlayerColor(wordData.player);
+              const playerName = wordData.player_name || wordData.player || '알 수 없음';
+              const colorClass = getPlayerColor(playerName);
               const isLongWord = wordData.word.length >= 4;
-              const isFastResponse = (wordData.responseTime || 0) < 3;
+              const isFastResponse = (wordData.response_time || wordData.responseTime || 0) < 3;
 
               return (
                 <div
@@ -134,14 +154,14 @@ const WordTimeline = ({ usedWords = [], players = [] }) => {
                         {/* 플레이어 및 시간 정보 */}
                         <div className="text-right">
                           <div className={`inline-block px-3 py-1 rounded-full text-sm font-medium bg-opacity-20 ${colorClass}`}>
-                            {wordData.player}
+                            {playerName}
                           </div>
                           <div className="text-xs text-gray-500 mt-1">
                             {wordData.timestamp && new Date(wordData.timestamp).toLocaleTimeString()}
                           </div>
-                          {wordData.responseTime && (
+                          {(wordData.response_time || wordData.responseTime) && (
                             <div className="text-xs text-gray-500">
-                              응답시간: {wordData.responseTime.toFixed(1)}초
+                              응답시간: {(wordData.response_time || wordData.responseTime).toFixed(1)}초
                             </div>
                           )}
                         </div>
