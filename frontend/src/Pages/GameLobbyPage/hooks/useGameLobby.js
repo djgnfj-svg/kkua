@@ -90,6 +90,19 @@ const useGameLobby = () => {
       return;
     }
   }, [isAuthenticated, user, navigate]);
+
+  // WebSocket 메시지를 통한 게임 시작 감지
+  useEffect(() => {
+    const hasGameStartedMessage = messages.some(
+      msg => msg.type === 'system' && 
+      (msg.message.includes('게임이 시작') || msg.message.includes('게임 페이지로 이동'))
+    );
+    
+    if (hasGameStartedMessage && isStartingGame) {
+      console.log('✅ WebSocket을 통한 게임 시작 메시지 확인, 상태 리셋');
+      setIsStartingGame(false);
+    }
+  }, [messages, isStartingGame]);
   const fetchRoomData = useCallback(async () => {
     try {
       setIsLoading(true);
@@ -234,8 +247,13 @@ const useGameLobby = () => {
       const response = await axiosInstance.post(apiUrl);
       console.log('✅ 게임 시작 API 응답:', response.data);
       
-      // 게임 시작 성공 시 상태 리셋 (WebSocket으로 navigate 처리)
-      // setIsStartingGame(false); // WebSocket에서 페이지 이동하므로 리셋하지 않음
+      // 백업 로직: WebSocket 메시지가 3초 내에 오지 않으면 수동 이동
+      setTimeout(() => {
+        if (isStartingGame) {
+          console.log('⚠️ WebSocket 메시지 타임아웃, 수동으로 게임 페이지로 이동');
+          navigate(gameUrl(roomId));
+        }
+      }, 3000);
       
     } catch (error) {
       console.error('게임 시작 오류:', error);

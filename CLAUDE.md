@@ -13,11 +13,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - Standardized code documentation with focus on 'why' over 'what'
 - **Bug Fixes**: Resolved critical game ending functionality
 - **Authentication System**: Migrated from UUID-based to secure session-based authentication with HTTP-only cookies
+- **Redis Integration**: Implemented Redis-based real-time game state management
+  - Real-time word chain game processing with turn timers
+  - Session-based game state persistence (24-hour TTL)
+  - Performance optimization through centralized state management
 - **Backend Refactoring**: Consolidated services following Single Responsibility Principle
   - Merged GameroomActions into GameroomService
   - Split ConnectionManager into focused components
   - Introduced WebSocketMessageService for message handling
+  - Added RedisGameService for high-performance game state management
 - **Improved Architecture**: Enhanced separation of concerns with middleware pattern
+- **Performance Optimizations**: Client-side timer synchronization and reduced WebSocket broadcasts
 
 ## Quick Start
 
@@ -152,26 +158,33 @@ docker build -f frontend/Dockerfile.prod -t kkua-frontend-prod frontend/
   - `gamerooms_router.py`: Basic CRUD operations for game rooms
   - `gameroom_actions_router.py`: Game room actions (join, leave, ready, start)
   - `gameroom_ws_router.py`: WebSocket functionality for real-time communication
+  - `game_api_router.py`: **NEW** - Redis-based game API endpoints (word submission, game state)
   - `guests_router.py`: Guest management endpoints with session support
 - **services/**: Business logic layer
   - `auth_service.py`: Authentication, session management, and cookie handling
   - `gameroom_service.py`: Consolidated game room management and actions logic
   - `guest_service.py`: Guest management logic
-  - `session_service.py`: Session storage and validation with Redis-like in-memory store
+  - `session_service.py`: Thread-safe in-memory session storage with automatic cleanup
   - `game_state_service.py`: Game state management and word chain validation
   - `websocket_message_service.py`: WebSocket message processing and routing
+  - `redis_game_service.py`: **NEW** - Redis-based real-time game state management
 - **schemas/**: Pydantic models for request/response validation
   - `auth_schema.py`: Authentication request/response models
   - `gameroom_schema.py`: Game room data models
   - `gameroom_actions_schema.py`: Game room action models
   - `gameroom_ws_schema.py`: WebSocket message models
+  - `websocket_schema.py`: **NEW** - Enhanced WebSocket message validation
   - `guest_schema.py`: Guest/user data models
 - **middleware/**: Custom middleware components
-  - `auth_middleware.py`: Request authentication and session validation
+  - `auth_middleware.py`: Session-based authentication with secure cookie validation
+  - `exception_handler.py`: **NEW** - Global exception handling middleware
+  - `rate_limiter.py`: **NEW** - Rate limiting for API endpoints
 - **websocket/**: WebSocket connection management
-  - `connection_manager.py`: Game room WebSocket facade (renamed from ws_manager)
-  - `websocket_manager.py`: WebSocket connection management
-  - `word_chain_manager.py`: Word chain game engine
+  - `connection_manager.py`: Game room WebSocket facade with dual architecture support
+  - `websocket_manager.py`: Low-level WebSocket connection management
+  - `word_chain_manager.py`: Legacy word chain game engine (superseded by Redis service)
+- **utils/**: Utility modules
+  - `security.py`: Security utilities for session token generation and validation
 - **repositories/**: Data access layer with database operations
   - `gameroom_repository.py`: Game room and participant data access
   - `guest_repository.py`: Guest/user data access
@@ -218,6 +231,61 @@ docker build -f frontend/Dockerfile.prod -t kkua-frontend-prod frontend/
 6. **Middleware Pattern**: Authentication middleware for protecting routes and validating sessions
 7. **Environment-based Configuration**: Separate settings for development and production
 8. **Single Responsibility Principle**: Recent refactoring split large components into focused services
+9. **Dual Game State Architecture**: PostgreSQL for persistent data + Redis for real-time game state
+10. **Performance Optimization**: Client-side timer synchronization with server validation
+
+## Redis Architecture & Real-time Game Management
+
+### Redis Game Service Architecture
+The **RedisGameService** (`backend/services/redis_game_service.py`) provides high-performance, real-time game state management:
+
+#### Core Features:
+- **Real-time Game State**: Game state stored in Redis with 24-hour TTL
+- **Turn-based Timer Management**: Async timer system with WebSocket broadcasts
+- **Player Statistics**: Individual player performance tracking per game
+- **Word Validation**: Korean word validation with duplicate checking
+- **Automatic Game Flow**: Turn progression and round management
+
+#### Redis Data Structure:
+```bash
+# Game state
+game:{room_id}                    # Main game state JSON
+game:{room_id}:player:{guest_id}  # Individual player stats
+```
+
+#### Key Redis Operations:
+- **Game Creation**: Shuffled participant order with random first player
+- **Word Submission**: Real-time validation and state updates
+- **Timer Management**: Async countdown with critical moment broadcasts
+- **Game Statistics**: Score calculation and performance tracking
+
+### Dual Architecture Pattern
+The application uses a sophisticated dual architecture for optimal performance:
+
+#### PostgreSQL (Persistent Storage):
+- Game room metadata and participant relationships
+- User session management and authentication
+- Game logs and historical statistics
+- Permanent data requiring ACID compliance
+
+#### Redis (Real-time State):
+- Active game state and current player information
+- Turn timers and countdown management
+- Word chain validation and used words tracking
+- Real-time player statistics during gameplay
+
+### WebSocket Integration
+Redis game events automatically trigger WebSocket broadcasts:
+- **Game Start**: `game_started_redis` with participant order
+- **Word Submission**: `word_submitted` with next player information
+- **Timer Updates**: `game_time_update` for real-time countdown
+- **Game Over**: `game_over` with final results
+
+### Performance Optimizations
+1. **Client-side Timer**: Reduces server load with local countdown synchronization
+2. **Selective Broadcasting**: Timer updates only at critical moments (10, 5, 3, 2, 1 seconds)
+3. **Connection Pooling**: Redis client with optimized connection management
+4. **Session Cleanup**: Automatic expired session removal with threading
 
 ## Testing Strategy
 
@@ -526,6 +594,19 @@ docker-compose up -d
 - Verify network stability
 - Check if session is expiring
 
+### Performance Issues
+
+#### Game performance optimization patterns
+- **Timer Synchronization**: Use client-side timers with server validation to reduce WebSocket traffic
+- **Selective Broadcasting**: Only broadcast timer updates at critical moments (≤10 seconds)
+- **Redis Connection Pooling**: Configure max_connections=20 with keepalive for Redis client
+- **Progressive Rendering**: Avoid excessive animations during gameplay for multi-window scenarios
+
+#### WebSocket message handling best practices
+- **Message Format Validation**: Always validate WebSocket message structure with Pydantic schemas
+- **Error Recovery**: Implement automatic reconnection with exponential backoff
+- **State Synchronization**: Use periodic REST API calls (3-second intervals) as WebSocket backup
+
 ### Testing Issues
 
 #### Tests fail with database errors
@@ -586,3 +667,50 @@ docker-compose restart
 3. Keep Docker images updated: `docker-compose pull`
 4. Clean up unused images: `docker system prune -a`
 5. Use `.env` files for local configuration, never commit secrets
+
+## Critical Development Patterns
+
+### WebSocket Message Structure
+Always follow this pattern for WebSocket message validation:
+```python
+# Backend - Pydantic schema validation
+class GameActionMessage(BaseModel):
+    type: str = "game_action"
+    action: str  # toggle_ready, submit_word, etc.
+    data: Dict[str, Any] = {}
+
+# Frontend - Consistent message format
+const message = {
+    type: 'game_action',
+    action: 'toggle_ready',
+    data: {}
+};
+```
+
+### Timer Implementation Best Practices
+1. **Client-side Primary**: Use client-side countdown for UI responsiveness
+2. **Server Validation**: Validate timing on server for security
+3. **Synchronization**: Sync client timer with server at critical moments
+4. **Graceful Degradation**: Fall back to server timer if client sync fails
+
+### Authentication Flow Patterns
+```javascript
+// Frontend - Always include credentials for API calls
+axiosInstance.defaults.withCredentials = true;
+
+// Backend - Validate session in middleware
+async def require_authentication(request: Request, db: Session = Depends(get_db)) -> Guest:
+    session_token = request.cookies.get("session_token")
+    # Validate and return guest object
+```
+
+### Redis vs PostgreSQL Decision Matrix
+- **Use Redis for**: Active game state, real-time data, temporary data (<24h)
+- **Use PostgreSQL for**: User accounts, game logs, persistent relationships
+- **Hybrid approach**: Store references in PostgreSQL, active state in Redis
+
+### Performance Optimization Guidelines
+1. **Minimize WebSocket Broadcasts**: Only send critical updates
+2. **Batch Database Operations**: Use bulk operations where possible
+3. **Implement Client-side Caching**: Cache static data and recent API responses
+4. **Progressive Enhancement**: Core functionality should work without real-time features

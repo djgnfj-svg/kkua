@@ -272,13 +272,42 @@ class GameroomService:
                 detail=error_message
             )
         
+        # 게임룸 상태를 PLAYING으로 변경
+        room = self.repository.find_by_id(room_id)
+        if not room:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="게임룸을 찾을 수 없습니다."
+            )
+        
+        room.status = GameStatus.PLAYING.value
+        room.started_at = datetime.now()
+        self.db.commit()
+        
         # 게임 시작
         success = self.game_state_service.start_game(room_id)
         if not success:
+            # 상태 롤백
+            room.status = GameStatus.WAITING.value
+            room.started_at = None
+            self.db.commit()
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="게임 시작에 실패했습니다."
             )
+
+        # 즉시 게임 시작 WebSocket 브로드캐스트 (빠른 응답)
+        try:
+            await self.ws_manager.broadcast_to_room(room_id, {
+                'type': 'game_started',
+                'room_id': room_id,
+                'message': '🎮 게임이 시작되었습니다! 게임 페이지로 이동합니다.',
+                'started_at': datetime.now().isoformat(),
+                'status': 'playing'
+            })
+            print(f"✅ 즉시 게임 시작 WebSocket 브로드캐스트 완료: room_id={room_id}")
+        except Exception as e:
+            print(f"❌ 즉시 게임 시작 WebSocket 브로드캐스트 실패: {e}")
 
         # Redis 기반 게임 시스템 초기화
         try:
@@ -296,8 +325,10 @@ class GameroomService:
                 for p in participants if p.left_at is None
             ]
             
+            if not participant_data:
+                raise Exception("참가자가 없습니다.")
+            
             # 게임룸 정보에서 설정 가져오기
-            room = self.repository.find_by_id(room_id)
             game_settings = {
                 'turn_time_limit': 30,
                 'max_rounds': room.max_rounds if room else 10,
@@ -309,53 +340,37 @@ class GameroomService:
             await redis_game.create_game(room_id, participant_data, game_settings)
             await redis_game.start_game(room_id, "끝말잇기")
             
-            print(f"🎮 Redis 게임 초기화 완료: room_id={room_id}")
+            print(f"🎮 Redis 게임 초기화 완료: room_id={room_id}, participants={len(participant_data)}")
             
         except Exception as e:
             print(f"❌ Redis 게임 초기화 실패: {e}")
-            # Redis 실패 시 기존 메모리 기반 시스템으로 fallback
-            if self.ws_manager:
-                participants = self.repository.find_room_participants(room_id)
-                participant_data = [
-                    {
-                        "guest_id": p.guest.guest_id,
-                        "nickname": p.guest.nickname,
-                        "status": p.status.value if hasattr(p.status, "value") else p.status,
-                        "is_creator": p.guest.guest_id == p.gameroom.created_by,
-                    }
-                    for p in participants if p.left_at is None
-                ]
-                room = self.repository.find_by_id(room_id)
-                max_rounds = room.max_rounds if room else 10
-                self.ws_manager.initialize_word_chain_game(room_id, participant_data, max_rounds)
-                self.ws_manager.start_word_chain_game(room_id, "끝말잇기")
-
-        # 웹소켓 이벤트 발송 (게임 시작) - Redis 성공/실패 관계없이 실행
-        print(f"🎮 게임 시작 WebSocket 브로드캐스트 시작: room_id={room_id}")
-        try:
-            await self.ws_manager.broadcast_room_update(
-                room_id,
-                "game_started",
-                {
-                    "room_id": room_id,
-                    "started_at": datetime.now().isoformat(),
-                    "message": "게임이 시작되었습니다!",
-                },
+            # Redis 실패 시 DB 상태 롤백
+            room.status = GameStatus.WAITING.value
+            room.started_at = None
+            self.db.commit()
+            
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="게임 초기화에 실패했습니다."
             )
+
+        # 게임 시작 WebSocket 브로드캐스트 (Redis와 별도로 전송)
+        try:
+            await self.ws_manager.broadcast_to_room(room_id, {
+                'type': 'game_started',
+                'room_id': room_id,
+                'message': '🎮 게임이 시작되었습니다! 게임 페이지로 이동합니다.',
+                'started_at': datetime.now().isoformat(),
+                'status': 'playing'
+            })
             print(f"✅ 게임 시작 WebSocket 브로드캐스트 완료: room_id={room_id}")
-
-            # 끝말잇기 게임 상태 브로드캐스트
-            await self.ws_manager.broadcast_word_chain_state(room_id)
-
-            # 첫 턴 타이머 시작
-            await self.ws_manager.start_turn_timer(room_id, 15)
         except Exception as e:
-            print(f"❌ WebSocket 브로드캐스트 실패: {e}")
+            print(f"❌ 게임 시작 WebSocket 브로드캐스트 실패: {e}")
             # WebSocket 실패해도 게임 시작은 성공으로 처리
 
         return {"message": "게임이 시작되었습니다!", "status": "PLAYING"}
 
-    def end_game(self, room_id: int, guest: Guest) -> Dict[str, str]:
+    async def end_game(self, room_id: int, guest: Guest) -> Dict[str, str]:
         """게임을 종료하고 결과를 생성합니다."""
         # 게임룸 조회
         room = self.repository.find_by_id(room_id)
@@ -365,6 +380,24 @@ class GameroomService:
                 detail="게임룸을 찾을 수 없습니다"
             )
         
+        # 방장인지 확인
+        if room.created_by != guest.guest_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="방장만 게임을 종료할 수 있습니다."
+            )
+        
+        # Redis 게임 상태 종료
+        try:
+            from services.redis_game_service import get_redis_game_service
+            redis_game = await get_redis_game_service()
+            await redis_game.end_game(room_id)
+            await redis_game.cleanup_game(room_id)
+            print(f"🏁 Redis 게임 종료 완료: room_id={room_id}")
+        except Exception as e:
+            print(f"❌ Redis 게임 종료 실패: {e}")
+            # Redis 실패해도 계속 진행
+
         # 게임 종료 처리
         success = self.game_state_service.end_game(room_id)
         if not success:
@@ -378,38 +411,137 @@ class GameroomService:
         room.ended_at = datetime.now()
         self.db.commit()
 
-        # 승자 결정 (간단한 로직 - 첫 번째 참가자)
-        participants = self.repository.find_room_participants(room_id)
+        # Redis에서 플레이어 통계 가져오기 (승자 결정)
         winner = None
-        if participants and participants[0].guest:
-            winner = participants[0].guest
+        try:
+            from services.redis_game_service import get_redis_game_service
+            redis_game = await get_redis_game_service()
+            player_stats = await redis_game.get_all_player_stats(room_id)
+            
+            if player_stats:
+                # 최고 점수 플레이어를 승자로 선정
+                winner_stat = max(player_stats, key=lambda x: x['score'])
+                # 승자의 정보를 가져오기 위해 guest_repository 사용
+                winner = self.guest_repository.find_by_id(winner_stat['guest_id'])
+        except Exception as e:
+            print(f"❌ 승자 결정 실패: {e}")
+            # 기본적으로 방장을 승자로 설정
+            winner = guest
 
-        # 웹소켓 이벤트 발송 (게임 종료 및 결과 페이지 이동 알림)
-        if self.ws_manager:
-            from schemas.gameroom_ws_schema import GameEndedMessage
-            
-            end_message = GameEndedMessage(
-                room_id=room_id,
-                winner_id=winner.guest_id if winner else None,
-                winner_name=winner.nickname if winner else None,
-                message=f"게임이 종료되었습니다! {winner.nickname if winner else '무승부'}",
-                result_available=True,
-                timestamp=datetime.now()
-            )
-            
-            asyncio.create_task(
-                self.ws_manager.broadcast_room_update(
-                    room_id,
-                    "game_ended",
-                    end_message.dict(),
-                )
-            )
+        # WebSocket으로 게임 종료 알림
+        try:
+            await self.ws_manager.broadcast_to_room(room_id, {
+                'type': 'game_ended_by_host',
+                'room_id': room_id,
+                'ended_by_id': guest.guest_id,
+                'ended_by_nickname': guest.nickname,
+                'winner_id': winner.guest_id if winner else None,
+                'winner_nickname': winner.nickname if winner else None,
+                'message': f'🏁 게임이 종료되었습니다! 승자: {winner.nickname if winner else "무승부"}',
+                'result_available': True,
+                'timestamp': datetime.now().isoformat()
+            })
+            print(f"✅ 게임 종료 WebSocket 브로드캐스트 완료: room_id={room_id}")
+        except Exception as e:
+            print(f"❌ WebSocket 브로드캐스트 실패: {e}")
 
         return {
-            "message": f"게임이 종료되었습니다! 승자: {winner.nickname if winner else '무승부'}",
+            "message": "게임이 종료되었습니다!", 
             "status": "FINISHED",
             "winner": winner.nickname if winner else None,
             "result_available": True
+        }
+
+    async def complete_game(self, room_id: int, guest: Guest) -> Dict[str, str]:
+        """게임을 완료합니다. 모든 참가자가 완료할 수 있습니다 (테스트용)."""
+        # 게임룸 조회
+        room = self.repository.find_by_id(room_id)
+        if not room:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="게임룸을 찾을 수 없습니다"
+            )
+        
+        # 참가자인지 확인 (모든 참가자가 완료 가능)
+        participant = self.repository.find_participant(room_id, guest.guest_id)
+        if not participant:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="게임 참가자만 게임을 완료할 수 있습니다."
+            )
+        
+        # 게임이 진행 중인지 확인
+        if room.status != GameStatus.PLAYING:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="진행 중인 게임만 완료할 수 있습니다."
+            )
+        
+        # Redis 게임 상태 종료
+        try:
+            from services.redis_game_service import get_redis_game_service
+            redis_game = await get_redis_game_service()
+            await redis_game.end_game(room_id)
+            print(f"🏁 Redis 게임 완료 처리: room_id={room_id}")
+        except Exception as e:
+            print(f"❌ Redis 게임 완료 처리 실패: {e}")
+            # Redis 실패해도 계속 진행
+
+        # 게임 완료 처리
+        success = self.game_state_service.end_game(room_id)
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="게임 완료 처리에 실패했습니다."
+            )
+
+        # 게임룸 상태를 FINISHED로 변경
+        room.status = GameStatus.FINISHED.value
+        room.ended_at = datetime.now()
+        self.db.commit()
+
+        # Redis에서 플레이어 통계 가져오기 (승자 결정)
+        winner = None
+        try:
+            from services.redis_game_service import get_redis_game_service
+            redis_game = await get_redis_game_service()
+            player_stats = await redis_game.get_all_player_stats(room_id)
+            
+            if player_stats:
+                # 최고 점수 플레이어를 승자로 선정
+                winner_stat = max(player_stats, key=lambda x: x['score'])
+                # 승자의 정보를 가져오기 위해 guest_repository 사용
+                winner = self.guest_repository.find_by_id(winner_stat['guest_id'])
+            
+            # Redis 게임 데이터 정리
+            await redis_game.cleanup_game(room_id)
+        except Exception as e:
+            print(f"❌ 승자 결정 및 Redis 정리 실패: {e}")
+            # 기본적으로 요청한 사용자를 승자로 설정
+            winner = guest
+
+        # WebSocket으로 게임 완료 알림 (모달 표시용)
+        try:
+            await self.ws_manager.broadcast_to_room(room_id, {
+                'type': 'game_completed',
+                'room_id': room_id,
+                'completed_by_id': guest.guest_id,
+                'completed_by_nickname': guest.nickname,
+                'winner_id': winner.guest_id if winner else None,
+                'winner_nickname': winner.nickname if winner else None,
+                'message': f'🎉 게임이 완료되었습니다! 승자: {winner.nickname if winner else "무승부"}',
+                'show_modal': True,
+                'timestamp': datetime.now().isoformat()
+            })
+            print(f"✅ 게임 완료 WebSocket 브로드캐스트 완료: room_id={room_id}")
+        except Exception as e:
+            print(f"❌ WebSocket 브로드캐스트 실패: {e}")
+
+        return {
+            "message": "게임이 완료되었습니다!", 
+            "status": "COMPLETED",
+            "winner": winner.nickname if winner else None,
+            "show_modal": True
         }
 
     def get_participants(self, room_id: int) -> List[Dict[str, Any]]:

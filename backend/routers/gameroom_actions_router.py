@@ -79,13 +79,23 @@ async def start_game(
 
 
 @router.post("/{room_id}/end", status_code=status.HTTP_200_OK)
-def end_game(
+async def end_game(
     room_id: int,
     guest: Guest = Depends(get_current_guest),
     service: GameroomService = Depends(get_gameroom_service),
 ):
     """게임을 종료합니다. 방장만 게임을 종료할 수 있습니다."""
-    return service.end_game(room_id, guest)
+    return await service.end_game(room_id, guest)
+
+
+@router.post("/{room_id}/complete", status_code=status.HTTP_200_OK)
+async def complete_game(
+    room_id: int,
+    guest: Guest = Depends(get_current_guest),
+    service: GameroomService = Depends(get_gameroom_service),
+):
+    """게임을 완료합니다. 모든 참가자가 완료할 수 있습니다 (테스트용)."""
+    return await service.complete_game(room_id, guest)
 
 
 @router.get("/{room_id}/participants", status_code=status.HTTP_200_OK)

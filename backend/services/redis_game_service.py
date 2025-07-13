@@ -343,7 +343,7 @@ class RedisGameService:
     
     async def _broadcast_time_update(self, room_id: int, time_left: int):
         """시간 업데이트 브로드캐스트"""
-        # WebSocket 매니저를 통해 시간 업데이트 전송
+        # 매초 브로드캐스트 (클라이언트 동기화를 위해)
         try:
             from services.gameroom_service import ws_manager
             await ws_manager.broadcast_to_room(room_id, {

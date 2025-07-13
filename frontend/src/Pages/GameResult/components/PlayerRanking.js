@@ -64,7 +64,7 @@ const PlayerRanking = ({ players = [] }) => {
           
           return (
             <div
-              key={player.name}
+              key={player.guest_id || player.name || index}
               className={`relative p-4 rounded-xl border-2 ${rankStyle.bgGradient} ${rankStyle.border} transition-all duration-300 hover:shadow-lg animate-slideIn ${
                 isTopThree ? 'ring-2 ' + rankStyle.ringColor : ''
               }`}
@@ -89,13 +89,13 @@ const PlayerRanking = ({ players = [] }) => {
                 <div className="flex items-center space-x-4">
                   {/* 아바타 */}
                   <div className={`w-14 h-14 ${rankStyle.badgeGradient} rounded-full flex items-center justify-center text-white font-bold text-xl shadow-md`}>
-                    {player.name.charAt(0).toUpperCase()}
+                    {(player.nickname || player.name || '?').charAt(0).toUpperCase()}
                   </div>
                   
                   {/* 이름 및 기본 정보 */}
                   <div>
                     <div className={`text-xl font-bold ${rankStyle.text} flex items-center space-x-2`}>
-                      <span>{player.name}</span>
+                      <span>{player.nickname || player.name || '플레이어'}</span>
                       {player.rank === 1 && (
                         <span className="text-sm bg-yellow-400 text-yellow-900 px-2 py-1 rounded-full font-medium animate-pulse">
                           WINNER
@@ -103,8 +103,8 @@ const PlayerRanking = ({ players = [] }) => {
                       )}
                     </div>
                     <div className="text-sm text-gray-600 space-x-4">
-                      <span>점수: <span className="font-semibold">{player.totalScore}</span></span>
-                      <span>단어: <span className="font-semibold">{player.wordsSubmitted}개</span></span>
+                      <span>점수: <span className="font-semibold">{player.total_score || player.totalScore || 0}</span></span>
+                      <span>단어: <span className="font-semibold">{player.words_submitted || player.wordsSubmitted || 0}개</span></span>
                     </div>
                   </div>
                 </div>
@@ -112,10 +112,10 @@ const PlayerRanking = ({ players = [] }) => {
                 {/* 상세 통계 */}
                 <div className="text-right space-y-1">
                   <div className="text-sm text-gray-600">
-                    평균 응답: <span className="font-semibold">{player.avgResponseTime.toFixed(1)}초</span>
+                    평균 응답: <span className="font-semibold">{(player.avg_response_time || player.avgResponseTime || 0).toFixed(1)}초</span>
                   </div>
                   <div className="text-sm text-gray-600">
-                    최고 단어: <span className="font-semibold">{player.longestWord}</span>
+                    최고 단어: <span className="font-semibold">{player.longest_word || player.longestWord || '없음'}</span>
                   </div>
                 </div>
               </div>
@@ -126,13 +126,13 @@ const PlayerRanking = ({ players = [] }) => {
                 <div>
                   <div className="flex justify-between text-xs text-gray-600 mb-1">
                     <span>점수</span>
-                    <span>{player.totalScore}/30</span>
+                    <span>{player.total_score || player.totalScore || 0}/30</span>
                   </div>
                   <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                     <div
                       className={`h-full ${rankStyle.badgeGradient} rounded-full transition-all duration-1000`}
                       style={{ 
-                        width: `${Math.min((player.totalScore / 30) * 100, 100)}%`,
+                        width: `${Math.min(((player.total_score || player.totalScore || 0) / 30) * 100, 100)}%`,
                         animationDelay: `${index * 0.2 + 0.5}s`
                       }}
                     />
@@ -143,16 +143,16 @@ const PlayerRanking = ({ players = [] }) => {
                 <div>
                   <div className="flex justify-between text-xs text-gray-600 mb-1">
                     <span>응답 속도</span>
-                    <span>{player.avgResponseTime > 3 ? '느림' : player.avgResponseTime > 2 ? '보통' : '빠름'}</span>
+                    <span>{(player.avg_response_time || player.avgResponseTime || 0) > 3 ? '느림' : (player.avg_response_time || player.avgResponseTime || 0) > 2 ? '보통' : '빠름'}</span>
                   </div>
                   <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                     <div
                       className={`h-full transition-all duration-1000 ${
-                        player.avgResponseTime <= 2 ? 'bg-green-500' :
-                        player.avgResponseTime <= 4 ? 'bg-yellow-500' : 'bg-red-500'
+                        (player.avg_response_time || player.avgResponseTime || 0) <= 2 ? 'bg-green-500' :
+                        (player.avg_response_time || player.avgResponseTime || 0) <= 4 ? 'bg-yellow-500' : 'bg-red-500'
                       } rounded-full`}
                       style={{ 
-                        width: `${Math.max(100 - (player.avgResponseTime / 6) * 100, 10)}%`,
+                        width: `${Math.max(100 - ((player.avg_response_time || player.avgResponseTime || 0) / 6) * 100, 10)}%`,
                         animationDelay: `${index * 0.2 + 0.7}s`
                       }}
                     />
@@ -178,18 +178,18 @@ const PlayerRanking = ({ players = [] }) => {
       <div className="mt-6 pt-4 border-t border-gray-200">
         <div className="grid grid-cols-3 gap-4 text-center">
           <div>
-            <div className="text-2xl font-bold text-yellow-600">{sortedPlayers[0]?.totalScore || 0}</div>
+            <div className="text-2xl font-bold text-yellow-600">{sortedPlayers[0]?.total_score || sortedPlayers[0]?.totalScore || 0}</div>
             <div className="text-xs text-gray-600">최고 점수</div>
           </div>
           <div>
             <div className="text-2xl font-bold text-green-600">
-              {Math.min(...players.map(p => p.avgResponseTime)).toFixed(1)}
+              {players.length > 0 ? Math.min(...players.map(p => p.avg_response_time || p.avgResponseTime || 0)).toFixed(1) : '0.0'}
             </div>
             <div className="text-xs text-gray-600">최단 응답시간</div>
           </div>
           <div>
             <div className="text-2xl font-bold text-purple-600">
-              {Math.max(...players.map(p => p.longestWord.length))}
+              {players.length > 0 ? Math.max(...players.map(p => (p.longest_word || p.longestWord || '').length)) : 0}
             </div>
             <div className="text-xs text-gray-600">최장 단어 길이</div>
           </div>

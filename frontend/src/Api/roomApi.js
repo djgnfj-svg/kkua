@@ -16,4 +16,5 @@ export const ROOM_API = {
   LEAVE_ROOMS: (id) => `gamerooms/${id}/leave`,
   PLAY_ROOMS: (id) => `gamerooms/${id}/start`,
   END_ROOMS: (id) => `gamerooms/${id}/end`,
+  COMPLETE_ROOMS: (id) => `gamerooms/${id}/complete`,
 };

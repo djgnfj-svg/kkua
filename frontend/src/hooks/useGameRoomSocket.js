@@ -114,16 +114,18 @@ export default function useGameRoomSocket(roomId) {
         }
       } else if (data.type === 'game_status') {
         setGameStatus(data.status);
-      } else if (data.type === 'game_started') {
+      } else if (data.type === 'game_started' || data.type === 'game_started_redis') {
         setMessages((prev) => [
           ...prev,
           {
             nickname: '시스템',
-            message: '게임이 시작되었습니다! 게임 페이지로 이동합니다.',
+            message: data.message || '게임이 시작되었습니다! 게임 페이지로 이동합니다.',
             type: 'system',
             timestamp: new Date().toISOString(),
           },
         ]);
+        
+        setGameStatus('playing');
         
         // 게임 페이지로 이동
         setTimeout(() => {
@@ -185,18 +187,47 @@ export default function useGameRoomSocket(roomId) {
           setParticipants(data.participants);
           setRoomUpdated(true);
         }
-      } else if (data.type === 'game_ended') {
-        navigate(gameResultUrl(data.room_id));
+      } else if (data.type === 'game_ended' || data.type === 'game_ended_by_host') {
+        setGameStatus('finished');
         
         setMessages((prev) => [
           ...prev,
           {
             nickname: '시스템',
-            message: '게임이 종료되었습니다! 결과 페이지로 이동합니다.',
+            message: data.message || '게임이 종료되었습니다! 결과 페이지로 이동합니다.',
             type: 'system',
             timestamp: new Date().toISOString(),
           },
         ]);
+        
+        // 결과 페이지로 이동 (result_available이 true일 때만)
+        if (data.result_available) {
+          setTimeout(() => {
+            navigate(gameResultUrl(data.room_id || roomId));
+          }, 2000); // 2초 후 이동
+        }
+      } else if (data.type === 'game_completed') {
+        setGameStatus('finished');
+        
+        setMessages((prev) => [
+          ...prev,
+          {
+            nickname: '시스템',
+            message: data.message || '🎉 게임이 완료되었습니다! 결과를 확인하세요.',
+            type: 'system',
+            timestamp: new Date().toISOString(),
+          },
+        ]);
+        
+        // 게임 완료 이벤트 발생 (InGame에서 처리하도록)
+        if (data.show_modal && window.gameCompletedCallback) {
+          window.gameCompletedCallback({
+            winner_id: data.winner_id,
+            winner_nickname: data.winner_nickname,
+            room_id: data.room_id,
+            completed_by_nickname: data.completed_by_nickname
+          });
+        }
       }
     };
 
