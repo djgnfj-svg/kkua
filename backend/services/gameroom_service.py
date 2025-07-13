@@ -770,27 +770,39 @@ class GameroomService:
                 
                 # 플레이어 데이터 변환
                 players_data = []
+                has_actual_gameplay = False
+                
                 for i, player_stats in enumerate(all_player_stats):
                     words_submitted = player_stats.get('words_submitted', 0)
                     total_score = player_stats.get('score', 0)
                     print(f"🎮 플레이어 {player_stats.get('nickname', 'Unknown')}: words={words_submitted}, score={total_score}")
                     
-                    # 실제 게임 플레이가 없으면 기본값으로 테스트 데이터 제공
-                    if words_submitted == 0 and total_score == 0:
-                        # 게임이 생성만 되고 실제 플레이가 없는 경우 기본 테스트 데이터
-                        words_submitted = i + 3  # 다양한 단어 수
-                        total_score = words_submitted * 10 + (20 - i * 5)  # 점수 계산
-                        print(f"💡 테스트 데이터 적용: words={words_submitted}, score={total_score}")
+                    # 실제 게임 플레이가 있는지 확인
+                    if words_submitted > 0 or total_score > 0:
+                        has_actual_gameplay = True
                     
                     players_data.append(PlayerGameResult(
                         guest_id=player_stats['guest_id'],
                         nickname=player_stats['nickname'],
                         words_submitted=words_submitted,
                         total_score=total_score,
-                        avg_response_time=player_stats.get('average_response_time', 2.5 + i * 0.3),
-                        longest_word=player_stats.get('longest_word', '') or f"테스트단어{i+1}",
-                        rank=i + 1
+                        avg_response_time=player_stats.get('average_response_time', 0.0),
+                        longest_word=player_stats.get('longest_word', ''),
+                        rank=i + 1  # 임시 순위, 아래에서 정렬 후 재계산
                     ))
+                
+                # 실제 게임 플레이가 없는 경우 에러 반환
+                if not has_actual_gameplay:
+                    print(f"❌ 실제 게임 플레이 데이터 없음")
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="게임 결과 데이터를 찾을 수 없습니다. 게임이 시작되었지만 아무도 단어를 제출하지 않았습니다."
+                    )
+                
+                # 점수 기준으로 플레이어 정렬 및 순위 재계산
+                players_data.sort(key=lambda x: x.total_score, reverse=True)
+                for rank, player in enumerate(players_data, 1):
+                    player.rank = rank
                 
                 # 단어 체인 데이터 변환
                 used_words_data = []
@@ -803,19 +815,7 @@ class GameroomService:
                         response_time=word_entry.get('response_time', 0.0)
                     ))
                 
-                # 실제 단어 데이터가 없으면 테스트 단어 생성
-                if not used_words_data and players_data:
-                    test_words = ["사과", "과일", "일기", "기계", "계산기", "기술", "술집", "집합"]
-                    for i, word in enumerate(test_words[:len(players_data) * 2]):
-                        player_idx = i % len(players_data)
-                        used_words_data.append(WordChainEntry(
-                            word=word,
-                            player_id=players_data[player_idx].guest_id,
-                            player_name=players_data[player_idx].nickname,
-                            timestamp=datetime.now(),
-                            response_time=2.0 + (i * 0.5)
-                        ))
-                    print(f"💡 테스트 단어 데이터 생성: {len(used_words_data)}개")
+                # 단어 데이터는 실제 제출된 것만 표시 (테스트 데이터 생성 안 함)
                 
                 # 승자 결정 (점수 1위)
                 winner = players_data[0] if players_data else None
