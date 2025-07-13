@@ -19,9 +19,39 @@ from middleware.rate_limiter import RateLimitMiddleware
 from middleware.exception_handler import GlobalExceptionHandler
 from config.logging_config import setup_logging
 import logging
+from contextlib import asynccontextmanager
 
 setup_logging()
 logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """애플리케이션 수명 주기 관리"""
+    # 시작 시
+    logger.info("애플리케이션 시작 중...")
+    
+    # Redis 연결 초기화
+    try:
+        from services.redis_game_service import get_redis_game_service
+        redis_service = await get_redis_game_service()
+        logger.info("Redis 게임 서비스 초기화 완료")
+    except Exception as e:
+        logger.error(f"Redis 게임 서비스 초기화 실패: {e}")
+        # Redis 실패 시에도 앱은 계속 실행되도록 함
+    
+    yield
+    
+    # 종료 시
+    logger.info("애플리케이션 종료 중...")
+    try:
+        from services.redis_game_service import get_redis_game_service
+        redis_service = await get_redis_game_service()
+        await redis_service.disconnect()
+        logger.info("Redis 연결 종료 완료")
+    except Exception as e:
+        logger.error(f"Redis 연결 종료 실패: {e}")
+
 
 app = FastAPI(
     title="끄아 (KKUA) - 게임방 관리 API",
@@ -40,6 +70,7 @@ app = FastAPI(
     """,
     version="1.0.0",
     debug=settings.debug,
+    lifespan=lifespan,
 )
 
 logger.info(f"Starting KKUA application - Environment: {settings.environment}")
