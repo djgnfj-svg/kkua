@@ -215,7 +215,7 @@ class GameroomRepository:
             return participants
             
         except Exception as e:
-            print(f"참가자 목록 조회 오류: {str(e)}")
+            logger.error(f"참가자 목록 조회 오류: {str(e)}")
             return []
 
     def update_participant_count(self, room_id: int) -> bool:
@@ -240,5 +240,5 @@ class GameroomRepository:
             
         except Exception as e:
             self.db.rollback()
-            print(f"참가자 수 업데이트 오류: {str(e)}")
+            logger.error(f"참가자 수 업데이트 오류: {str(e)}")
             return False

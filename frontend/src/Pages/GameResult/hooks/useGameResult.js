@@ -29,8 +29,7 @@ const useGameResult = (roomId) => {
         const data = response.data;
         
         // 디버깅을 위한 로그
-        console.log('게임 결과 API 응답:', data);
-        console.log('플레이어 데이터:', data.players);
+        // 게임 결과 데이터 수신 완료
         
         // 데이터 검증 및 설정
         const validatedPlayers = Array.isArray(data.players) ? data.players.map(player => ({
@@ -50,7 +49,7 @@ const useGameResult = (roomId) => {
         
         if (shouldRetryForProcessing && retryCount < 3) {
           const reason = hasProcessingScores ? '데이터 처리 중' : '모든 플레이어 점수가 0';
-          console.log(`${reason} - 재시도 ${retryCount + 1}/3`);
+          // 데이터 불완전으로 재시도
           setRetryCount(prev => prev + 1);
           setTimeout(() => {
             fetchGameResult();
@@ -92,7 +91,7 @@ const useGameResult = (roomId) => {
         const shouldRetry = err.response?.status === 500 || err.response?.status === 502 || !err.response;
         
         if (shouldRetry && retryCount < 3) {
-          console.log(`네트워크 오류 - 재시도 ${retryCount + 1}/3`);
+          // 네트워크 오류로 재시도;
           setRetryCount(prev => prev + 1);
           setTimeout(() => {
             fetchGameResult();

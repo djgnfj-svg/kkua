@@ -169,14 +169,14 @@ const GameResultModal = ({ isOpen, onClose, roomId, winnerData }) => {
               <div className="space-y-4">
                 {players.map((player, index) => {
                   // 더 안전한 데이터 접근 및 디버깅
-                  console.log(`플레이어 ${index} 데이터:`, player);
+                  // 플레이어 데이터 처리
                   
                   const nickname = player?.nickname || '알 수 없는 플레이어';
                   const totalScore = Number(player?.total_score) || 0;
                   const wordsSubmitted = Number(player?.words_submitted) || 0;
                   const guestId = player?.guest_id || index;
                   
-                  console.log(`플레이어 ${nickname}: 점수=${totalScore}, 단어수=${wordsSubmitted}`);
+                  // 플레이어 통계 확인 완료
                   
                   // 점수가 0인 경우에 대한 특별 처리
                   const displayScore = totalScore === 0 ? '점수 집계 중...' : totalScore.toLocaleString();
