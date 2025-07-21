@@ -19,11 +19,15 @@ const useGameLobby = () => {
 
   const {
     connected,
+    isReconnecting,
+    connectionAttempts,
+    maxReconnectAttempts,
     messages,
     participants: socketParticipants,
     isReady,
     sendMessage,
     toggleReady,
+    manualReconnect,
     roomUpdated,
     setRoomUpdated,
   } = useGameRoomSocket(roomId);
@@ -99,7 +103,6 @@ const useGameLobby = () => {
     );
     
     if (hasGameStartedMessage && isStartingGame) {
-      console.log('✅ WebSocket을 통한 게임 시작 메시지 확인, 상태 리셋');
       setIsStartingGame(false);
     }
   }, [messages, isStartingGame]);
@@ -229,28 +232,19 @@ const useGameLobby = () => {
   };
 
   const handleClickStartBtn = async () => {
-    console.log('🚀 handleClickStartBtn 함수 시작');
-    console.log('현재 isStartingGame:', isStartingGame);
-    
     if (isStartingGame) {
-      console.log('❌ 이미 시작 중이므로 리턴');
       return;
     }
     
     try {
-      console.log('🎯 게임 시작 API 호출 시작');
       setIsStartingGame(true);
       
       const apiUrl = ROOM_API.PLAY_ROOMS(roomId);
-      console.log('API URL:', apiUrl);
-      
       const response = await axiosInstance.post(apiUrl);
-      console.log('✅ 게임 시작 API 응답:', response.data);
       
       // 백업 로직: WebSocket 메시지가 3초 내에 오지 않으면 수동 이동
       setTimeout(() => {
         if (isStartingGame) {
-          console.log('⚠️ WebSocket 메시지 타임아웃, 수동으로 게임 페이지로 이동');
           navigate(gameUrl(roomId));
         }
       }, 3000);
@@ -302,11 +296,15 @@ const useGameLobby = () => {
     isOwner,
     redirectingToGame,
     connected,
+    isReconnecting,
+    connectionAttempts,
+    maxReconnectAttempts,
     messages,
     isReady,
     isStartingGame,
     sendMessage,
     toggleReady,
+    manualReconnect,
     handleClickExit,
     handleClickStartBtn,
   };

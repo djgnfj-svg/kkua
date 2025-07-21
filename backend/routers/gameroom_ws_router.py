@@ -158,7 +158,7 @@ async def websocket_endpoint(
                             message_data, room_id, guest, websocket
                         )
                     except Exception as validation_error:
-                        print(f"새로운 검증 시스템 실패, fallback 사용: {validation_error}")
+                        logger.warning(f"새로운 검증 시스템 실패, fallback 사용: {validation_error}")
                         success = False
                 
                 # 새로운 검증이 실패했거나 없으면 기존 처리 방식 사용
@@ -184,7 +184,7 @@ async def websocket_endpoint(
                     websocket
                 )
             except Exception as e:
-                print(f"메시지 처리 중 오류 발생: {e}")
+                logger.error(f"메시지 처리 중 오류 발생: {e}", exc_info=True)
                 await ws_manager.send_personal_message(
                     {
                         "type": "error",
@@ -196,7 +196,7 @@ async def websocket_endpoint(
 
     except WebSocketDisconnect:
         if guest:
-            print(f"웹소켓 연결 해제: room_id={room_id}, guest_id={guest.guest_id}")
+            logger.info(f"웹소켓 연결 해제: room_id={room_id}, guest_id={guest.guest_id}")
             await ws_manager.disconnect(websocket, room_id, guest.guest_id)
             
             # WebSocket 연결 해제 시 자동으로 방 나가기 처리 (DB 동기화)
@@ -204,11 +204,9 @@ async def websocket_endpoint(
                 gameroom_service = GameroomService(db)
                 # 방 나가기 처리 (DB에서 참가자 제거) - sync 메서드 호출
                 result = gameroom_service.leave_gameroom(room_id, guest)
-                print(f"자동 방 나가기 처리 완료: room_id={room_id}, guest_id={guest.guest_id}, result={result}")
+                logger.info(f"자동 방 나가기 처리 완료: room_id={room_id}, guest_id={guest.guest_id}, result={result}")
             except Exception as leave_error:
-                print(f"자동 방 나가기 처리 실패: {leave_error}")
-                import traceback
-                traceback.print_exc()
+                logger.error(f"자동 방 나가기 처리 실패: {leave_error}", exc_info=True)
             
             await ws_manager.broadcast_room_update(
                 room_id,
@@ -217,8 +215,7 @@ async def websocket_endpoint(
             )
 
     except Exception as e:
-        print(f"웹소켓 오류: {str(e)}")
-        traceback.print_exc()
+        logger.error(f"웹소켓 오류: {str(e)}", exc_info=True)
         if guest:
             await ws_manager.disconnect(websocket, room_id, guest.guest_id)
         try:
@@ -241,9 +238,9 @@ async def websocket_endpoint(
                     if not guest_in_ws:
                         # WebSocket에 없으면 DB에서도 제거 - sync 메서드 호출
                         gameroom_service.leave_gameroom(room_id, participant.guest)
-                        print(f"고아 참가자 정리: room_id={room_id}, guest_id={participant.guest_id}")
+                        logger.info(f"고아 참가자 정리: room_id={room_id}, guest_id={participant.guest_id}")
             except Exception as cleanup_error:
-                print(f"최종 정리 중 오류: {cleanup_error}")
+                logger.error(f"최종 정리 중 오류: {cleanup_error}", exc_info=True)
 
 
 @router.get("/documentation", tags=["websockets"])

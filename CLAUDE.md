@@ -7,11 +7,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **끄아 (KKUA)** is a real-time multiplayer word chain game (끝말잇기) with item mechanics. The project uses a FastAPI backend with PostgreSQL database and a React frontend with TailwindCSS for styling.
 
 ### Recent Updates
+- **Connection UX Improvements**: Enhanced WebSocket reliability and user feedback
+  - Exponential backoff reconnection (2s → 4s → 8s → 16s → 32s delays)
+  - Increased retry attempts from 3 to 5 with visual progress indicators
+  - Toast notification system for connection events with contextual messaging
+  - Manual reconnection capability with enhanced WebSocketStatus component
+- **Game Result Data Reliability**: Fixed 0-score display issues and improved data retrieval
+  - Retry logic for incomplete Redis data processing
+  - Backend data validation with fallback mechanisms
+  - Enhanced error handling for game result edge cases
 - **Code Quality**: Complete codebase cleanup and comment optimization
   - Removed 20+ legacy files and unused components
   - Cleaned unnecessary debug comments and console.log statements
   - Standardized code documentation with focus on 'why' over 'what'
-- **Bug Fixes**: Resolved critical game ending functionality
 - **Authentication System**: Migrated from UUID-based to secure session-based authentication with HTTP-only cookies
 - **Redis Integration**: Implemented Redis-based real-time game state management
   - Real-time word chain game processing with turn timers
@@ -22,7 +30,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - Split ConnectionManager into focused components
   - Introduced WebSocketMessageService for message handling
   - Added RedisGameService for high-performance game state management
-- **Improved Architecture**: Enhanced separation of concerns with middleware pattern
 - **Performance Optimizations**: Client-side timer synchronization and reduced WebSocket broadcasts
 
 ## Quick Start
@@ -153,13 +160,16 @@ docker build -f frontend/Dockerfile.prod -t kkua-frontend-prod frontend/
   - `gameroom_model.py`: Game room and participant models with status enums
   - `guest_model.py`: Guest/user model with UUID and session token support
   - `game_log_model.py`: Game result tracking with comprehensive statistics
+  - `player_game_stats_model.py`: Individual player statistics per game
+  - `word_chain_entry_model.py`: Word chain entry tracking
 - **routers/**: API endpoint definitions
   - `auth_router.py`: Authentication endpoints for session management
   - `gamerooms_router.py`: Basic CRUD operations for game rooms
   - `gameroom_actions_router.py`: Game room actions (join, leave, ready, start)
   - `gameroom_ws_router.py`: WebSocket functionality for real-time communication
-  - `game_api_router.py`: **NEW** - Redis-based game API endpoints (word submission, game state)
+  - `game_api_router.py`: Redis-based game API endpoints (word submission, game state)
   - `guests_router.py`: Guest management endpoints with session support
+  - `csrf_router.py`: CSRF token endpoints for security
 - **services/**: Business logic layer
   - `auth_service.py`: Authentication, session management, and cookie handling
   - `gameroom_service.py`: Consolidated game room management and actions logic
@@ -167,18 +177,22 @@ docker build -f frontend/Dockerfile.prod -t kkua-frontend-prod frontend/
   - `session_service.py`: Thread-safe in-memory session storage with automatic cleanup
   - `game_state_service.py`: Game state management and word chain validation
   - `websocket_message_service.py`: WebSocket message processing and routing
-  - `redis_game_service.py`: **NEW** - Redis-based real-time game state management
+  - `redis_game_service.py`: Redis-based real-time game state management
+  - `game_data_persistence_service.py`: Critical service for persisting game results from Redis to PostgreSQL
 - **schemas/**: Pydantic models for request/response validation
   - `auth_schema.py`: Authentication request/response models
   - `gameroom_schema.py`: Game room data models
   - `gameroom_actions_schema.py`: Game room action models
   - `gameroom_ws_schema.py`: WebSocket message models
-  - `websocket_schema.py`: **NEW** - Enhanced WebSocket message validation
+  - `websocket_schema.py`: Enhanced WebSocket message validation
   - `guest_schema.py`: Guest/user data models
 - **middleware/**: Custom middleware components
   - `auth_middleware.py`: Session-based authentication with secure cookie validation
-  - `exception_handler.py`: **NEW** - Global exception handling middleware
-  - `rate_limiter.py`: **NEW** - Rate limiting for API endpoints
+  - `exception_handler.py`: Global exception handling middleware
+  - `rate_limiter.py`: Rate limiting for API endpoints
+  - `csrf_middleware.py`: CSRF protection middleware for state-changing operations
+  - `logging_middleware.py`: Request/response logging middleware for audit trails
+  - `security_headers_middleware.py`: Security headers middleware (HSTS, CSP, etc.)
 - **websocket/**: WebSocket connection management
   - `connection_manager.py`: Game room WebSocket facade with dual architecture support
   - `websocket_manager.py`: Low-level WebSocket connection management
@@ -190,29 +204,56 @@ docker build -f frontend/Dockerfile.prod -t kkua-frontend-prod frontend/
   - `guest_repository.py`: Guest/user data access
   - `game_log_repository.py`: Game result and statistics data access
 - **db/**: Database configuration and setup
+  - `postgres.py`: PostgreSQL database connection and session management
 - **config/**: Configuration files for cookies, logging, etc.
+  - `cookie.py`: Cookie configuration settings
+  - `logging_config.py`: Comprehensive logging setup with multiple log files
+- **tests/**: Comprehensive test suite mirroring source code structure
+  - `conftest.py`: Test configuration and fixtures
+  - `models/`: Model testing
+  - `repositories/`: Data access layer testing  
+  - `services/`: Business logic testing
+- **logs/**: Application logging directory
+  - `kkua.log`: General application logs
+  - `error.log`: Error-specific logging
+  - `audit.log`: Security and audit trail
+  - `performance.log`: Performance monitoring
+  - `security.log`: Security-related events
 
 ### Frontend Structure (React)
 - **src/Pages/**: Main application pages with modular component structure
   - Each page has its own `components/` and `hooks/` subdirectories
-  - `Loading/`: Initial loading/welcome page
+  - `Loading/`: Initial loading/welcome page with modal components
   - `Lobby/`: Game room lobby with room list and creation
   - `GameLobbyPage/`: Individual game room lobby with chat and participant management
   - `InGame/`: Active game interface with word chain gameplay
   - `GameResult/`: Game results and statistics display page
+  - `NotFound/`: 404 error page for invalid routes
 - **src/store/**: Zustand state management
   - `guestStore.js`: Guest authentication and session management
+  - `guestStore.test.js`: Store unit tests
 - **src/Api/**: API communication layer
   - `axiosInstance.js`: Configured axios client with interceptors
   - `authApi.js`: Authentication API calls (login, logout, profile)
   - `roomApi.js`: Game room API calls
   - `userApi.js`: User/guest API calls
   - `wsUrl.js`: WebSocket URL configuration
-- **src/utils/**: Shared utilities and components (renamed from Component)
+- **src/components/**: Shared utility components
+  - `LoadingSpinner.js`: Loading indicator component
+  - `ProtectedRoute.js`: Route protection wrapper
+  - `WebSocketStatus.js`: WebSocket connection status indicator with reconnection progress
+  - `Toast.js`: Toast notification component for user feedback
+- **src/contexts/**: React context providers
+  - `AuthContext.js`: Authentication context for user state
+  - `ToastContext.js`: Global toast notification system with success/error/warning/info types
+- **src/utils/**: Shared utilities
   - `socket.js`: WebSocket connection management
   - `urls.js`: URL configuration
+  - `cacheManager.js`: Client-side caching utilities
+  - `errorMessages.js`: Centralized error message handling
+  - `userIsTrue.js`: User validation utilities
 - **src/hooks/**: Custom React hooks
-  - `useGameRoomSocket.js`: WebSocket hook for real-time game room updates
+  - `useGameRoomSocket.js`: Enhanced WebSocket hook with exponential backoff reconnection, connection state tracking, and toast notifications
 
 ### Database Schema
 - **guests**: User/guest management with guest_id, UUID, nickname, and session tracking
@@ -420,12 +461,10 @@ All API responses follow a consistent format:
 - **docs**: Documentation changes (e.g., `docs: Update CLAUDE.md with new architecture`)
 - **chore**: Maintenance tasks (e.g., `chore: Update dependencies`)
 
-### CI/CD Pipeline
-- **GitHub Actions**: Automated testing and deployment
-- **Backend Tests**: Python tests with pytest and coverage
-- **Frontend Tests**: ESLint, Prettier checks, and npm tests
-- **Docker Build**: Automated production image builds
-- **Auto-deploy**: Deployment on merge to main branch
+### CI/CD Pipeline Status
+- **Note**: No CI/CD configuration files found in current codebase
+- **Documentation References**: `deployment-guide.md` exists but no `.github/workflows/` directory
+- **Manual Deployment**: Currently using manual Docker-based deployment process
 
 ## Recent Architectural Improvements
 
@@ -464,8 +503,8 @@ All API responses follow a consistent format:
 - **frontend/.prettierrc**: Frontend code formatting configuration
 - **frontend/Dockerfile.prod**: Production build configuration
 - **frontend/nginx.conf**: Nginx configuration for production serving
-- **.github/workflows/ci.yml**: CI/CD pipeline configuration
-- **.github/workflows/pr-checks.yml**: Pull request validation
+- **frontend/tailwind.config.js**: TailwindCSS configuration
+- **frontend/postcss.config.js**: PostCSS configuration with TailwindCSS
 - **deployment-guide.md**: Comprehensive deployment instructions
 
 ## Environment Variables
@@ -474,6 +513,10 @@ All API responses follow a consistent format:
 - **DATABASE_URL**: PostgreSQL connection string
   - Development: `postgresql://postgres:mysecretpassword@db:5432/mydb`
   - Production: Use your production database URL
+- **REDIS_URL**: Redis connection string
+  - Development: `redis://redis:6379/0`
+  - Production: Use your production Redis URL
+- **SECRET_KEY**: Secret key for session management (change in production)
 - **HOST**: Server host (default: `0.0.0.0`)
 - **PORT**: Server port (default: `8000`)
 - **DEBUG**: Enable debug mode (default: `True` for dev, `False` for prod)
@@ -482,16 +525,28 @@ All API responses follow a consistent format:
   - Development: `["http://localhost:3000", "http://127.0.0.1:3000"]`
   - Production: Add your production domain
 - **TESTING**: Set to `true` when running tests
+- **SESSION_TIMEOUT**: Session timeout in seconds (default: 86400 = 24 hours)
+- **SESSION_SECURE**: Enable secure cookies for HTTPS (default: `false` for dev)
+- **SESSION_SAMESITE**: Cookie SameSite policy (`lax`, `strict`, or `none`)
+- **ENABLE_SECURITY_HEADERS**: Enable security headers middleware
+- **HSTS_MAX_AGE**: HSTS max age in seconds for production
 
 ### Frontend Environment Variables
 - **REACT_APP_API_URL**: Backend API URL (default: `http://localhost:8000`)
 - **REACT_APP_WS_URL**: WebSocket URL (default: `ws://localhost:8000`)
+- **REACT_APP_WS_BASE_URL**: WebSocket base URL for dynamic connection (fallback: `ws://localhost:8000`)
 - **CHOKIDAR_USEPOLLING**: Enable polling for file watching in Docker (set to `true`)
 
 ### Docker Environment
 - **POSTGRES_USER**: Database user (default: `postgres`)
 - **POSTGRES_PASSWORD**: Database password (default: `mysecretpassword`)
 - **POSTGRES_DB**: Database name (default: `mydb`)
+
+### Redis Configuration
+- **Image**: `redis:7-alpine`
+- **Port**: `6379`
+- **Persistence**: Volume mounted at `/data`
+- **Health Check**: Uses `redis-cli ping` command
 
 ## Authentication System
 
@@ -541,6 +596,13 @@ All API responses follow a consistent format:
 - Environment variable management for sensitive data
 - CSRF protection for state-changing operations
 
+### Important Security Notes
+- **Never commit sensitive data**: Ensure `.env` files and API tokens are not committed to version control
+- **MCP Configuration**: The `.mcp.json` file contains GitHub personal access tokens - ensure this file is in `.gitignore` for production
+- **Session Security**: Always use HTTPS in production with `SESSION_SECURE=true`
+- **Database Passwords**: Use strong, unique passwords for production databases
+- **API Rate Limiting**: Rate limiting middleware is implemented for API protection
+
 ## Troubleshooting
 
 ### Common Docker Issues
@@ -581,6 +643,21 @@ docker-compose down -v  # Warning: This deletes all data
 docker-compose up -d
 ```
 
+#### Redis connection issues
+```bash
+# Check if Redis is running
+docker-compose ps redis
+
+# Test Redis connection
+docker exec -it kkua-redis-1 redis-cli ping
+
+# Check Redis logs
+docker-compose logs redis
+
+# Clear Redis data if needed
+docker exec -it kkua-redis-1 redis-cli FLUSHALL
+```
+
 ### WebSocket Connection Issues
 
 #### Connection fails immediately
@@ -593,6 +670,8 @@ docker-compose up -d
 - Check backend logs for errors: `docker-compose logs -f backend`
 - Verify network stability
 - Check if session is expiring
+- Monitor WebSocket reconnection attempts in browser console
+- Use manual reconnection button if automatic reconnection fails
 
 ### Performance Issues
 
@@ -604,8 +683,10 @@ docker-compose up -d
 
 #### WebSocket message handling best practices
 - **Message Format Validation**: Always validate WebSocket message structure with Pydantic schemas
-- **Error Recovery**: Implement automatic reconnection with exponential backoff
+- **Error Recovery**: Implement automatic reconnection with exponential backoff (already implemented)
 - **State Synchronization**: Use periodic REST API calls (3-second intervals) as WebSocket backup
+- **User Feedback**: Provide visual connection status and toast notifications for connection events
+- **Manual Recovery**: Offer manual reconnection controls when automatic reconnection fails
 
 ### Testing Issues
 
@@ -670,6 +751,22 @@ docker-compose restart
 
 ## Critical Development Patterns
 
+### WebSocket Connection Management
+Enhanced connection handling with user feedback:
+```javascript
+// Frontend - Enhanced useGameRoomSocket with toast notifications
+const { 
+  connected, 
+  isReconnecting, 
+  connectionAttempts, 
+  maxReconnectAttempts,
+  manualReconnect 
+} = useGameRoomSocket(roomId);
+
+// ToastContext usage for user notifications
+const { showSuccess, showError, showWarning } = useToast();
+```
+
 ### WebSocket Message Structure
 Always follow this pattern for WebSocket message validation:
 ```python
@@ -709,8 +806,45 @@ async def require_authentication(request: Request, db: Session = Depends(get_db)
 - **Use PostgreSQL for**: User accounts, game logs, persistent relationships
 - **Hybrid approach**: Store references in PostgreSQL, active state in Redis
 
+### Toast Notification System
+Centralized user feedback with contextual messaging:
+```javascript
+// Setup ToastProvider in App.js (already implemented)
+<ToastProvider>
+  <Router>
+    {/* App content */}
+  </Router>
+</ToastProvider>
+
+// Usage in components
+const { showSuccess, showError, showWarning, showInfo } = useToast();
+
+// Connection events (automatically handled in useGameRoomSocket)
+toast.showWarning('연결이 끊어졌습니다. 자동으로 재연결 중...', 3000);
+toast.showSuccess('실시간 연결이 복구되었습니다!', 2000);
+toast.showError('연결을 복구할 수 없습니다. 수동으로 재연결해주세요.', 5000);
+```
+
+### Game Result Data Handling
+Robust data retrieval with retry logic:
+```javascript
+// Frontend - Enhanced useGameResult with retry logic
+const allScoresZero = validatedPlayers.every(player => player.total_score === 0);
+if (allScoresZero && retryCount < 3) {
+  // Automatic retry with progressive delay
+  setTimeout(() => fetchGameResult(), 2000 * (retryCount + 1));
+}
+
+// Backend - Data integrity validation
+if (all_scores_zero && no_words && game_has_used_words) {
+  for player in players_data:
+    player.total_score = -1  # Signal incomplete processing
+}
+```
+
 ### Performance Optimization Guidelines
 1. **Minimize WebSocket Broadcasts**: Only send critical updates
 2. **Batch Database Operations**: Use bulk operations where possible
 3. **Implement Client-side Caching**: Cache static data and recent API responses
 4. **Progressive Enhancement**: Core functionality should work without real-time features
+5. **Connection Resilience**: Use exponential backoff and user feedback for network issues

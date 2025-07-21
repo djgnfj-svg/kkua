@@ -20,11 +20,11 @@ class WebSocketConnectionManager:
             self.active_connections[room_id] = {}
 
         self.active_connections[room_id][guest_id] = websocket
-        print(f"웹소켓 연결 등록: room_id={room_id}, guest_id={guest_id}")
+        logger.info(f"웹소켓 연결 등록: room_id={room_id}, guest_id={guest_id}")
 
     async def disconnect(self, websocket: WebSocket, room_id: int, guest_id: int):
         """웹소켓 연결을 제거합니다."""
-        print(f"웹소켓 연결 해제: room_id={room_id}, guest_id={guest_id}")
+        logger.info(f"웹소켓 연결 해제: room_id={room_id}, guest_id={guest_id}")
 
         if (
             room_id in self.active_connections
@@ -41,7 +41,7 @@ class WebSocketConnectionManager:
         try:
             await websocket.send_text(json.dumps(message))
         except Exception as e:
-            print(f"개인 메시지 전송 실패: {e}")
+            logger.error(f"개인 메시지 전송 실패: {e}", exc_info=True)
 
     async def broadcast_to_room(self, room_id: int, message: dict):
         """방의 모든 사용자에게 메시지를 브로드캐스트합니다."""
@@ -61,7 +61,7 @@ class WebSocketConnectionManager:
             try:
                 await connection.send_text(json.dumps(message))
             except Exception as e:
-                print(f"메시지 전송 오류: {e} - room_id={room_id}, guest_id={guest_id}")
+                logger.warning(f"메시지 전송 오류: {e} - room_id={room_id}, guest_id={guest_id}")
                 closed_connections.append(guest_id)
 
         # 닫힌 연결 제거

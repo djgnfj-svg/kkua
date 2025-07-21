@@ -187,8 +187,12 @@ bower_components
 psd
 thumb
 sketch
-.mcp.json
-.claude
+# Docker
+docker-compose.override.yml
+
+# IDE
+.vscode/
+.idea/
 
 # Development files
 **/ws_test_client.py
@@ -198,5 +202,8 @@ sketch
 
 # Production environment files
 .env.production
+
+# MCP configuration (contains API tokens)
+.mcp.json
 
 # End of https://www.toptal.com/developers/gitignore/api/react,python

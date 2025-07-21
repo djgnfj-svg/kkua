@@ -1,5 +1,6 @@
 from fastapi import APIRouter, status, Depends
 from sqlalchemy.orm import Session
+import logging
 
 from db.postgres import get_db
 from middleware.auth_middleware import get_current_guest
@@ -12,6 +13,7 @@ router = APIRouter(
     prefix="/gamerooms",
     tags=["gameroom-actions"],
 )
+logger = logging.getLogger(__name__)
 
 
 def get_gameroom_service(
@@ -37,15 +39,13 @@ def leave_gameroom(
     service: GameroomService = Depends(get_gameroom_service),
 ):
     """게임룸에서 나갑니다."""
-    print(f"🚪 방 나가기 API 호출: room_id={room_id}, guest_id={guest.guest_id}")
+    logger.info(f"방 나가기 API 호출: room_id={room_id}, guest_id={guest.guest_id}")
     try:
         result = service.leave_gameroom(room_id, guest)
-        print(f"✅ 방 나가기 성공: {result}")
+        logger.info(f"방 나가기 성공: {result}")
         return result
     except Exception as e:
-        print(f"❌ 방 나가기 실패: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"방 나가기 실패: {e}", exc_info=True)
         raise
 
 
@@ -56,15 +56,13 @@ async def toggle_ready_status(
     service: GameroomService = Depends(get_gameroom_service),
 ):
     """참가자의 준비 상태를 토글합니다."""
-    print(f"🔄 준비 상태 토글 API 호출: room_id={room_id}, guest_id={guest.guest_id}")
+    logger.info(f"준비 상태 토글 API 호출: room_id={room_id}, guest_id={guest.guest_id}")
     try:
         result = await service.toggle_ready_status_with_ws(room_id, guest)
-        print(f"✅ 준비 상태 토글 성공: {result}")
+        logger.info(f"준비 상태 토글 성공: {result}")
         return result
     except Exception as e:
-        print(f"❌ 준비 상태 토글 실패: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"준비 상태 토글 실패: {e}", exc_info=True)
         raise
 
 
@@ -123,15 +121,15 @@ async def get_game_result(
     service: GameroomService = Depends(get_gameroom_service),
 ):
     """게임 결과를 조회합니다. 게임이 종료된 방의 참가자만 조회할 수 있습니다."""
-    print(f"🔍 게임 결과 API 호출: room_id={room_id}, guest_id={guest.guest_id}")
+    logger.info(f"게임 결과 API 호출: room_id={room_id}, guest_id={guest.guest_id}")
     
     # 실제 게임 결과 데이터 조회
     try:
         result = await service.get_game_result(room_id, guest)
-        print(f"✅ 실제 게임 결과 반환: room_id={room_id}")
+        logger.info(f"실제 게임 결과 반환: room_id={room_id}")
         return result
     except Exception as e:
-        print(f"❌ 게임 결과 조회 실패: {e}")
+        logger.error(f"게임 결과 조회 실패: {e}")
         # 에러 발생 시 적절한 HTTP 예외 발생
         from fastapi import HTTPException
         raise HTTPException(

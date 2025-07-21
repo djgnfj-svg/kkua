@@ -1,4 +1,5 @@
 import React from 'react';
+import WebSocketStatus from '../../../components/WebSocketStatus';
 
 const GameLayout = ({
   gameState,
@@ -6,6 +7,10 @@ const GameLayout = ({
   isMyTurn,
   errorMessage,
   wsConnected,
+  isReconnecting,
+  connectionAttempts,
+  maxReconnectAttempts,
+  manualReconnect,
   wsParticipants,
   handleInputChange,
   handleKeyPress,
@@ -19,9 +24,14 @@ const GameLayout = ({
           {gameState && (
             <div className="text-sm text-gray-600">
               <div>라운드: {gameState.currentRound} / {gameState.maxRounds}</div>
-              <div className={`${wsConnected ? 'text-green-600' : 'text-red-600'}`}>
-                {wsConnected ? '연결됨' : '연결 끊김'}
-              </div>
+              <WebSocketStatus
+                connected={wsConnected}
+                isReconnecting={isReconnecting}
+                connectionAttempts={connectionAttempts}
+                maxAttempts={maxReconnectAttempts}
+                onReconnect={manualReconnect}
+                className="mt-1"
+              />
             </div>
           )}
         </div>

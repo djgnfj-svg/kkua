@@ -161,7 +161,7 @@ class WebSocketMessageService:
         guest: Guest
     ):
         """준비 상태 토글 처리"""
-        print(f"🔄 준비 상태 토글 요청: room_id={room_id}, guest_id={guest.guest_id}")
+        logger.info(f"준비 상태 토글 요청: room_id={room_id}, guest_id={guest.guest_id}")
         participant = self.repository.find_participant(room_id, guest.guest_id)
         if not participant:
             await self.ws_manager.send_personal_message(

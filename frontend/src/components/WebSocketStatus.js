@@ -4,6 +4,7 @@ const WebSocketStatus = ({
   connected, 
   isReconnecting, 
   connectionAttempts, 
+  maxAttempts = 5,
   onReconnect,
   className = '' 
 }) => {
@@ -20,7 +21,7 @@ const WebSocketStatus = ({
     return (
       <div className={`flex items-center text-sm text-yellow-600 ${className}`}>
         <div className="w-2 h-2 bg-yellow-500 rounded-full mr-2 animate-pulse"></div>
-        재연결 중... ({connectionAttempts}/5)
+        재연결 중... ({connectionAttempts}/{maxAttempts})
       </div>
     );
   }

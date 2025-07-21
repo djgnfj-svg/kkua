@@ -21,22 +21,164 @@ class RedisGameService:
         self.redis_url = getattr(settings, 'REDIS_URL', 'redis://redis:6379/0')  # Docker 환경 기본값 수정
         self.redis_client = None
         self.turn_timers = {}  # room_id별 타이머 태스크 저장
-        print(f"[DEBUG] RedisGameService 초기화 - Redis URL: {self.redis_url}")
+        self.background_tasks = set()  # 메모리 누수 방지를 위한 백그라운드 태스크 추적
         
-    async def connect(self):
-        """Redis 연결"""
-        try:
-            self.redis_client = redis.from_url(self.redis_url, decode_responses=True)
-            await self.redis_client.ping()
-            logger.info("Redis 연결 성공")
-        except Exception as e:
-            logger.error(f"Redis 연결 실패: {e}")
-            raise
+        # 성능 최적화를 위한 Set 기반 추적
+        self.ACTIVE_GAMES_SET = "active_games"  # 활성 게임 ID 추적용 Set
+        self.PLAYER_GAMES_PREFIX = "player_games:"  # 플레이어별 참여 게임 추적
+        
+        # WebSocket 트래픽 최적화를 위한 메시지 중복 제거
+        self.last_broadcast_data = {}  # room_id별 마지막 브로드캐스트 데이터 캐시
+        
+        logger.debug(f"RedisGameService 초기화 - Redis URL: {self.redis_url}")
+        
+    async def connect(self, max_retries: int = 3, retry_delay: float = 1.0):
+        """Redis 연결 (재시도 로직 포함)"""
+        last_exception = None
+        
+        for attempt in range(max_retries):
+            try:
+                self.redis_client = redis.from_url(
+                    self.redis_url, 
+                    decode_responses=True,
+                    socket_connect_timeout=5,  # 연결 타임아웃
+                    socket_timeout=5,  # 소켓 타임아웃
+                    retry_on_timeout=True,
+                    health_check_interval=30  # 연결 상태 체크 간격
+                )
+                await self.redis_client.ping()
+                logger.info(f"Redis 연결 성공 (시도 {attempt + 1}/{max_retries})")
+                return
+            except redis.ConnectionError as e:
+                last_exception = e
+                logger.warning(f"Redis 연결 실패 (시도 {attempt + 1}/{max_retries}): {e}")
+                if attempt < max_retries - 1:
+                    logger.info(f"{retry_delay}초 후 재시도...")
+                    await asyncio.sleep(retry_delay)
+                    retry_delay *= 2  # 지수 백오프
+            except redis.TimeoutError as e:
+                last_exception = e
+                logger.warning(f"Redis 연결 타임아웃 (시도 {attempt + 1}/{max_retries}): {e}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(retry_delay)
+                    retry_delay *= 2
+            except Exception as e:
+                last_exception = e
+                logger.error(f"예상치 못한 Redis 연결 오류 (시도 {attempt + 1}/{max_retries}): {e}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(retry_delay)
+                    retry_delay *= 2
+        
+        # 모든 재시도 실패
+        logger.error(f"Redis 연결 완전 실패 (URL: {self.redis_url})")
+        raise ConnectionError(f"Redis 서버에 연결할 수 없습니다: {last_exception}")
     
     async def disconnect(self):
-        """Redis 연결 해제"""
+        """Redis 연결 해제 및 완전한 리소스 정리"""
+        # 모든 타이머 정리
+        await self.cleanup_all_timers()
+        
+        # 모든 백그라운드 태스크 정리
+        await self.cleanup_background_tasks()
+        
+        # Redis 연결 해제
         if self.redis_client:
-            await self.redis_client.close()
+            try:
+                await self.redis_client.close()
+                logger.info("Redis 연결 해제 완료")
+            except Exception as e:
+                logger.error(f"Redis 연결 해제 중 오류: {e}")
+    
+    async def cleanup_all_timers(self):
+        """모든 활성 타이머 정리 (메모리 누수 방지)"""
+        timer_rooms = list(self.turn_timers.keys())
+        for room_id in timer_rooms:
+            await self.stop_turn_timer(room_id)
+        logger.info(f"모든 타이머 정리 완료: {len(timer_rooms)}개")
+    
+    async def cleanup_background_tasks(self):
+        """모든 백그라운드 태스크 정리 (메모리 누수 방지)"""
+        if self.background_tasks:
+            # 모든 태스크 취소
+            for task in list(self.background_tasks):
+                if not task.done():
+                    task.cancel()
+            
+            # 모든 취소된 태스크가 완료될 때까지 기다림
+            if self.background_tasks:
+                try:
+                    await asyncio.gather(*self.background_tasks, return_exceptions=True)
+                except Exception as e:
+                    logger.warning(f"백그라운드 태스크 정리 중 오류: {e}")
+            
+            self.background_tasks.clear()
+            logger.info("모든 백그라운드 태스크 정리 완료")
+    
+    def create_background_task(self, coro, name: str = None):
+        """메모리 누수 방지를 위한 안전한 백그라운드 태스크 생성"""
+        task = asyncio.create_task(coro, name=name)
+        self.background_tasks.add(task)
+        task.add_done_callback(lambda t: self.background_tasks.discard(t))
+        return task
+    
+    async def _smart_broadcast(self, room_id: int, message: dict, message_key: str = None):
+        """중복 방지 스마트 브로드캐스트 (WebSocket 트래픽 최적화)"""
+        try:
+            # 메시지 키가 없으면 타입을 기반으로 생성
+            if message_key is None:
+                message_key = message.get('type', 'unknown')
+            
+            cache_key = f"{room_id}:{message_key}"
+            
+            # 중복 메시지 확인 (타이머 메시지 제외)
+            if message_key != 'game_time_update' and message_key.startswith('game_time'):
+                # 타이머 메시지는 항상 전송 (실시간성 중요)
+                pass
+            else:
+                # 다른 메시지는 중복 검사
+                last_message = self.last_broadcast_data.get(cache_key)
+                if last_message and self._messages_equal(last_message, message):
+                    logger.debug(f"중복 메시지 생략: room_id={room_id}, type={message_key}")
+                    return
+            
+            # 브로드캐스트 실행
+            from services.gameroom_service import ws_manager
+            await ws_manager.broadcast_to_room(room_id, message)
+            
+            # 캐시 업데이트 (메모리 절약을 위해 최대 100개 방까지만)
+            if len(self.last_broadcast_data) < 100:
+                self.last_broadcast_data[cache_key] = message.copy()
+            
+            logger.debug(f"스마트 브로드캐스트 성공: room_id={room_id}, type={message_key}")
+            
+        except Exception as e:
+            logger.error(f"스마트 브로드캐스트 실패: {e}")
+    
+    def _messages_equal(self, msg1: dict, msg2: dict) -> bool:
+        """메시지 동등성 검사 (중요 필드만 비교)"""
+        # 타임스탬프 제외하고 비교
+        ignore_keys = {'timestamp', 'updated_at'}
+        
+        filtered_msg1 = {k: v for k, v in msg1.items() if k not in ignore_keys}
+        filtered_msg2 = {k: v for k, v in msg2.items() if k not in ignore_keys}
+        
+        return filtered_msg1 == filtered_msg2
+    
+    async def is_connected(self) -> bool:
+        """Redis 연결 상태 확인"""
+        if not self.redis_client:
+            return False
+        try:
+            await self.redis_client.ping()
+            return True
+        except Exception:
+            return False
+    
+    async def ensure_connection(self):
+        """연결 상태 확인 후 필요시 재연결"""
+        if not await self.is_connected():
+            logger.warning("Redis 연결이 끊어짐, 재연결 시도")
+            await self.connect()
     
     # === 게임 상태 관리 ===
     
@@ -86,10 +228,15 @@ class RedisGameService:
                 json.dumps(game_state)
             )
             
-            # 참가자별 개인 정보 저장
+            # 활성 게임 목록에 추가
+            await self.redis_client.sadd(self.ACTIVE_GAMES_SET, room_id)
+            await self.redis_client.expire(self.ACTIVE_GAMES_SET, 86400)
+            
+            # 참가자별 개인 정보 저장 및 플레이어 게임 추적
             for participant in participants:
+                guest_id = participant['guest_id']
                 player_data = {
-                    'guest_id': participant['guest_id'],
+                    'guest_id': guest_id,
                     'nickname': participant['nickname'],
                     'score': 0,
                     'words_submitted': 0,
@@ -97,10 +244,15 @@ class RedisGameService:
                     'status': 'active'
                 }
                 await self.redis_client.setex(
-                    f"game:{room_id}:player:{participant['guest_id']}",
+                    f"game:{room_id}:player:{guest_id}",
                     86400,
                     json.dumps(player_data)
                 )
+                
+                # 플레이어별 참여 게임 추적 (Set 사용)
+                player_games_key = f"{self.PLAYER_GAMES_PREFIX}{guest_id}"
+                await self.redis_client.sadd(player_games_key, room_id)
+                await self.redis_client.expire(player_games_key, 86400)
             
             logger.info(f"게임 생성: room_id={room_id}, participants={len(participants)}")
             return True
@@ -129,11 +281,10 @@ class RedisGameService:
             # 턴 타이머 시작
             await self.start_turn_timer(room_id)
             
-            # 첫 번째 플레이어 알림 WebSocket 브로드캐스트
+            # 첫 번째 플레이어 알림 WebSocket 브로드캐스트 (스마트 브로드캐스트 사용)
             current_player_nickname = game_state.get('first_player_nickname', '알 수 없음')
             try:
-                from services.gameroom_service import ws_manager
-                await ws_manager.broadcast_to_room(room_id, {
+                await self._smart_broadcast(room_id, {
                     'type': 'game_started_redis',
                     'room_id': room_id,
                     'first_word': first_word,
@@ -142,7 +293,7 @@ class RedisGameService:
                     'message': f'🎮 게임이 시작되었습니다! 첫 번째 차례: {current_player_nickname}님',
                     'participants_order': [p['nickname'] for p in game_state['participants']],
                     'time_left': game_state['time_left']
-                })
+                }, 'game_started_redis')
             except Exception as e:
                 logger.error(f"게임 시작 알림 브로드캐스트 실패: {e}")
             
@@ -154,94 +305,194 @@ class RedisGameService:
             return False
     
     async def submit_word(self, room_id: int, guest_id: int, word: str) -> Dict[str, Any]:
-        """단어 제출"""
-        try:
-            game_state = await self.get_game_state(room_id)
-            if not game_state:
-                return {'success': False, 'message': '게임을 찾을 수 없습니다.'}
-            
-            if game_state['status'] != 'playing':
-                return {'success': False, 'message': '게임이 진행 중이 아닙니다.'}
-            
-            if game_state['current_player_id'] != guest_id:
-                return {'success': False, 'message': '당신의 턴이 아닙니다.'}
-            
-            # 응답 시간 계산
-            turn_start_time = game_state.get('turn_start_time')
-            response_time = 0.0
-            if turn_start_time:
-                try:
-                    start_dt = datetime.fromisoformat(turn_start_time)
-                    response_time = (datetime.utcnow() - start_dt).total_seconds()
-                except Exception as e:
-                    logger.warning(f"응답 시간 계산 실패: {e}")
+        """단어 제출 (Race Condition 방지를 위한 Redis 트랜잭션 사용)"""
+        max_retries = 3
+        retry_count = 0
+        
+        while retry_count < max_retries:
+            try:
+                # Redis 트랜잭션을 위한 키 감시 시작
+                game_key = f"game:{room_id}"
+                async with self.redis_client.pipeline(transaction=True) as pipe:
+                    await pipe.watch(game_key)
+                    
+                    # 감시 중인 키의 현재 상태 조회
+                    game_state_str = await self.redis_client.get(game_key)
+                    if not game_state_str:
+                        await pipe.unwatch()
+                        return {'success': False, 'message': '게임을 찾을 수 없습니다.'}
+                    
+                    game_state = json.loads(game_state_str)
+                    
+                    # 기본 검증 (트랜잭션 외부에서 빠른 실패)
+                    if game_state['status'] != 'playing':
+                        await pipe.unwatch()
+                        return {'success': False, 'message': '게임이 진행 중이 아닙니다.'}
+                    
+                    if game_state['current_player_id'] != guest_id:
+                        await pipe.unwatch()
+                        return {'success': False, 'message': '당신의 턴이 아닙니다.'}
+                    
+                    # 응답 시간 계산
+                    turn_start_time = game_state.get('turn_start_time')
                     response_time = 0.0
-            
-            # 단어 검증
-            validation_result = await self._validate_word(game_state, word)
-            if not validation_result['valid']:
-                return {'success': False, 'message': validation_result['message']}
-            
-            # 현재 플레이어 정보 가져오기
-            current_player = None
-            for participant in game_state.get('participants', []):
-                if participant['guest_id'] == guest_id:
-                    current_player = participant
-                    break
-            
-            # 단어별 상세 정보 저장
-            word_entry = {
-                'word': word,
-                'player_id': guest_id,
-                'player_nickname': current_player['nickname'] if current_player else '알 수 없음',
-                'submitted_at': datetime.utcnow().isoformat(),
-                'response_time': round(response_time, 2),
-                'turn_number': len(game_state['used_words']) + 1,
-                'word_length': len(word),
-                'round_number': game_state.get('round_number', 1)
-            }
-            
-            # Redis에 단어별 상세 정보 저장
-            await self._save_word_entry(room_id, word_entry)
-            
-            # 단어 추가
-            game_state['used_words'].append(word)
-            game_state['last_word'] = word
-            game_state['last_character'] = word[-1]
-            
-            # 플레이어 정보 업데이트 (응답 시간 포함)
-            await self._update_player_stats(room_id, guest_id, word, response_time)
-            
-            # 다음 턴으로 이동
-            await self._advance_turn(room_id, game_state)
-            
-            # 게임 종료 조건 확인
-            game_over_check = await self._check_game_over(game_state)
-            
-            result = {
-                'success': True,
-                'word': word,
-                'last_character': word[-1],
-                'next_player_id': game_state['current_player_id'],
-                'current_round': game_state['round_number'],
-                'max_rounds': game_state['game_settings']['max_rounds'],
-                'game_over': game_over_check['game_over'],
-                'game_over_reason': game_over_check.get('reason', ''),
-                'time_left': game_state['time_left']
-            }
-            
-            if game_over_check['game_over']:
-                game_state['status'] = 'finished'
-                await self._save_game_state(room_id, game_state)
-                await self.stop_turn_timer(room_id)
-            else:
-                await self.start_turn_timer(room_id)
-            
-            return result
-            
-        except Exception as e:
-            logger.error(f"단어 제출 실패: {e}")
-            return {'success': False, 'message': '단어 제출 중 오류가 발생했습니다.'}
+                    if turn_start_time:
+                        try:
+                            start_dt = datetime.fromisoformat(turn_start_time)
+                            response_time = (datetime.utcnow() - start_dt).total_seconds()
+                        except Exception as e:
+                            logger.warning(f"응답 시간 계산 실패: {e}")
+                            response_time = 0.0
+                    
+                    # 단어 검증
+                    validation_result = await self._validate_word(game_state, word)
+                    if not validation_result['valid']:
+                        await pipe.unwatch()
+                        return {'success': False, 'message': validation_result['message']}
+                    
+                    # 현재 플레이어 정보 가져오기
+                    current_player = None
+                    for participant in game_state.get('participants', []):
+                        if participant['guest_id'] == guest_id:
+                            current_player = participant
+                            break
+                    
+                    # 단어별 상세 정보 준비
+                    word_entry = {
+                        'word': word,
+                        'player_id': guest_id,
+                        'player_nickname': current_player['nickname'] if current_player else '알 수 없음',
+                        'submitted_at': datetime.utcnow().isoformat(),
+                        'response_time': round(response_time, 2),
+                        'turn_number': len(game_state['used_words']) + 1,
+                        'word_length': len(word),
+                        'round_number': game_state.get('round_number', 1)
+                    }
+                    
+                    # === 원자적 업데이트 시작 ===
+                    pipe.multi()
+                    
+                    # 1. 게임 상태 업데이트
+                    game_state['used_words'].append(word)
+                    game_state['last_word'] = word
+                    game_state['last_character'] = word[-1]
+                    
+                    # 2. 다음 턴으로 이동 (advance_turn 로직 인라인화)
+                    participants = game_state['participants']
+                    current_index = game_state.get('current_turn_index', 0)
+                    
+                    # 다음 플레이어 인덱스 계산
+                    next_index = (current_index + 1) % len(participants)
+                    game_state['current_turn_index'] = next_index
+                    game_state['current_player_id'] = participants[next_index]['guest_id']
+                    game_state['current_player_nickname'] = participants[next_index]['nickname']
+                    
+                    # 한 라운드 완료 시 라운드 증가
+                    if next_index == 0:
+                        game_state['round_number'] += 1
+                    
+                    # 턴 시간 초기화
+                    game_state['turn_start_time'] = datetime.utcnow().isoformat()
+                    game_state['time_left'] = game_state['game_settings']['turn_time_limit']
+                    game_state['updated_at'] = datetime.utcnow().isoformat()
+                    
+                    # 3. 게임 종료 조건 확인
+                    game_over_check = await self._check_game_over(game_state)
+                    if game_over_check['game_over']:
+                        game_state['status'] = 'finished'
+                    
+                    # 4. Redis에 업데이트된 게임 상태 저장
+                    pipe.setex(game_key, 86400, json.dumps(game_state))
+                    
+                    # 5. 단어별 상세 정보 저장
+                    word_key = f"game:{room_id}:words"
+                    pipe.lpush(word_key, json.dumps(word_entry))
+                    pipe.expire(word_key, 86400)
+                    
+                    # 6. 플레이어 통계 업데이트 (트랜잭션 내에서)
+                    player_key = f"game:{room_id}:player:{guest_id}"
+                    player_data_str = await self.redis_client.get(player_key)
+                    
+                    if player_data_str:
+                        player_data = json.loads(player_data_str)
+                    else:
+                        # 플레이어 데이터가 없으면 기본 데이터로 초기화
+                        logger.warning(f"플레이어 데이터가 없어 새로 생성: room_id={room_id}, guest_id={guest_id}")
+                        player_data = {
+                            'guest_id': guest_id,
+                            'score': 0,
+                            'words_submitted': 0,
+                            'total_response_time': 0.0,
+                            'fastest_response': float('inf'),
+                            'slowest_response': 0.0,
+                            'longest_word': '',
+                            'created_at': datetime.utcnow().isoformat()
+                        }
+                    
+                    # 통계 업데이트
+                    player_data['score'] += len(word) * 10
+                    player_data['words_submitted'] += 1
+                    player_data['total_response_time'] += response_time
+                    
+                    if response_time < player_data['fastest_response']:
+                        player_data['fastest_response'] = response_time
+                    if response_time > player_data['slowest_response']:
+                        player_data['slowest_response'] = response_time
+                    if len(word) > len(player_data['longest_word']):
+                        player_data['longest_word'] = word
+                    
+                    player_data['updated_at'] = datetime.utcnow().isoformat()
+                    
+                    pipe.setex(player_key, 86400, json.dumps(player_data))
+                    
+                    # 트랜잭션 실행
+                    await pipe.execute()
+                    
+                    # === 원자적 업데이트 완료 ===
+                    
+                    # 결과 준비
+                    result = {
+                        'success': True,
+                        'word': word,
+                        'last_character': word[-1],
+                        'next_player_id': game_state['current_player_id'],
+                        'current_round': game_state['round_number'],
+                        'max_rounds': game_state['game_settings']['max_rounds'],
+                        'game_over': game_over_check['game_over'],
+                        'game_over_reason': game_over_check.get('reason', ''),
+                        'time_left': game_state['time_left']
+                    }
+                    
+                    # 타이머 관리 (트랜잭션 외부)
+                    if game_over_check['game_over']:
+                        await self.stop_turn_timer(room_id)
+                    else:
+                        await self.start_turn_timer(room_id)
+                    
+                    logger.info(f"단어 제출 성공 (트랜잭션): room_id={room_id}, guest_id={guest_id}, word={word}")
+                    return result
+                    
+            except Exception as e:
+                error_message = str(e)
+                if "WATCH" in error_message or "EXEC" in error_message or "concurrent" in error_message.lower():
+                    # 동시성 충돌로 인한 재시도
+                    retry_count += 1
+                    logger.warning(f"동시성 충돌 감지 - 재시도 {retry_count}/{max_retries}: room_id={room_id}, guest_id={guest_id}")
+                    if retry_count < max_retries:
+                        # 짧은 지연 후 재시도
+                        import asyncio
+                        await asyncio.sleep(0.01 * retry_count)  # 10ms, 20ms, 30ms
+                        continue
+                    else:
+                        logger.error(f"단어 제출 최대 재시도 초과: room_id={room_id}, guest_id={guest_id}")
+                        return {'success': False, 'message': '동시 접근으로 인해 단어 제출에 실패했습니다. 다시 시도해주세요.'}
+                else:
+                    # 다른 종류의 오류
+                    logger.error(f"단어 제출 실패: {e}")
+                    return {'success': False, 'message': '단어 제출 중 오류가 발생했습니다.'}
+        
+        # 모든 재시도 실패
+        return {'success': False, 'message': '동시 접근으로 인해 단어 제출에 실패했습니다. 다시 시도해주세요.'}
     
     async def _validate_word(self, game_state: Dict, word: str) -> Dict[str, Any]:
         """단어 유효성 검증"""
@@ -264,11 +515,31 @@ class RedisGameService:
         if word in game_state['used_words']:
             return {'valid': False, 'message': '이미 사용된 단어입니다.'}
         
-        # TODO: 사전 검증 (외부 API 호출)
-        # if not await self._check_dictionary(word):
-        #     return {'valid': False, 'message': '사전에 없는 단어입니다.'}
+        # 기본 한국어 단어 검증 (간단한 패턴 체크)
+        if not await self._validate_korean_word(word):
+            return {'valid': False, 'message': '올바른 한국어 단어가 아닙니다.'}
         
         return {'valid': True}
+    
+    async def _validate_korean_word(self, word: str) -> bool:
+        """한국어 단어 기본 검증"""
+        import re
+        
+        # 한글만 포함하는지 확인
+        korean_pattern = re.compile(r'^[가-힣]+$')
+        if not korean_pattern.match(word):
+            return False
+        
+        # 단어 길이 제한 (2-10글자)
+        if len(word) < 2 or len(word) > 10:
+            return False
+        
+        # 금지 단어 목록 (기본적인 필터링)
+        forbidden_words = {'바보', '멍청이', '시발', '개새끼'}
+        if word in forbidden_words:
+            return False
+        
+        return True
     
     async def _save_word_entry(self, room_id: int, word_entry: Dict):
         """단어별 상세 정보를 Redis에 저장"""
@@ -341,30 +612,55 @@ class RedisGameService:
             
             if player_data_str:
                 player_data = json.loads(player_data_str)
-                player_data['score'] += len(word) * 10  # 글자당 10점
-                player_data['words_submitted'] += 1
+            else:
+                # 플레이어 데이터가 없으면 기본 데이터로 초기화
+                logger.warning(f"플레이어 데이터가 없어 새로 생성: room_id={room_id}, guest_id={guest_id}")
                 
-                # 응답 시간 통계 추가
-                if response_time > 0:
-                    if 'total_response_time' not in player_data:
-                        player_data['total_response_time'] = 0.0
-                    if 'fastest_response' not in player_data:
-                        player_data['fastest_response'] = None
-                    if 'slowest_response' not in player_data:
-                        player_data['slowest_response'] = None
-                    if 'longest_word' not in player_data:
-                        player_data['longest_word'] = ''
-                        
-                    player_data['total_response_time'] += response_time
+                # 게임 상태에서 플레이어 정보 찾기
+                game_state = await self.get_game_state(room_id)
+                player_nickname = "Unknown Player"
+                if game_state:
+                    for participant in game_state.get('participants', []):
+                        if participant['guest_id'] == guest_id:
+                            player_nickname = participant['nickname']
+                            break
+                
+                player_data = {
+                    'guest_id': guest_id,
+                    'nickname': player_nickname,
+                    'score': 0,
+                    'words_submitted': 0,
+                    'items_used': [],
+                    'status': 'active'
+                }
+            
+            # 점수 및 통계 업데이트
+            player_data['score'] += len(word) * 10  # 글자당 10점
+            player_data['words_submitted'] += 1
+            
+            # 응답 시간 통계 추가
+            if response_time > 0:
+                if 'total_response_time' not in player_data:
+                    player_data['total_response_time'] = 0.0
+                if 'fastest_response' not in player_data:
+                    player_data['fastest_response'] = None
+                if 'slowest_response' not in player_data:
+                    player_data['slowest_response'] = None
+                if 'longest_word' not in player_data:
+                    player_data['longest_word'] = ''
                     
-                    if player_data['fastest_response'] is None or response_time < player_data['fastest_response']:
-                        player_data['fastest_response'] = response_time
-                    if player_data['slowest_response'] is None or response_time > player_data['slowest_response']:
-                        player_data['slowest_response'] = response_time
-                    if len(word) > len(player_data['longest_word']):
-                        player_data['longest_word'] = word
+                player_data['total_response_time'] += response_time
                 
-                await self.redis_client.setex(player_key, 86400, json.dumps(player_data))
+                if player_data['fastest_response'] is None or response_time < player_data['fastest_response']:
+                    player_data['fastest_response'] = response_time
+                if player_data['slowest_response'] is None or response_time > player_data['slowest_response']:
+                    player_data['slowest_response'] = response_time
+                if len(word) > len(player_data['longest_word']):
+                    player_data['longest_word'] = word
+            
+            # Redis에 저장
+            await self.redis_client.setex(player_key, 86400, json.dumps(player_data))
+            logger.debug(f"플레이어 통계 업데이트: guest_id={guest_id}, score={player_data['score']}, words={player_data['words_submitted']}")
                 
         except Exception as e:
             logger.error(f"플레이어 통계 업데이트 실패: {e}")
@@ -402,29 +698,68 @@ class RedisGameService:
                 'message': f'최대 라운드({max_rounds}) 완료'
             }
         
-        # TODO: 다른 종료 조건들
-        # - 모든 플레이어가 나갔을 때
-        # - 시간 초과
-        # - 특별한 이벤트
+        # 추가 종료 조건들
+        
+        # 1. 모든 플레이어가 나갔을 때 (활성 플레이어가 1명 이하)
+        active_players = [p for p in game_state.get('participants', []) if p.get('is_active', True)]
+        if len(active_players) <= 1:
+            return {
+                'game_over': True,
+                'reason': 'insufficient_players',
+                'message': '참가자가 부족하여 게임이 종료됩니다.'
+            }
+        
+        # 2. 게임 시간 초과 (최대 30분)
+        game_duration = datetime.now() - datetime.fromisoformat(game_state.get('started_at', datetime.now().isoformat()))
+        max_game_duration = timedelta(minutes=30)
+        if game_duration > max_game_duration:
+            return {
+                'game_over': True,
+                'reason': 'time_limit',
+                'message': '게임 시간이 초과되어 종료됩니다.'
+            }
+        
+        # 3. 연속으로 턴을 넘긴 횟수가 많을 때 (게임 정체 방지)
+        consecutive_skips = game_state.get('consecutive_skips', 0)
+        if consecutive_skips >= len(active_players) * 2:  # 모든 플레이어가 2회씩 넘긴 경우
+            return {
+                'game_over': True,
+                'reason': 'consecutive_skips',
+                'message': '연속으로 턴을 넘겨서 게임이 종료됩니다.'
+            }
         
         return {'game_over': False}
     
     # === 타이머 관리 ===
     
     async def start_turn_timer(self, room_id: int):
-        """턴 타이머 시작"""
+        """턴 타이머 시작 (메모리 누수 방지)"""
         # 기존 타이머 정지
         await self.stop_turn_timer(room_id)
         
         # 새 타이머 시작
         timer_task = asyncio.create_task(self._run_turn_timer(room_id))
         self.turn_timers[room_id] = timer_task
+        self.background_tasks.add(timer_task)
+        
+        # 태스크 완료 시 자동 정리
+        timer_task.add_done_callback(lambda t: self.background_tasks.discard(t))
     
     async def stop_turn_timer(self, room_id: int):
-        """턴 타이머 정지"""
+        """턴 타이머 정지 (완전한 정리)"""
         if room_id in self.turn_timers:
-            self.turn_timers[room_id].cancel()
+            timer_task = self.turn_timers[room_id]
+            timer_task.cancel()
+            self.background_tasks.discard(timer_task)
             del self.turn_timers[room_id]
+            
+            # 취소된 태스크가 완전히 정리될 때까지 기다림
+            try:
+                await timer_task
+            except asyncio.CancelledError:
+                pass  # 예상된 취소
+            except Exception as e:
+                logger.warning(f"타이머 태스크 정리 중 오류: {e}")
     
     async def _run_turn_timer(self, room_id: int):
         """턴 타이머 실행"""
@@ -448,7 +783,7 @@ class RedisGameService:
                 current_state['updated_at'] = datetime.utcnow().isoformat()
                 await self._save_game_state(room_id, current_state)
                 
-                # WebSocket으로 시간 업데이트 브로드캐스트
+                # 중요한 순간에만 WebSocket 브로드캐스트 (성능 최적화)
                 await self._broadcast_time_update(room_id, remaining)
             
             # 시간 초과 처리
@@ -460,17 +795,51 @@ class RedisGameService:
             logger.error(f"타이머 오류: {e}")
     
     async def _broadcast_time_update(self, room_id: int, time_left: int):
-        """시간 업데이트 브로드캐스트"""
-        # 매초 브로드캐스트 (클라이언트 동기화를 위해)
-        try:
-            from services.gameroom_service import ws_manager
-            await ws_manager.broadcast_to_room(room_id, {
-                'type': 'game_time_update',
-                'time_left': time_left,
-                'timestamp': datetime.utcnow().isoformat()
-            })
-        except Exception as e:
-            logger.error(f"시간 업데이트 브로드캐스트 실패: {e}")
+        """시간 업데이트 브로드캐스트 (고도로 최적화된 빈도)"""
+        # 매우 효율적인 브로드캐스트 전략:
+        # - 30초 이상: 30초, 60초에만 브로드캐스트
+        # - 30-11초: 5초 간격 (30, 25, 20, 15)
+        # - 10초 이하: 매초 브로드캐스트
+        # - 5초 이하: 중요 알림 포함
+        should_broadcast = (
+            time_left <= 10 or  # 10초 이하는 매초 (중요)
+            time_left in [15, 20, 25, 30] or  # 5초 간격의 중요 순간들
+            (time_left >= 30 and time_left % 30 == 0)  # 30초 단위로만 (60초, 90초 등)
+        )
+        
+        if should_broadcast:
+            try:
+                from services.gameroom_service import ws_manager
+                
+                # 메시지 타입 및 우선순위 결정
+                if time_left <= 3:
+                    message_type = 'game_time_urgent'
+                    urgent_level = 'critical'
+                elif time_left <= 5:
+                    message_type = 'game_time_critical'
+                    urgent_level = 'high'
+                elif time_left <= 10:
+                    message_type = 'game_time_warning'
+                    urgent_level = 'medium'
+                else:
+                    message_type = 'game_time_update'
+                    urgent_level = 'low'
+                
+                # 최적화된 메시지 구조 (불필요한 데이터 제거)
+                message = {
+                    'type': message_type,
+                    'time_left': time_left,
+                    'urgent_level': urgent_level
+                }
+                
+                # 타임스탬프는 중요한 순간에만 포함 (데이터 절약)
+                if time_left <= 10:
+                    message['timestamp'] = datetime.utcnow().isoformat()
+                
+                await self._smart_broadcast(room_id, message, message_type)
+                
+            except Exception as e:
+                logger.error(f"시간 업데이트 브로드캐스트 실패: {e}")
     
     async def _handle_time_over(self, room_id: int):
         """시간 초과 처리"""
@@ -482,14 +851,13 @@ class RedisGameService:
             # 현재 플레이어 패널티 또는 자동 턴 넘김
             await self._advance_turn(room_id, game_state)
             
-            # 시간 초과 알림
-            from services.gameroom_service import ws_manager
-            await ws_manager.broadcast_to_room(room_id, {
+            # 시간 초과 알림 (스마트 브로드캐스트 사용)
+            await self._smart_broadcast(room_id, {
                 'type': 'game_time_over',
                 'current_player_id': game_state['current_player_id'],
                 'message': '시간 초과! 다음 플레이어 차례입니다.',
                 'timestamp': datetime.utcnow().isoformat()
-            })
+            }, 'game_time_over')
             
             # 다음 턴 타이머 시작
             await self.start_turn_timer(room_id)
@@ -552,6 +920,19 @@ class RedisGameService:
                     else:
                         player_stats['average_response_time'] = 0.0
                     stats.append(player_stats)
+                else:
+                    # 플레이어 통계가 없으면 기본 데이터로 생성
+                    logger.warning(f"플레이어 통계 없음 - 기본 데이터 생성: room_id={room_id}, guest_id={participant['guest_id']}")
+                    default_stats = {
+                        'guest_id': participant['guest_id'],
+                        'nickname': participant['nickname'],
+                        'score': 0,
+                        'words_submitted': 0,
+                        'items_used': [],
+                        'status': 'active',
+                        'average_response_time': 0.0
+                    }
+                    stats.append(default_stats)
             
             return sorted(stats, key=lambda x: x['score'], reverse=True)
             
@@ -609,26 +990,26 @@ class RedisGameService:
             logger.error(f"게임 상태 저장 실패: {e}")
     
     async def check_player_active_games(self, guest_id: int) -> List[int]:
-        """플레이어가 참여 중인 활성 게임 목록 조회"""
+        """플레이어가 참여 중인 활성 게임 목록 조회 (Set 기반 최적화)"""
         try:
+            # Set에서 플레이어 참여 게임 목록 조회
+            player_games_key = f"{self.PLAYER_GAMES_PREFIX}{guest_id}"
+            game_ids = await self.redis_client.smembers(player_games_key)
+            
             active_games = []
-            # 모든 게임 키 조회
-            game_keys = await self.redis_client.keys("game:*")
-            for key in game_keys:
-                if ":player:" in key or ":words" in key or ":stats" in key:
-                    continue
-                
-                # 게임 상태 조회
-                game_state_str = await self.redis_client.get(key)
-                if game_state_str:
-                    game_state = json.loads(game_state_str)
-                    if game_state.get('status') in ['playing', 'waiting']:
-                        # 해당 플레이어가 참가자인지 확인
-                        participants = game_state.get('participants', [])
-                        if any(p['guest_id'] == guest_id for p in participants):
-                            room_id = game_state.get('room_id')
-                            if room_id:
-                                active_games.append(room_id)
+            for game_id_str in game_ids:
+                try:
+                    room_id = int(game_id_str)
+                    # 게임이 실제로 활성 상태인지 확인
+                    game_state = await self.get_game_state(room_id)
+                    if game_state and game_state.get('status') in ['playing', 'waiting']:
+                        active_games.append(room_id)
+                    else:
+                        # 비활성 게임은 Set에서 제거
+                        await self.redis_client.srem(player_games_key, game_id_str)
+                except (ValueError, TypeError):
+                    # 잘못된 데이터는 Set에서 제거
+                    await self.redis_client.srem(player_games_key, game_id_str)
             
             return active_games
         except Exception as e:
@@ -666,6 +1047,14 @@ class RedisGameService:
             # 타이머 정지
             await self.stop_turn_timer(room_id)
             
+            # 활성 게임 목록에서 제거
+            await self.redis_client.srem(self.ACTIVE_GAMES_SET, room_id)
+            
+            # 플레이어별 참여 게임 목록에서 제거
+            for participant in game_state.get('participants', []):
+                player_games_key = f"{self.PLAYER_GAMES_PREFIX}{participant['guest_id']}"
+                await self.redis_client.srem(player_games_key, room_id)
+            
             logger.info(f"게임 종료: room_id={room_id}")
             return True
             
@@ -674,18 +1063,39 @@ class RedisGameService:
             return False
     
     async def cleanup_game(self, room_id: int):
-        """게임 데이터 정리"""
+        """게임 데이터 정리 (Set 기반 최적화)"""
         try:
             # 타이머 정지
             await self.stop_turn_timer(room_id)
             
-            # Redis 키 삭제
-            pattern = f"game:{room_id}*"
-            keys = await self.redis_client.keys(pattern)
-            if keys:
-                await self.redis_client.delete(*keys)
+            # 게임 상태를 먼저 조회해서 참가자 정보 확보
+            game_state = await self.get_game_state(room_id)
             
-            logger.info(f"게임 데이터 정리 완료: room_id={room_id}")
+            # 알려진 키들 직접 삭제 (keys() 명령어 사용 피함)
+            keys_to_delete = [
+                f"game:{room_id}",
+                f"game:{room_id}:words",
+                f"game:{room_id}:stats"
+            ]
+            
+            # 플레이어별 키도 삭제 (게임 상태에서 참가자 정보 활용)
+            if game_state and 'participants' in game_state:
+                for participant in game_state['participants']:
+                    guest_id = participant['guest_id']
+                    keys_to_delete.append(f"game:{room_id}:player:{guest_id}")
+                    
+                    # 플레이어별 참여 게임 목록에서도 제거
+                    player_games_key = f"{self.PLAYER_GAMES_PREFIX}{guest_id}"
+                    await self.redis_client.srem(player_games_key, room_id)
+            
+            # 활성 게임 목록에서 제거
+            await self.redis_client.srem(self.ACTIVE_GAMES_SET, room_id)
+            
+            # 키들 일괄 삭제
+            if keys_to_delete:
+                await self.redis_client.delete(*keys_to_delete)
+            
+            logger.info(f"게임 데이터 정리 완료: room_id={room_id}, 삭제된 키 수: {len(keys_to_delete)}")
             
         except Exception as e:
             logger.error(f"게임 데이터 정리 실패: {e}")

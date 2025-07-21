@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import GameLayout from './components/GameLayout';
 import GameControls from './components/GameControls';
 import GameResultModal from './components/GameResultModal';
+import WebSocketStatus from '../../components/WebSocketStatus';
 import useWordChain from './hooks/useWordChain';
 import axiosInstance from '../../Api/axiosInstance';
 import { ROOM_API } from '../../Api/roomApi';
@@ -22,7 +23,11 @@ function InGame() {
     isMyTurn,
     errorMessage,
     connected: wsConnected,
+    isReconnecting,
+    connectionAttempts,
+    maxReconnectAttempts,
     participants: wsParticipants,
+    manualReconnect,
     handleInputChange,
     handleKeyPress,
     submitWord,
@@ -45,15 +50,9 @@ function InGame() {
     }
     
     try {
-      console.log('🏁 게임 종료 API 호출 시작');
       const response = await axiosInstance.post(ROOM_API.END_ROOMS(gameid));
-      console.log('✅ 게임 종료 API 응답:', response.data);
       
       // WebSocket 메시지에서 페이지 이동을 처리하므로 여기서는 추가 처리 불필요
-      // 성공 메시지만 표시
-      if (response.data.message) {
-        console.log('게임 종료 완료:', response.data.message);
-      }
       
     } catch (error) {
       console.error('게임 종료 실패:', error);
@@ -74,9 +73,7 @@ function InGame() {
     }
     
     try {
-      console.log('🎉 게임 완료 API 호출 시작');
       const response = await axiosInstance.post(ROOM_API.COMPLETE_ROOMS(gameid));
-      console.log('✅ 게임 완료 API 응답:', response.data);
       
       // 게임 완료 응답 데이터 저장
       if (response.data.winner) {
@@ -113,7 +110,6 @@ function InGame() {
   // WebSocket 게임 완료 이벤트 콜백 설정
   useEffect(() => {
     window.gameCompletedCallback = (data) => {
-      console.log('🎉 게임 완료 WebSocket 이벤트 수신:', data);
       setGameResultData({
         winner_name: data.winner_nickname,
         winner_id: data.winner_id,
@@ -137,6 +133,10 @@ function InGame() {
         isMyTurn={isMyTurn}
         errorMessage={errorMessage}
         wsConnected={wsConnected}
+        isReconnecting={isReconnecting}
+        connectionAttempts={connectionAttempts}
+        maxReconnectAttempts={maxReconnectAttempts}
+        manualReconnect={manualReconnect}
         wsParticipants={wsParticipants}
         handleInputChange={handleInputChange}
         handleKeyPress={handleKeyPress}

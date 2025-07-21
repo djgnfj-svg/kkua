@@ -27,10 +27,14 @@ const useWordChain = () => {
 
   const { 
     connected, 
+    isReconnecting,
+    connectionAttempts,
+    maxReconnectAttempts,
     messages, 
     participants, 
     gameStatus, 
-    sendMessage: sendSocketMessage
+    sendMessage: sendSocketMessage,
+    manualReconnect
   } = useGameRoomSocket(gameid);
 
   // Redis 기반 게임 상태 조회
@@ -241,7 +245,11 @@ const useWordChain = () => {
     isMyTurn,
     errorMessage,
     connected,
+    isReconnecting,
+    connectionAttempts,
+    maxReconnectAttempts,
     participants,
+    manualReconnect,
     handleInputChange,
     handleKeyPress,
     submitWord,

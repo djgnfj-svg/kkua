@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import { gameResultUrl } from '../utils/urls';
 import { invalidateCache } from '../utils/cacheManager';
 
 export default function useGameRoomSocket(roomId) {
   const [connected, setConnected] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);
   const [messages, setMessages] = useState([]);
   const [participants, setParticipants] = useState([]);
   const [gameStatus, setGameStatus] = useState('waiting');
@@ -14,16 +16,16 @@ export default function useGameRoomSocket(roomId) {
   const [isReady, setIsReady] = useState(false);
   const reconnectTimeoutRef = useRef(null);
   const connectionAttempts = useRef(0);
+  const maxReconnectAttempts = 5;
 
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const toast = useToast();
 
-  useEffect(() => {
+  const connectWebSocket = () => {
     if (!roomId || !isAuthenticated || !user) {
       return;
     }
-
-    const connectWebSocket = () => {
       // 이미 연결되어 있으면 무시
       if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
         return;
@@ -36,7 +38,14 @@ export default function useGameRoomSocket(roomId) {
 
         socket.onopen = () => {
           setConnected(true);
+          setIsReconnecting(false);
           setRoomUpdated(true);
+          
+          // 재연결 성공 알림 (첫 연결이 아닌 경우)
+          if (connectionAttempts.current > 0) {
+            toast.showSuccess('실시간 연결이 복구되었습니다!', 2000);
+          }
+          
           connectionAttempts.current = 0;
         };
 
@@ -53,13 +62,26 @@ export default function useGameRoomSocket(roomId) {
           setConnected(false);
           
           // 정상적인 종료가 아닌 경우에만 재연결 시도
-          if (event.code !== 1000 && event.code !== 1001 && connectionAttempts.current < 3) {
+          if (event.code !== 1000 && event.code !== 1001 && connectionAttempts.current < maxReconnectAttempts) {
             connectionAttempts.current += 1;
+            setIsReconnecting(true);
             
-            // 간단한 재연결 로직 (5초 후)
+            // 첫 번째 연결 끊김 시에만 알림 표시
+            if (connectionAttempts.current === 1) {
+              toast.showWarning('연결이 끊어졌습니다. 자동으로 재연결 중...', 3000);
+            }
+            
+            // 지수 백오프 재연결 로직 (2초, 4초, 8초, 16초, 32초)
+            const delay = Math.min(2000 * Math.pow(2, connectionAttempts.current - 1), 32000);
             reconnectTimeoutRef.current = setTimeout(() => {
               connectWebSocket();
-            }, 5000);
+            }, delay);
+          } else {
+            setIsReconnecting(false);
+            // 재연결 시도 한계 도달 시 알림
+            if (connectionAttempts.current >= maxReconnectAttempts) {
+              toast.showError('연결을 복구할 수 없습니다. 수동으로 재연결해주세요.', 5000);
+            }
           }
         };
 
@@ -230,6 +252,12 @@ export default function useGameRoomSocket(roomId) {
         }
       }
     };
+  };
+
+  useEffect(() => {
+    if (!roomId || !isAuthenticated || !user) {
+      return;
+    }
 
     connectWebSocket();
 
@@ -240,6 +268,7 @@ export default function useGameRoomSocket(roomId) {
       if (socketRef.current) {
         socketRef.current.close(1000, 'Component unmounting');
       }
+      setIsReconnecting(false);
     };
   }, [roomId, isAuthenticated, user, navigate]);
 
@@ -285,8 +314,29 @@ export default function useGameRoomSocket(roomId) {
     return false;
   };
 
+  const manualReconnect = () => {
+    // 기존 연결 정리
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+    }
+    if (socketRef.current) {
+      socketRef.current.close();
+    }
+    
+    // 연결 상태 리셋 및 재연결 시도
+    connectionAttempts.current = 0;
+    setIsReconnecting(true);
+    
+    setTimeout(() => {
+      connectWebSocket();
+    }, 500); // 짧은 지연 후 재연결
+  };
+
   return {
     connected,
+    isReconnecting,
+    connectionAttempts: connectionAttempts.current,
+    maxReconnectAttempts,
     messages,
     participants,
     gameStatus,
@@ -294,6 +344,7 @@ export default function useGameRoomSocket(roomId) {
     sendMessage,
     toggleReady,
     updateStatus,
+    manualReconnect,
     roomUpdated,
     setRoomUpdated,
   };

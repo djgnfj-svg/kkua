@@ -54,24 +54,15 @@ const ActionButtons = ({
           <div className="relative inline-block group">
             <button
               onClick={() => {
-                console.log('🎮 게임 시작 버튼 클릭됨');
-                console.log('isStartingGame:', isStartingGame);
-                console.log('participants.length:', participants.length);
-                console.log('allNonOwnerPlayersReady:', allNonOwnerPlayersReady);
-                
                 if (isStartingGame) {
-                  console.log('❌ 이미 게임 시작 중이므로 무시');
                   return;
                 }
                 
                 if (participants.length >= 2 && allNonOwnerPlayersReady) {
-                  console.log('✅ 조건 만족, handleClickStartBtn 호출');
                   handleClickStartBtn();
                 } else if (participants.length < 2) {
-                  console.log('❌ 참가자 수 부족');
                   alert('게임 시작을 위해 최소 2명의 플레이어가 필요합니다.');
                 } else {
-                  console.log('❌ 모든 플레이어가 준비되지 않음');
                   alert('모든 플레이어가 준비 상태여야 합니다.');
                 }
               }}

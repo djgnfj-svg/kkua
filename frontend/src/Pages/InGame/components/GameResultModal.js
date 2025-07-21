@@ -15,13 +15,6 @@ const GameResultModal = ({ isOpen, onClose, roomId, winnerData }) => {
     error
   } = useGameResult(roomId);
 
-  // 디버깅을 위한 로그
-  useEffect(() => {
-    if (isOpen) {
-      console.log('🎭 GameResultModal 열림:', { roomId, winnerData, loading, error });
-      console.log('📊 플레이어 데이터:', players);
-    }
-  }, [isOpen, roomId, players, loading, error]);
 
   useEffect(() => {
     // 모달이 열리고 우승자가 있으면 confetti 효과
@@ -175,11 +168,18 @@ const GameResultModal = ({ isOpen, onClose, roomId, winnerData }) => {
             {Array.isArray(players) && players.length > 0 ? (
               <div className="space-y-4">
                 {players.map((player, index) => {
-                  // 안전한 데이터 접근 (백엔드 API 응답 형식에 맞춤)
-                  const nickname = player?.nickname || player?.name || '플레이어';
-                  const totalScore = player?.total_score || player?.totalScore || 0;
-                  const wordsSubmitted = player?.words_submitted || player?.wordsSubmitted || 0;
-                  const guestId = player?.guest_id || player?.id || index;
+                  // 더 안전한 데이터 접근 및 디버깅
+                  console.log(`플레이어 ${index} 데이터:`, player);
+                  
+                  const nickname = player?.nickname || '알 수 없는 플레이어';
+                  const totalScore = Number(player?.total_score) || 0;
+                  const wordsSubmitted = Number(player?.words_submitted) || 0;
+                  const guestId = player?.guest_id || index;
+                  
+                  console.log(`플레이어 ${nickname}: 점수=${totalScore}, 단어수=${wordsSubmitted}`);
+                  
+                  // 점수가 0인 경우에 대한 특별 처리
+                  const displayScore = totalScore === 0 ? '점수 집계 중...' : totalScore.toLocaleString();
                   
                   // 순위별 스타일링
                   const getRankStyle = (rank) => {
@@ -227,8 +227,14 @@ const GameResultModal = ({ isOpen, onClose, roomId, winnerData }) => {
                       
                       {/* 점수 */}
                       <div className="text-right">
-                        <div className="text-3xl font-bold">{totalScore.toLocaleString()}</div>
-                        <div className="text-sm opacity-75">점</div>
+                        <div className="text-3xl font-bold">
+                          {totalScore === 0 ? (
+                            <span className="text-gray-500 text-lg">점수 집계 중...</span>
+                          ) : (
+                            <span>{totalScore.toLocaleString()}</span>
+                          )}
+                        </div>
+                        {totalScore > 0 && <div className="text-sm opacity-75">점</div>}
                       </div>
                     </div>
                   );

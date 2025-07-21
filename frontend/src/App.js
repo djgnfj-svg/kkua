@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { ToastProvider } from './contexts/ToastContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Loading from './Pages/Loading/Loading';
 import InGame from './Pages/InGame/InGame';
@@ -12,7 +13,8 @@ function App() {
   return (
     <div className="App">
       <AuthProvider>
-        <Router>
+        <ToastProvider>
+          <Router>
           <Routes>
             <Route path="/" element={<Loading />} />
             <Route
@@ -49,7 +51,8 @@ function App() {
             />
             <Route path="*" element={<NotFound />} />
           </Routes>
-        </Router>
+          </Router>
+        </ToastProvider>
       </AuthProvider>
     </div>
   );
