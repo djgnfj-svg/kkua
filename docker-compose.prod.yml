@@ -5,14 +5,17 @@ services:
     build: ./backend
     ports:
       - "8000:8000"
+    env_file:
+      - ./backend/.env.prod
     environment:
-      - DATABASE_URL=postgresql://postgres:mysecretpassword@db:5432/mydb
+      # Override specific values if needed
       - ENVIRONMENT=production
       - DEBUG=false
-      - CORS_ORIGINS=["https://your-domain.com"]
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_started
     restart: unless-stopped
 
   frontend:
@@ -20,10 +23,10 @@ services:
       context: ./frontend
       dockerfile: Dockerfile.prod
     ports:
-      - "3000:3000"
+      - "80:80"  # Changed to port 80 for production with Nginx
     environment:
-      - REACT_APP_API_URL=https://your-api-domain.com
-      - REACT_APP_WS_URL=wss://your-api-domain.com
+      - REACT_APP_API_URL=${FRONTEND_API_URL:-https://api.your-domain.com}
+      - REACT_APP_WS_URL=${FRONTEND_WS_URL:-wss://api.your-domain.com}
     depends_on:
       - backend
     restart: unless-stopped
@@ -33,18 +36,47 @@ services:
     ports:
       - "5432:5432"
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=mysecretpassword
-      - POSTGRES_DB=mydb
+      - POSTGRES_USER=${DATABASE_USER:-postgres}
+      - POSTGRES_PASSWORD=${DATABASE_PASSWORD}
+      - POSTGRES_DB=${DATABASE_NAME:-kkua_prod}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./backups:/backups  # For database backups
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
-      interval: 5s
+      test: [ "CMD-SHELL", "pg_isready -U ${DATABASE_USER:-postgres}" ]
+      interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 10s
+      start_period: 30s
     restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # Production database migration service
+  backend-migrate:
+    build: ./backend
+    env_file:
+      - ./backend/.env.prod
+    environment:
+      - ENVIRONMENT=production
+    depends_on:
+      db:
+        condition: service_healthy
+    command: python scripts/migrate.py upgrade
+    restart: "no"  # Only run once for migrations
 
 volumes:
   postgres_data:
+  redis_data:

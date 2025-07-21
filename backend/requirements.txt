@@ -1,16 +1,35 @@
-fastapi
-uvicorn[standard]
-sqlalchemy
-pydantic
-pydantic-settings
-psycopg2-binary
-pytest
-httpx
-websockets>=10.0,<11.0
-pytest-asyncio
-ruff
-python-jose[cryptography]
-python-multipart
-passlib[bcrypt]
-pytest-cov
-redis>=4.0.0
+# Core Framework
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+
+# Database & ORM
+sqlalchemy==2.0.36
+psycopg2-binary==2.9.10
+
+# Data Validation
+pydantic==2.11.2
+pydantic-settings==2.10.1
+
+# Authentication & Security
+python-jose[cryptography]==3.3.0
+python-multipart==0.0.20
+passlib[bcrypt]==1.7.4
+
+# WebSocket & HTTP Client
+websockets==10.4
+httpx==0.28.1
+
+# Cache & Session Store
+redis==5.2.1
+
+# Testing
+pytest==8.4.1
+pytest-asyncio==1.1.0
+pytest-cov==6.2.1
+
+# Code Quality & Formatting
+ruff==0.12.4
+
+# Additional Dependencies for Production
+alembic==1.14.0  # Database migrations
+python-dotenv==1.0.1  # Environment variable loading

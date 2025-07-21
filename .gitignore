@@ -125,6 +125,12 @@ celerybeat.pid
 
 # Environments
 .env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.prod
+.env.production
 .venv
 env/
 venv/
@@ -200,8 +206,16 @@ docker-compose.override.yml
 **/*-todo.md
 **/PROJECT_SUMMARY.md
 
-# Production environment files
-.env.production
+# Database backups
+/backups/
+*.sql
+*.dump
+
+# Security & Secret files
+**/*.key
+**/*.pem
+**/*.p12
+**/*.crt
 
 # MCP configuration (contains API tokens)
 .mcp.json

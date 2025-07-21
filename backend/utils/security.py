@@ -5,10 +5,13 @@ Security utilities for token generation and validation
 import secrets
 import hashlib
 import hmac
+import logging
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
-from jose import JWTError, jwt
+from jose import JWTError, jwt, ExpiredSignatureError, JWTClaimsError
 from app_config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class SecurityUtils:
@@ -78,7 +81,14 @@ class SecurityUtils:
                 'created_at': token_time
             }
             
-        except Exception:
+        except ValueError as e:
+            logger.warning(f"Token parsing error - invalid format: {e}")
+            return None
+        except (TypeError, IndexError) as e:
+            logger.warning(f"Token structure error: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Unexpected error in token validation: {e}", exc_info=True)
             return None
     
     @staticmethod

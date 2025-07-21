@@ -8,6 +8,10 @@ import random
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
 import redis.asyncio as redis
+from redis.exceptions import (
+    RedisError, ConnectionError, TimeoutError, 
+    ResponseError, BusyLoadingError, ReadOnlyError
+)
 from app_config import settings
 import logging
 
@@ -171,7 +175,17 @@ class RedisGameService:
         try:
             await self.redis_client.ping()
             return True
-        except Exception:
+        except (ConnectionError, TimeoutError) as e:
+            logger.warning(f"Redis connection check failed: {e}")
+            return False
+        except (ResponseError, BusyLoadingError) as e:
+            logger.warning(f"Redis server error during ping: {e}")
+            return False
+        except RedisError as e:
+            logger.error(f"Redis error during connection check: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error in Redis connection check: {e}", exc_info=True)
             return False
     
     async def ensure_connection(self):
@@ -257,8 +271,17 @@ class RedisGameService:
             logger.info(f"게임 생성: room_id={room_id}, participants={len(participants)}")
             return True
             
+        except (ConnectionError, TimeoutError) as e:
+            logger.error(f"Redis 연결 오류로 게임 생성 실패: room_id={room_id}, error={e}")
+            return False
+        except (ResponseError, RedisError) as e:
+            logger.error(f"Redis 서버 오류로 게임 생성 실패: room_id={room_id}, error={e}")
+            return False
+        except (ValueError, KeyError) as e:
+            logger.error(f"잘못된 데이터로 게임 생성 실패: room_id={room_id}, error={e}")
+            return False
         except Exception as e:
-            logger.error(f"게임 생성 실패: {e}")
+            logger.error(f"예상치 못한 게임 생성 실패: room_id={room_id}, error={e}", exc_info=True)
             return False
     
     async def start_game(self, room_id: int, first_word: str = "끝말잇기") -> bool:
