@@ -5,36 +5,60 @@ import { useNavigate } from 'react-router-dom';
 import { gameResultUrl } from '../utils/urls';
 import { invalidateCache } from '../utils/cacheManager';
 
+/**
+ * 게임룸 WebSocket 연결 및 상태 관리 훅
+ * 
+ * 주요 기능:
+ * - WebSocket 연결 관리 (자동 재연결 포함)
+ * - 게임룸 실시간 상태 동기화  
+ * - 사용자 알림 및 에러 처리
+ * - 메시지 송수신 및 이벤트 처리
+ */
 export default function useGameRoomSocket(roomId) {
-  const [connected, setConnected] = useState(false);
-  const [isReconnecting, setIsReconnecting] = useState(false);
-  const [messages, setMessages] = useState([]);
-  const [participants, setParticipants] = useState([]);
-  const [gameStatus, setGameStatus] = useState('waiting');
-  const socketRef = useRef(null);
-  const [roomUpdated, setRoomUpdated] = useState(false);
-  const [isReady, setIsReady] = useState(false);
-  const reconnectTimeoutRef = useRef(null);
-  const connectionAttempts = useRef(0);
-  const maxReconnectAttempts = 5;
+  // === 연결 상태 관리 ===
+  const [connected, setConnected] = useState(false);           // WebSocket 연결 상태
+  const [isReconnecting, setIsReconnecting] = useState(false); // 재연결 시도 중 여부
+  
+  // === 게임룸 데이터 ===
+  const [messages, setMessages] = useState([]);               // 채팅 메시지 목록
+  const [participants, setParticipants] = useState([]);       // 참여자 목록
+  const [gameStatus, setGameStatus] = useState('waiting');    // 게임 상태 (waiting, playing, finished)
+  const [roomUpdated, setRoomUpdated] = useState(false);      // 룸 정보 업데이트 플래그
+  const [isReady, setIsReady] = useState(false);              // 현재 사용자 준비 상태
+  
+  // === WebSocket 및 재연결 관리 ===
+  const socketRef = useRef(null);                             // WebSocket 연결 객체
+  const reconnectTimeoutRef = useRef(null);                   // 재연결 타이머
+  const connectionAttempts = useRef(0);                       // 현재 연결 시도 횟수
+  const maxReconnectAttempts = 5;                            // 최대 재연결 시도 횟수
 
-  const { user, isAuthenticated } = useAuth();
-  const navigate = useNavigate();
-  const toast = useToast();
+  // === 외부 의존성 ===
+  const { user, isAuthenticated } = useAuth();               // 인증 정보
+  const navigate = useNavigate();                             // 라우팅
+  const toast = useToast();                                   // 사용자 알림
 
+  /**
+   * WebSocket 연결 함수
+   * - 인증 상태 확인 후 연결 시도
+   * - 중복 연결 방지
+   * - 이벤트 핸들러 등록
+   */
   const connectWebSocket = () => {
+    // 연결 전제 조건 검증
     if (!roomId || !isAuthenticated || !user) {
       return;
     }
-      // 이미 연결되어 있으면 무시
-      if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-        return;
-      }
+    
+    // 이미 연결되어 있으면 무시 (중복 연결 방지)
+    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+      return;
+    }
 
-      try {
-        const wsUrl = `${process.env.REACT_APP_WS_BASE_URL || 'ws://localhost:8000'}/ws/gamerooms/${roomId}`;
-        const socket = new WebSocket(wsUrl);
-        socketRef.current = socket;
+    try {
+      // WebSocket URL 구성 및 연결
+      const wsUrl = `${process.env.REACT_APP_WS_BASE_URL || 'ws://localhost:8000'}/ws/gamerooms/${roomId}`;
+      const socket = new WebSocket(wsUrl);
+      socketRef.current = socket;
 
         socket.onopen = () => {
           setConnected(true);
