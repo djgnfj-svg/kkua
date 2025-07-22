@@ -1,64 +1,77 @@
-# 프로젝트명 : 끄아(kkua)
+# 끄아 (KKUA)
 
-##### URL : [미정]
-##### 기간 : 2025.03.22 ~ 2025.04.25
+실시간 멀티플레이어 끝말잇기 게임
 
-<br>
+## 🚀 빠른 시작
 
-# 📝 프로젝트 소개
+```bash
+# 저장소 클론
+git clone <repository-url>
+cd kkua
 
-끝말잇기에 아이템이 있는 게임입니다.
+# 환경 설정
+cp backend/.env.example backend/.env
 
+# Docker 배포 (원클릭)
+./deploy.sh
 
-### 주요 특징
-- 실시간 멀티플레이어 단어 게임
-- 아이템이 있는 끝말잇기 게임
+# 서비스 확인
+# 프론트엔드: http://localhost:3000
+# 백엔드: http://localhost:8000
+# API 문서: http://localhost:8000/docs
+```
 
-## 👥 팀 구성 및 역할
+## 💻 개발 환경
 
-### Backend
-- [송영재](https://github.com/djgnfj-svg)
-  - FastAPI 기반 백엔드 서버 개발
-  - WebSocket 실시간 통신 구현
-  - 게임 로직 및 데이터베이스 설계
-  - 단어 검증 시스템 구현
-  - 데이터 수집 및 분석
+### 요구사항
+- Docker
+- Docker Compose
 
-### Frontend
-- [박형석](https://github.com/b-hyoung)
-  - React 프론트엔드 개발
-  - 실시간 게임 인터페이스 개발
-- [이승연](https://github.com/SeungYeon04)
-  - React 프론트엔드 개발
-  - UI/UX 디자인 및 구현
-  - 반응형 디자인 구현
+### 주요 명령어
+```bash
+# 서비스 시작
+./deploy.sh
 
-## 문서
-### [기능정의서](https://robust-dinghy-c4f.notion.site/1c49bd627a788024a946cd55773f2341?pvs=4)
-### 플로우 차트
-### [ERD](https://robust-dinghy-c4f.notion.site/ERD-1c59bd627a7880969e38cea61681d68d)
+# 서비스 중지  
+./stop.sh
 
-## 🛠 기술 스택
+# 로그 확인
+docker-compose logs -f
 
-### Backend
+# 테스트 실행
+docker-compose run --rm backend-test
+```
+
+## 🏗 기술 스택
+
+**Backend**
 - FastAPI
+- PostgreSQL
+- Redis
+- WebSocket
 
-### Frontend  
+**Frontend**
 - React
 - TailwindCSS
+- Zustand
 
-### Database
-- PostgreSQL
-
-### DevOps
-- AWS
+**인프라**
 - Docker
+- Docker Compose
 
-## 플로우차트
-###  - 로비 플로우차트
-<img width="599" alt="kkuaLobby_Flowe" src="https://github.com/user-attachments/assets/d41273e2-0fb1-4212-8744-287316c18211" />
+## 📋 주요 기능
 
-###  - 게임 플로우차트
-<img width="600" alt="kkua_gameFlowe" src="https://github.com/user-attachments/assets/ff0ed501-b735-4958-b6de-198d6946d6b1" />
+- 실시간 멀티플레이어 끝말잇기
+- 아이템 시스템이 있는 게임플레이
+- 세션 기반 인증
+- 실시간 채팅
+- 게임 통계 및 결과
 
+## 👥 팀 구성
 
+**Backend**: [송영재](https://github.com/djgnfj-svg)
+**Frontend**: [박형석](https://github.com/b-hyoung), [이승연](https://github.com/SeungYeon04)
+
+---
+
+더 자세한 배포 정보는 [DEPLOYMENT.md](./DEPLOYMENT.md)를 참고하세요.

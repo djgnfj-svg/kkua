@@ -1,5 +1,6 @@
 from typing import Dict, List, Optional
 import asyncio
+import logging
 from datetime import datetime
 from sqlalchemy.orm import Session
 
@@ -18,6 +19,7 @@ class WordChainGameEngine:
         self.websocket_manager = websocket_manager
         self.db = db
         self.game_log_repository = GameLogRepository(db) if db else None
+        self.logger = logging.getLogger(__name__)
         
         # 끝말잇기 게임 상태 관리
         self.word_chain_games: Dict[int, Dict] = {}  # room_id: 게임 상태
@@ -34,14 +36,14 @@ class WordChainGameEngine:
         if self.game_log_repository:
             try:
                 game_log = self.game_log_repository.create_game_log(room_id, max_rounds)
-                print(f"게임 로그 생성됨: game_log_id={game_log.id}")
+                self.logger.info(f"게임 로그 생성됨: game_log_id={game_log.id}")
                 
                 # 플레이어별 통계 생성
                 for participant_id in participant_ids:
                     self.game_log_repository.create_player_stats(game_log.id, participant_id)
                     
             except Exception as e:
-                print(f"게임 로그 생성 실패: {str(e)}")
+                self.logger.error(f"게임 로그 생성 실패: {str(e)}", exc_info=True)
 
         # 게임 상태 초기화
         self.word_chain_games[room_id] = {
@@ -60,7 +62,7 @@ class WordChainGameEngine:
             "is_game_over": False,
             "game_log_id": game_log.id if game_log else None,
         }
-        print(f"끝말잇기 게임 초기화: room_id={room_id}, 참가자 수={len(participant_ids)}, 최대 라운드={max_rounds}")
+        self.logger.info(f"끝말잇기 게임 초기화: room_id={room_id}, 참가자 수={len(participant_ids)}, 최대 라운드={max_rounds}")
 
     def get_game_state(self, room_id: int) -> Dict:
         """현재 게임 상태 반환"""
@@ -84,7 +86,7 @@ class WordChainGameEngine:
         game_state["current_player_index"] = 0
         game_state["current_player_id"] = game_state["participants"][0]
 
-        print(f"끝말잇기 게임 시작: room_id={room_id}, 첫 단어={first_word}")
+        self.logger.info(f"끝말잇기 게임 시작: room_id={room_id}, 첫 단어={first_word}")
         return True
 
     def validate_word(self, room_id: int, word: str, guest_id: int) -> bool:
@@ -96,22 +98,22 @@ class WordChainGameEngine:
 
         # 현재 플레이어 확인
         if game_state["current_player_id"] != guest_id:
-            print(f"차례가 아닌 플레이어의 단어 제출: {guest_id}")
+            self.logger.warning(f"차례가 아닌 플레이어의 단어 제출: {guest_id}")
             return False
 
         # 이미 사용된 단어인지 확인
         if word in game_state["used_words"]:
-            print(f"이미 사용된 단어: {word}")
+            self.logger.warning(f"이미 사용된 단어: {word}")
             return False
 
         # 첫 글자가 이전 단어의 마지막 글자인지 확인
         if not word.startswith(game_state["last_character"]):
-            print(f"이전 단어의 마지막 글자로 시작하지 않음: {word}")
+            self.logger.warning(f"이전 단어의 마지막 글자로 시작하지 않음: {word}")
             return False
 
         # 한글 단어인지 확인 (간단한 검증)
         if not all("\uac00" <= char <= "\ud7a3" for char in word):
-            print(f"유효한 한글 단어가 아님: {word}")
+            self.logger.warning(f"유효한 한글 단어가 아님: {word}")
             return False
 
         return True
@@ -174,31 +176,31 @@ class WordChainGameEngine:
                     score=word_score
                 )
                 
-                print(f"단어 엔트리 저장됨: {word} (점수: {word_score})")
+                self.logger.info(f"단어 엔트리 저장됨: {word} (점수: {word_score})")
                 
             except Exception as e:
-                print(f"단어 엔트리 저장 실패: {str(e)}")
+                self.logger.error(f"단어 엔트리 저장 실패: {str(e)}", exc_info=True)
 
         # 라운드 완료 체크 (모든 플레이어가 한 번씩 차례를 가졌는지)
         if game_state["turn_number"] % len(game_state["participants"]) == 0:
             game_state["current_round"] += 1
-            print(f"라운드 완료! 현재 라운드: {game_state['current_round']}/{game_state['max_rounds']}")
+            self.logger.info(f"라운드 완료! 현재 라운드: {game_state['current_round']}/{game_state['max_rounds']}")
 
         # 최대 라운드 도달 체크
         game_over_reason = None
         if game_state["current_round"] > game_state["max_rounds"]:
             game_state["is_game_over"] = True
             game_over_reason = "max_rounds_reached"
-            print(f"최대 라운드 도달! 게임 종료: room_id={room_id}")
+            self.logger.info(f"최대 라운드 도달! 게임 종료: room_id={room_id}")
             
             # 게임 종료 시 최종 순위 계산 및 DB 업데이트
             if self.game_log_repository and game_state.get("game_log_id"):
                 try:
                     winner_id = self.game_log_repository.calculate_final_rankings(game_state["game_log_id"])
                     self.game_log_repository.end_game_log(game_state["game_log_id"], winner_id, game_over_reason)
-                    print(f"게임 종료 및 순위 계산 완료: winner_id={winner_id}")
+                    self.logger.info(f"게임 종료 및 순위 계산 완료: winner_id={winner_id}")
                 except Exception as e:
-                    print(f"게임 종료 처리 실패: {str(e)}")
+                    self.logger.error(f"게임 종료 처리 실패: {str(e)}", exc_info=True)
 
         # 다음 플레이어로 턴 넘기기
         game_state["current_player_index"] = (
@@ -208,7 +210,7 @@ class WordChainGameEngine:
             game_state["current_player_index"]
         ]
 
-        print(f"단어 제출 성공: room_id={room_id}, 단어={word}, 다음 플레이어={game_state['current_player_id']}")
+        self.logger.info(f"단어 제출 성공: room_id={room_id}, 단어={word}, 다음 플레이어={game_state['current_player_id']}")
 
         result = {
             "success": True,
@@ -301,7 +303,7 @@ class WordChainGameEngine:
             # 타이머가 취소됨 (정상)
             pass
         except Exception as e:
-            print(f"타이머 오류: {str(e)}")
+            self.logger.error(f"타이머 오류: {str(e)}", exc_info=True)
 
     async def broadcast_word_chain_state(self, room_id: int):
         """현재 끝말잇기 게임 상태 브로드캐스트"""
@@ -337,6 +339,6 @@ class WordChainGameEngine:
                 del self.turn_timers[room_id]
 
             del self.word_chain_games[room_id]
-            print(f"끝말잇기 게임 종료: room_id={room_id}")
+            self.logger.info(f"끝말잇기 게임 종료: room_id={room_id}")
             return True
         return False

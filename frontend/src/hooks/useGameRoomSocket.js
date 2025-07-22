@@ -78,7 +78,11 @@ export default function useGameRoomSocket(roomId) {
             const data = JSON.parse(event.data);
             handleMessage(data);
           } catch (parseError) {
-            console.error('WebSocket 메시지 파싱 에러:', parseError);
+            // 메시지 파싱 실패는 일시적 오류이므로 toast 알림 없이 무시
+            // 개발 환경에서만 로깅
+            if (process.env.NODE_ENV === 'development') {
+              console.warn('WebSocket 메시지 파싱 실패:', parseError);
+            }
           }
         };
 
@@ -114,7 +118,10 @@ export default function useGameRoomSocket(roomId) {
         };
 
       } catch (error) {
-        console.error('WebSocket 생성 오류:', error);
+        // WebSocket 생성 실패 시 사용자에게 알림
+        toast.showError('실시간 연결에 실패했습니다. 잠시 후 다시 시도해주세요.');
+        setConnected(false);
+        setIsReconnecting(false);
       }
     };
 

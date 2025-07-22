@@ -6,6 +6,7 @@ import logging
 import logging.handlers
 import os
 import sys
+import json
 from datetime import datetime
 from typing import Dict, Any
 from app_config import settings
@@ -34,6 +35,65 @@ class ColoredFormatter(logging.Formatter):
         return super().format(record)
 
 
+class JSONFormatter(logging.Formatter):
+    """
+    JSON formatter for structured logging
+    """
+    
+    def format(self, record):
+        log_entry = {
+            'timestamp': datetime.fromtimestamp(record.created).isoformat(),
+            'level': record.levelname,
+            'logger': record.name,
+            'message': record.getMessage(),
+            'module': record.module,
+            'function': record.funcName,
+            'line': record.lineno,
+            'process_id': record.process,
+            'thread_id': record.thread,
+            'environment': settings.environment
+        }
+        
+        # Add request context if available
+        if hasattr(record, 'request_id'):
+            log_entry['request_id'] = record.request_id
+        if hasattr(record, 'user_id'):
+            log_entry['user_id'] = record.user_id
+        if hasattr(record, 'session_id'):
+            log_entry['session_id'] = record.session_id
+        if hasattr(record, 'room_id'):
+            log_entry['room_id'] = record.room_id
+        
+        # Add extra data if available
+        if hasattr(record, 'extra_data'):
+            log_entry['extra'] = record.extra_data
+        
+        # Add exception info if present
+        if record.exc_info:
+            log_entry['exception'] = {
+                'type': record.exc_info[0].__name__ if record.exc_info[0] else None,
+                'message': str(record.exc_info[1]) if record.exc_info[1] else None,
+                'traceback': self.formatException(record.exc_info) if record.exc_info else None
+            }
+        
+        # Add performance metrics if available
+        if hasattr(record, 'duration'):
+            log_entry['performance'] = {
+                'duration_ms': round(record.duration * 1000, 2),
+                'operation': getattr(record, 'operation', 'unknown')
+            }
+        
+        # Add security context if available
+        if hasattr(record, 'security_event'):
+            log_entry['security'] = {
+                'event': record.security_event,
+                'ip_address': getattr(record, 'ip_address', None),
+                'user_agent': getattr(record, 'user_agent', None)
+            }
+        
+        return json.dumps(log_entry, ensure_ascii=False)
+
+
 class RequestContextFilter(logging.Filter):
     """
     Add request context to log records
@@ -49,7 +109,7 @@ class RequestContextFilter(logging.Filter):
 
 def setup_logging():
     """
-    Setup centralized logging configuration
+    Setup centralized logging configuration with JSON structured logging
     """
     # Create logs directory if it doesn't exist
     log_dir = "logs"
@@ -64,18 +124,26 @@ def setup_logging():
     for handler in root_logger.handlers[:]:
         root_logger.removeHandler(handler)
     
-    # Console handler with colors
+    # Determine if we should use JSON formatting
+    use_json_logging = os.getenv('USE_JSON_LOGGING', 'false').lower() == 'true'
+    
+    # Console handler with colors (human-readable for development)
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(logging.DEBUG if settings.debug else logging.INFO)
-    console_formatter = ColoredFormatter(
-        '%(asctime)s - %(name)s - %(levelname)s - [%(request_id)s] - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
+    
+    if use_json_logging:
+        console_formatter = JSONFormatter()
+    else:
+        console_formatter = ColoredFormatter(
+            '%(asctime)s - %(name)s - %(levelname)s - [%(request_id)s] - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+    
     console_handler.setFormatter(console_formatter)
     console_handler.addFilter(RequestContextFilter())
     root_logger.addHandler(console_handler)
     
-    # File handler for all logs
+    # File handler for all logs (always use JSON for files)
     file_handler = logging.handlers.RotatingFileHandler(
         filename=f"{log_dir}/kkua.log",
         maxBytes=10 * 1024 * 1024,  # 10MB
@@ -83,15 +151,11 @@ def setup_logging():
         encoding='utf-8'
     )
     file_handler.setLevel(logging.DEBUG)
-    file_formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - [%(request_id)s|%(user_id)s|%(session_id)s] - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
-    file_handler.setFormatter(file_formatter)
+    file_handler.setFormatter(JSONFormatter())
     file_handler.addFilter(RequestContextFilter())
     root_logger.addHandler(file_handler)
     
-    # Error-only file handler
+    # Error-only file handler (JSON format)
     error_handler = logging.handlers.RotatingFileHandler(
         filename=f"{log_dir}/error.log",
         maxBytes=10 * 1024 * 1024,  # 10MB
@@ -99,7 +163,7 @@ def setup_logging():
         encoding='utf-8'
     )
     error_handler.setLevel(logging.ERROR)
-    error_handler.setFormatter(file_formatter)
+    error_handler.setFormatter(JSONFormatter())
     error_handler.addFilter(RequestContextFilter())
     root_logger.addHandler(error_handler)
     
@@ -111,7 +175,7 @@ def setup_logging():
         encoding='utf-8'
     )
     performance_handler.setLevel(logging.INFO)
-    performance_handler.setFormatter(file_formatter)
+    performance_handler.setFormatter(JSONFormatter())
     performance_handler.addFilter(RequestContextFilter())
     
     # Create performance logger
@@ -128,7 +192,7 @@ def setup_logging():
         encoding='utf-8'
     )
     audit_handler.setLevel(logging.INFO)
-    audit_handler.setFormatter(file_formatter)
+    audit_handler.setFormatter(JSONFormatter())
     audit_handler.addFilter(RequestContextFilter())
     
     audit_logger = logging.getLogger('audit')
@@ -144,7 +208,7 @@ def setup_logging():
         encoding='utf-8'
     )
     security_handler.setLevel(logging.WARNING)
-    security_handler.setFormatter(file_formatter)
+    security_handler.setFormatter(JSONFormatter())
     security_handler.addFilter(RequestContextFilter())
     
     security_logger = logging.getLogger('security')
