@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, Integer, String, DateTime, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from db.postgres import Base
@@ -14,6 +14,7 @@ class Guest(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     last_login = Column(DateTime, nullable=True)
     device_info = Column(String, nullable=True)
+    is_admin = Column(Boolean, default=False, nullable=False)
 
     participations = relationship(
         "GameroomParticipant", back_populates="guest", cascade="all, delete-orphan"

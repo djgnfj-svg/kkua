@@ -26,8 +26,12 @@ class Settings(BaseSettings):
     
     # CORS
     cors_origins: List[str] = [
-        "http://localhost:3000",
-        "http://127.0.0.1:3000"
+        origin.strip() 
+        for origin in os.getenv(
+            "CORS_ORIGINS", 
+            "http://localhost:3000,http://127.0.0.1:3000"
+        ).split(",")
+        if origin.strip()
     ]
     
     # Environment
@@ -44,6 +48,12 @@ class Settings(BaseSettings):
     # Security Headers
     enable_security_headers: bool = os.getenv("ENABLE_SECURITY_HEADERS", "true").lower() == "true"
     hsts_max_age: int = int(os.getenv("HSTS_MAX_AGE", "31536000"))  # 1 year
+    
+    # Monitoring & Error Tracking
+    sentry_dsn: str = os.getenv("SENTRY_DSN", "")
+    sentry_environment: str = os.getenv("SENTRY_ENVIRONMENT", "development")
+    sentry_traces_sample_rate: float = float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "1.0"))
+    sentry_profiles_sample_rate: float = float(os.getenv("SENTRY_PROFILES_SAMPLE_RATE", "1.0"))
     
     class Config:
         env_file = ".env"

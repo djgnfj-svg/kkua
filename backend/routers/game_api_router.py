@@ -69,8 +69,8 @@ async def submit_word(
                     'message': '게임이 종료되었습니다!'
                 })
             else:
-                # 단어 제출 성공 브로드캐스트
-                await ws_manager.broadcast_to_room(room_id, {
+                # 고급 점수 정보를 포함한 단어 제출 성공 브로드캐스트
+                message = {
                     'type': 'word_submitted',
                     'word': request.word,
                     'submitted_by_id': guest.guest_id,
@@ -80,7 +80,21 @@ async def submit_word(
                     'current_round': result['current_round'],
                     'max_rounds': result['max_rounds'],
                     'time_left': result['time_left']
-                })
+                }
+                
+                # 고급 점수 정보 추가
+                if 'score_info' in result:
+                    score_info = result['score_info']
+                    from services.advanced_score_service import get_score_calculator
+                    score_calculator = get_score_calculator()
+                    
+                    message.update({
+                        'score_info': score_info,
+                        'player_total_score': result.get('player_total_score', 0),
+                        'score_breakdown_message': score_calculator.create_score_breakdown_message(score_info)
+                    })
+                
+                await ws_manager.broadcast_to_room(room_id, message)
         
         return result
         
@@ -160,6 +174,33 @@ async def get_player_stats(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"플레이어 통계 조회 중 오류: {str(e)}"
+        )
+
+
+@router.get("/{room_id}/final-results")
+async def get_final_game_results(
+    room_id: int,
+    guest: Guest = Depends(require_authentication)
+):
+    """게임 최종 결과 및 고급 통계 조회"""
+    try:
+        redis_game = await get_redis_game_service()
+        results = await redis_game.get_final_game_results(room_id)
+        
+        if not results:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="게임 결과를 찾을 수 없습니다."
+            )
+        
+        return results
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"게임 결과 조회 중 오류: {str(e)}"
         )
 
 

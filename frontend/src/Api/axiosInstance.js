@@ -3,10 +3,7 @@ import { getErrorMessage, ERROR_MESSAGES } from '../utils/errorMessages';
 import cacheManager, { invalidateCache } from '../utils/cacheManager';
 
 const axiosInstance = axios.create({
-  baseURL:
-    window.location.hostname === 'localhost'
-      ? 'http://localhost:8000'
-      : 'https://your-production-api.com', // replace with actual production API if needed
+  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:8000',
   headers: {
     'Content-Type': 'application/json',
     'Cache-Control': 'no-cache, no-store, must-revalidate', // HTTP 캐시 방지

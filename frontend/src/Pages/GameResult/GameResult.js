@@ -3,13 +3,16 @@ import { useParams, useNavigate } from 'react-router-dom';
 import WinnerAnnouncement from './components/WinnerAnnouncement';
 import GameStatistics from './components/GameStatistics';
 import PlayerRanking from './components/PlayerRanking';
+import AdvancedPlayerRanking from './components/AdvancedPlayerRanking';
 import WordTimeline from './components/WordTimeline';
 import ActionButtons from './components/ActionButtons';
 import useGameResult from './hooks/useGameResult';
+import { useAuth } from '../../contexts/AuthContext';
 
 const GameResult = () => {
   const { roomId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   
   const {
     gameData,
@@ -107,7 +110,11 @@ const GameResult = () => {
         {/* 게임 통계 및 순위 */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <GameStatistics gameStats={gameStats} />
-          <PlayerRanking players={players} />
+          {gameStats.isEnhancedData ? (
+            <AdvancedPlayerRanking players={players} currentUserId={user?.guest_id} />
+          ) : (
+            <PlayerRanking players={players} />
+          )}
         </div>
 
         {/* 단어 타임라인 */}

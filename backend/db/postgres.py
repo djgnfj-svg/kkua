@@ -1,9 +1,10 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from app_config import settings
 
 # 데이터베이스 URL
-DATABASE_URL = "postgresql://postgres:mysecretpassword@db:5432/mydb"
+DATABASE_URL = settings.database_url
 
 # 엔진 생성
 engine = create_engine(DATABASE_URL)

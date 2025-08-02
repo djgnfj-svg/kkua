@@ -10,7 +10,11 @@ async function userIsTrue() {
       return true;
     }
   } catch (error) {
-    console.warn('인증 상태 확인 중 오류 발생:', error);
+    // 인증 상태 확인 실패는 로그인되지 않은 것으로 처리
+    // 개발 환경에서만 로깅
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('인증 상태 확인 중 오류 발생:', error);
+    }
   }
 
   return false;

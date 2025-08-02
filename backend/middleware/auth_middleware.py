@@ -77,3 +77,18 @@ def require_authentication(guest: Guest = Depends(get_current_guest)) -> Guest:
 def optional_authentication(guest: Optional[Guest] = Depends(get_optional_current_guest)) -> Optional[Guest]:
     """Dependency for optional authentication"""
     return guest
+
+
+def get_admin_user(current_user: Guest = Depends(get_current_guest)) -> Guest:
+    """관리자 권한 체크"""
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="관리자 권한이 필요합니다"
+        )
+    return current_user
+
+
+def require_admin(admin_user: Guest = Depends(get_admin_user)) -> Guest:
+    """관리자 권한 요구 의존성"""
+    return admin_user

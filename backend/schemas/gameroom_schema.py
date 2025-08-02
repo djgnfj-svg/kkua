@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from enum import Enum
 import datetime
 
@@ -18,6 +18,7 @@ class GameroomBase(BaseModel):
     time_limit: int = 300
     max_rounds: int = 10
     room_type: str = "normal"
+    game_mode_config: Optional[Dict[str, Any]] = None
 
 
 # 게임룸 생성 요청 스키마
@@ -33,6 +34,7 @@ class GameroomUpdate(BaseModel):
     time_limit: Optional[int] = None
     max_rounds: Optional[int] = None
     room_type: Optional[str] = None
+    game_mode_config: Optional[Dict[str, Any]] = None
 
 
 # 게임룸 응답 스키마

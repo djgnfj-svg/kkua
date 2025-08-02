@@ -3,6 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import GameLayout from './components/GameLayout';
 import GameControls from './components/GameControls';
 import GameResultModal from './components/GameResultModal';
+import ItemPanel from './components/ItemPanel';
+import ScoreDisplay from './components/ScoreDisplay';
 import WebSocketStatus from '../../components/WebSocketStatus';
 import useWordChain from './hooks/useWordChain';
 import axiosInstance from '../../Api/axiosInstance';
@@ -16,12 +18,15 @@ function InGame() {
   const { user } = useAuth();
   const [showResultModal, setShowResultModal] = useState(false);
   const [gameResultData, setGameResultData] = useState(null);
+  const [itemMessage, setItemMessage] = useState(null);
 
   const {
     gameState,
     inputWord,
     isMyTurn,
     errorMessage,
+    lastScoreInfo,
+    setLastScoreInfo,
     connected: wsConnected,
     isReconnecting,
     connectionAttempts,
@@ -107,6 +112,20 @@ function InGame() {
     setGameResultData(null);
   };
 
+  // 아이템 사용 핸들러
+  const handleItemUsed = (item, result) => {
+    setItemMessage({
+      text: result.message,
+      type: result.success ? 'success' : 'error',
+      timestamp: Date.now()
+    });
+    
+    // 3초 후 메시지 제거
+    setTimeout(() => {
+      setItemMessage(null);
+    }, 3000);
+  };
+
   // WebSocket 게임 완료 이벤트 콜백 설정
   useEffect(() => {
     window.gameCompletedCallback = (data) => {
@@ -127,25 +146,74 @@ function InGame() {
 
   return (
     <>
-      <GameLayout
-        gameState={gameState}
-        inputWord={inputWord}
-        isMyTurn={isMyTurn}
-        errorMessage={errorMessage}
-        wsConnected={wsConnected}
-        isReconnecting={isReconnecting}
-        connectionAttempts={connectionAttempts}
-        maxReconnectAttempts={maxReconnectAttempts}
-        manualReconnect={manualReconnect}
-        wsParticipants={wsParticipants}
-        handleInputChange={handleInputChange}
-        handleKeyPress={handleKeyPress}
-        submitWord={submitWord}
-      />
-      <GameControls 
-        handleClickFinish={handleClickFinish} 
-        handleClickComplete={handleClickComplete}
-      />
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
+        <div className="max-w-7xl mx-auto p-4">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            {/* 메인 게임 영역 */}
+            <div className="lg:col-span-3">
+              <GameLayout
+                gameState={gameState}
+                inputWord={inputWord}
+                isMyTurn={isMyTurn}
+                errorMessage={errorMessage}
+                wsConnected={wsConnected}
+                isReconnecting={isReconnecting}
+                connectionAttempts={connectionAttempts}
+                maxReconnectAttempts={maxReconnectAttempts}
+                manualReconnect={manualReconnect}
+                wsParticipants={wsParticipants}
+                handleInputChange={handleInputChange}
+                handleKeyPress={handleKeyPress}
+                submitWord={submitWord}
+              />
+              
+              <GameControls 
+                handleClickFinish={handleClickFinish} 
+                handleClickComplete={handleClickComplete}
+              />
+            </div>
+            
+            {/* 사이드바 - 아이템 패널 */}
+            <div className="lg:col-span-1">
+              <ItemPanel
+                roomId={gameid}
+                onItemUsed={handleItemUsed}
+                isMyTurn={isMyTurn}
+                canUseItems={wsConnected}
+              />
+            </div>
+          </div>
+        </div>
+        
+        {/* 아이템 사용 메시지 */}
+        {itemMessage && (
+          <div className={`
+            fixed top-4 right-4 z-50 p-3 rounded-lg shadow-lg max-w-sm
+            ${itemMessage.type === 'success' 
+              ? 'bg-green-500 text-white' 
+              : 'bg-red-500 text-white'
+            }
+          `}>
+            <div className="flex items-center">
+              <span className="mr-2">
+                {itemMessage.type === 'success' ? '✅' : '❌'}
+              </span>
+              <span className="text-sm">{itemMessage.text}</span>
+            </div>
+          </div>
+        )}
+        
+        {/* 고급 점수 표시 */}
+        {lastScoreInfo && (
+          <ScoreDisplay
+            scoreInfo={lastScoreInfo.scoreInfo}
+            playerTotalScore={lastScoreInfo.playerTotalScore}
+            scoreBreakdownMessage={lastScoreInfo.scoreBreakdownMessage}
+            playerNickname={lastScoreInfo.playerNickname}
+            onAnimationComplete={() => setLastScoreInfo(null)}
+          />
+        )}
+      </div>
       
       {/* 게임 결과 모달 */}
       <GameResultModal

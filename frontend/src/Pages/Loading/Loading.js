@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import './Loading.css';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '../../contexts/ToastContext';
 import TutoModal from './Modal/TutoModal';
 import { lobbyUrl } from '../../utils/urls';
 import { useAuth } from '../../contexts/AuthContext';
+import { getErrorMessage, ERROR_MESSAGES } from '../../utils/errorMessages';
 
 function Loading() {
   const [showModal, setShowModal] = useState(false);
@@ -11,6 +13,7 @@ function Loading() {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { isAuthenticated, login, loading } = useAuth();
+  const toast = useToast();
 
   useEffect(() => {
     if (!loading && isAuthenticated) {
@@ -25,15 +28,15 @@ function Loading() {
       setShowModal(true);
       setIsLoading(false);
     } catch (error) {
-      console.error('빠른 시작 실패:', error);
-      alert('로그인에 실패했습니다. 다시 시도해주세요.');
+      const errorMessage = getErrorMessage(error) || ERROR_MESSAGES.AUTH_FAILED;
+      toast.showError(errorMessage);
       setIsLoading(false);
     }
   };
 
   const handleNicknameLogin = async () => {
     if (!nickname.trim()) {
-      alert('닉네임을 입력해주세요.');
+      toast.showWarning('닉네임을 입력해주세요.');
       return;
     }
 
@@ -43,10 +46,8 @@ function Loading() {
       setShowModal(true);
       setIsLoading(false);
     } catch (error) {
-      console.error('닉네임 로그인 실패:', error);
-      const errorMessage =
-        error.response?.data?.detail || '로그인에 실패했습니다.';
-      alert(errorMessage);
+      const errorMessage = getErrorMessage(error) || ERROR_MESSAGES.AUTH_FAILED;
+      toast.showError(errorMessage);
       setIsLoading(false);
     }
   };

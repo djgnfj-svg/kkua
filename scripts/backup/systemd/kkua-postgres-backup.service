@@ -1,0 +1,30 @@
+[Unit]
+Description=KKUA PostgreSQL Database Backup
+After=network.target
+Wants=kkua-postgres-backup.timer
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/opt/kkua
+ExecStart=/opt/kkua/scripts/backup_postgres.sh
+
+# 환경변수 파일 (필요시 수정)
+EnvironmentFile=-/opt/kkua/backend/.env
+
+# 로깅 설정
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=kkua-postgres-backup
+
+# 보안 설정
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/kkua/backups /opt/kkua/logs
+
+# 실행 시간 제한 (30분)
+TimeoutStartSec=1800
+
+[Install]
+WantedBy=multi-user.target

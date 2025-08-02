@@ -4,11 +4,13 @@ import axiosInstance from '../../../Api/axiosInstance';
 import { ROOM_API } from '../../../Api/roomApi';
 import { gameLobbyUrl } from '../../../utils/urls';
 import { useAuth } from '../../../contexts/AuthContext';
-import { getErrorMessage } from '../../../utils/errorMessages';
+import { useToast } from '../../../contexts/ToastContext';
+import { getErrorMessage, ERROR_MESSAGES } from '../../../utils/errorMessages';
 
 const useLobbyData = () => {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
+  const toast = useToast();
   const [roomsData, setRoomsData] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isEntering, setIsEntering] = useState(false);
@@ -23,12 +25,18 @@ const useLobbyData = () => {
           res.data.rooms.filter((room) => room.status !== 'finished')
         );
       } else {
-        console.error('API 응답 형식이 예상과 다릅니다:', res.data);
+        // API 응답 형식이 다른 경우 빈 배열로 설정
         setRoomsData([]);
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('예상과 다른 API 응답 형식:', res.data);
+        }
       }
     } catch (error) {
-      console.error('방 요청 실패:', error);
       setRoomsData([]);
+      // 방 목록 로딩 실패는 사용자에게 알리지 않음 (자동 재시도됨)
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('방 목록 로딩 실패:', error);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -60,7 +68,10 @@ const useLobbyData = () => {
           navigate(gameLobbyUrl(roomId));
         }
       } catch (err) {
-        console.error('게스트 상태 확인 실패:', err);
+        // 게스트 상태 확인 실패는 무시 (필수적이지 않은 기능)
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('게스트 상태 확인 실패:', err);
+        }
       }
     };
     fetchGuestStatus();
@@ -79,10 +90,9 @@ const useLobbyData = () => {
       
       navigate(gameLobbyUrl(room_id));
     } catch (err) {
-      console.error('방 입장 실패:', err);
-      
-      const errorMessage = getErrorMessage(err);
-      alert(errorMessage);
+      // 방 입장 실패 시 사용자에게 알림
+      const errorMessage = getErrorMessage(err) || ERROR_MESSAGES.ROOM_JOIN_FAILED;
+      toast.showError(errorMessage);
       
       await fetchRoom();
     } finally {
@@ -121,7 +131,9 @@ const useLobbyData = () => {
       
       await handleEnterGame(randomRoom.room_id);
     } catch (err) {
-      console.error('랜덤 입장 실패:', err);
+      // 랜덤 입장 실패 시 사용자에게 알림
+      const errorMessage = getErrorMessage(err);
+      toast.showError(errorMessage || '랜덤 입장에 실패했습니다. 다시 시도해주세요.');
       
       const errorMessage = getErrorMessage(err);
       alert(errorMessage);

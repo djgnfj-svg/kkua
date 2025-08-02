@@ -97,7 +97,10 @@ export const invalidateCache = {
       localStorage.removeItem('auth_state');
       localStorage.removeItem('guest-storage');
     } catch (error) {
-      console.warn('localStorage 정리 실패:', error);
+      // localStorage 정리 실패는 무시 (중요하지 않음)
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('localStorage 정리 실패:', error);
+      }
     }
   }
 };

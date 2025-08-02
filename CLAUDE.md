@@ -4,33 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**끄아 (KKUA)** is a real-time multiplayer word chain game (끝말잇기) with item mechanics. The project uses a FastAPI backend with PostgreSQL database and a React frontend with TailwindCSS for styling.
+**끄아 (KKUA)** is a real-time multiplayer Korean word chain game (끝말잇기) with advanced features including item mechanics, multiple game modes, friend system, and sophisticated scoring. Built with FastAPI backend, PostgreSQL + Redis for dual-architecture data management, and React frontend with TailwindCSS.
 
-### Recent Updates
-- **Connection UX Improvements**: Enhanced WebSocket reliability and user feedback
-  - Exponential backoff reconnection (2s → 4s → 8s → 16s → 32s delays)
-  - Increased retry attempts from 3 to 5 with visual progress indicators
-  - Toast notification system for connection events with contextual messaging
-  - Manual reconnection capability with enhanced WebSocketStatus component
-- **Game Result Data Reliability**: Fixed 0-score display issues and improved data retrieval
-  - Retry logic for incomplete Redis data processing
-  - Backend data validation with fallback mechanisms
-  - Enhanced error handling for game result edge cases
-- **Code Quality**: Complete codebase cleanup and comment optimization
-  - Removed 20+ legacy files and unused components
-  - Cleaned unnecessary debug comments and console.log statements
-  - Standardized code documentation with focus on 'why' over 'what'
-- **Authentication System**: Migrated from UUID-based to secure session-based authentication with HTTP-only cookies
-- **Redis Integration**: Implemented Redis-based real-time game state management
-  - Real-time word chain game processing with turn timers
-  - Session-based game state persistence (24-hour TTL)
-  - Performance optimization through centralized state management
-- **Backend Refactoring**: Consolidated services following Single Responsibility Principle
-  - Merged GameroomActions into GameroomService
-  - Split ConnectionManager into focused components
-  - Introduced WebSocketMessageService for message handling
-  - Added RedisGameService for high-performance game state management
-- **Performance Optimizations**: Client-side timer synchronization and reduced WebSocket broadcasts
 
 ## Quick Start
 
@@ -38,17 +13,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Clone and setup
 git clone <repository-url>
 cd kkua
-cp backend/.env.example backend/.env
 
-# Start all services
-docker-compose up -d
+# One-click deployment (automatically creates .env)
+./deploy.sh              # Development
+./deploy.sh production   # Production
 
 # Verify services are running
 curl http://localhost:8000/health  # Backend
-curl http://localhost:3000/        # Frontend
+curl http://localhost:3000/        # Frontend (development only)
 
 # View logs
-docker-compose logs -f
+./scripts/logs.sh development backend   # Backend logs
+./scripts/logs.sh development frontend  # Frontend logs
 
 # Run tests
 docker-compose run --rm backend-test
@@ -56,30 +32,29 @@ docker-compose run --rm backend-test
 
 ## Development Commands
 
-### Docker Environment (Primary Development Method)
+### Docker Environment
 ```bash
-# Start all services (backend, frontend, database)
+# Start all services
 docker-compose up -d
-
-# View logs
-docker-compose logs -f [service_name]
 
 # Stop all services
 docker-compose down
 
+# View logs
+docker-compose logs -f [service_name]
+
 # Rebuild specific service
-docker-compose build [backend|frontend|db]
+docker-compose build [backend|frontend|db|redis]
 
-# Access backend container shell
-docker exec -it kkua-backend-1 /bin/bash
-
-# Access frontend container shell
-docker exec -it kkua-frontend-1 /bin/bash
+# Quick deployment scripts
+./deploy.sh              # Deploy development
+./stop.sh                # Stop development
+./scripts/status.sh      # Check service status
 ```
 
 ### Backend Development
 ```bash
-# Run tests (inside backend container)
+# Run tests
 docker exec kkua-backend-1 python -m pytest tests/ -v
 
 # Run specific test file
@@ -88,24 +63,12 @@ docker exec kkua-backend-1 python -m pytest tests/services/test_gameroom_service
 # Code linting and formatting
 docker exec kkua-backend-1 ruff check . --fix
 docker exec kkua-backend-1 ruff format .
-
-# Run backend in development mode (auto-reload)
-docker exec kkua-backend-1 python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 ### Frontend Development
 ```bash
-# Inside frontend container
-docker exec kkua-frontend-1 npm start
-
-# Build production version
-docker exec kkua-frontend-1 npm run build
-
 # Run tests
 docker exec kkua-frontend-1 npm test
-
-# Run tests in watch mode
-docker exec kkua-frontend-1 npm test -- --watchAll
 
 # Run tests with coverage
 docker exec kkua-frontend-1 npm test -- --coverage --watchAll=false
@@ -113,43 +76,35 @@ docker exec kkua-frontend-1 npm test -- --coverage --watchAll=false
 # Code formatting
 docker exec kkua-frontend-1 npx prettier --write src/**/*.js
 
-# Check formatting without fixing
-docker exec kkua-frontend-1 npx prettier --check src/**/*.js
-
 # Linting
 docker exec kkua-frontend-1 npx eslint --fix src/**/*.js
-
-# Linting check only (no fix)
-docker exec kkua-frontend-1 npx eslint src/**/*.js
 ```
 
 ### Database Operations
 ```bash
-# Access PostgreSQL directly
+# Access PostgreSQL
 docker exec -it kkua-db-1 psql -U postgres -d mydb
-
-# Database credentials
-# User: postgres
-# Password: mysecretpassword
-# Database: mydb
-# Port: 5432
 ```
 
 ## Production Deployment
 
-### Production Build
 ```bash
-# Build and run production environment
+# Setup production environment
+cp backend/.env.production.example backend/.env.production
+# Edit backend/.env.production with production values
+
+# Deploy production
+./deploy.sh production
+
+# Stop production
+./stop.sh production
+
+# Check production status
+./scripts/status.sh production
+
+# Manual production deployment
 docker-compose -f docker-compose.prod.yml up -d
-
-# Build production frontend
-docker build -f frontend/Dockerfile.prod -t kkua-frontend-prod frontend/
 ```
-
-### Environment Configuration
-- **Development**: Use `docker-compose.yml` with development settings
-- **Production**: Use `docker-compose.prod.yml` with production optimizations
-- **Environment Variables**: Copy `backend/.env.example` to `backend/.env` and configure
 
 ## Architecture Overview
 
@@ -170,6 +125,9 @@ docker build -f frontend/Dockerfile.prod -t kkua-frontend-prod frontend/
   - `game_api_router.py`: Redis-based game API endpoints (word submission, game state)
   - `guests_router.py`: Guest management endpoints with session support
   - `csrf_router.py`: CSRF token endpoints for security
+  - `game_mode_router.py`: Game mode management endpoints
+  - `item_router.py`: Item management and purchase endpoints
+  - `friendship_router.py`: Friend system endpoints
 - **services/**: Business logic layer
   - `auth_service.py`: Authentication, session management, and cookie handling
   - `gameroom_service.py`: Consolidated game room management and actions logic
@@ -179,6 +137,10 @@ docker build -f frontend/Dockerfile.prod -t kkua-frontend-prod frontend/
   - `websocket_message_service.py`: WebSocket message processing and routing
   - `redis_game_service.py`: Redis-based real-time game state management
   - `game_data_persistence_service.py`: Critical service for persisting game results from Redis to PostgreSQL
+  - `advanced_score_service.py`: Advanced scoring system with speed bonuses, combos, and word rarity
+  - `item_service.py`: Item management and effects for gameplay
+  - `game_mode_service.py`: Game mode configuration and management
+  - `friendship_service.py`: Friend system management
 - **schemas/**: Pydantic models for request/response validation
   - `auth_schema.py`: Authentication request/response models
   - `gameroom_schema.py`: Game room data models
@@ -186,6 +148,10 @@ docker build -f frontend/Dockerfile.prod -t kkua-frontend-prod frontend/
   - `gameroom_ws_schema.py`: WebSocket message models
   - `websocket_schema.py`: Enhanced WebSocket message validation
   - `guest_schema.py`: Guest/user data models
+  - `game_mode_schema.py`: Game mode configuration models
+  - `item_schema.py`: Item definition and usage models
+  - `friendship_schema.py`: Friend request and relationship models
+  - `player_profile_schema.py`: Extended player profile models
 - **middleware/**: Custom middleware components
   - `auth_middleware.py`: Session-based authentication with secure cookie validation
   - `exception_handler.py`: Global exception handling middleware
@@ -203,11 +169,14 @@ docker build -f frontend/Dockerfile.prod -t kkua-frontend-prod frontend/
   - `gameroom_repository.py`: Game room and participant data access
   - `guest_repository.py`: Guest/user data access
   - `game_log_repository.py`: Game result and statistics data access
+  - `player_profile_repository.py`: Player profile and statistics access
+  - `friendship_repository.py`: Friend relationships data access
 - **db/**: Database configuration and setup
   - `postgres.py`: PostgreSQL database connection and session management
 - **config/**: Configuration files for cookies, logging, etc.
   - `cookie.py`: Cookie configuration settings
   - `logging_config.py`: Comprehensive logging setup with multiple log files
+  - `sentry_config.py`: Sentry error tracking configuration
 - **tests/**: Comprehensive test suite mirroring source code structure
   - `conftest.py`: Test configuration and fixtures
   - `models/`: Model testing
@@ -225,9 +194,13 @@ docker build -f frontend/Dockerfile.prod -t kkua-frontend-prod frontend/
   - Each page has its own `components/` and `hooks/` subdirectories
   - `Loading/`: Initial loading/welcome page with modal components
   - `Lobby/`: Game room lobby with room list and creation
+    - `components/GameModeSelector.js`: Game mode selection component
   - `GameLobbyPage/`: Individual game room lobby with chat and participant management
   - `InGame/`: Active game interface with word chain gameplay
+    - `components/ItemPanel.js`: Item selection and usage panel
+    - `components/ScoreDisplay.js`: Real-time score display
   - `GameResult/`: Game results and statistics display page
+    - `components/AdvancedPlayerRanking.js`: Enhanced ranking with detailed stats
   - `NotFound/`: 404 error page for invalid routes
 - **src/store/**: Zustand state management
   - `guestStore.js`: Guest authentication and session management
@@ -238,6 +211,8 @@ docker build -f frontend/Dockerfile.prod -t kkua-frontend-prod frontend/
   - `roomApi.js`: Game room API calls
   - `userApi.js`: User/guest API calls
   - `wsUrl.js`: WebSocket URL configuration
+  - `gameModeApi.js`: Game mode API calls
+  - `itemApi.js`: Item management API calls
 - **src/components/**: Shared utility components
   - `LoadingSpinner.js`: Loading indicator component
   - `ProtectedRoute.js`: Route protection wrapper
@@ -262,6 +237,10 @@ docker build -f frontend/Dockerfile.prod -t kkua-frontend-prod frontend/
 - **game_logs**: Game session records with duration, winner, and statistics
 - **word_chain_entries**: Individual word entries with player and timing data
 - **player_game_stats**: Detailed per-player statistics for each game
+- **game_modes**: Different game mode configurations (classic, speed, item)
+- **items**: Game items with effects and costs
+- **friendships**: Friend relationships between players
+- **player_profiles**: Extended player profiles with stats and achievements
 
 ### Key Architectural Patterns
 1. **Layered Architecture**: Controllers (routers) → Services → Repositories → Models
@@ -361,6 +340,13 @@ docker exec kkua-backend-1 python -m pytest tests/ -k "test_create" -v
 # Frontend tests
 docker exec kkua-frontend-1 npm test -- --passWithNoTests
 docker exec kkua-frontend-1 npm test -- --coverage --watchAll=false
+
+# Frontend build for production
+docker exec kkua-frontend-1 npm run build
+
+# Run tests for specific service or module
+docker exec kkua-backend-1 python -m pytest tests/services/test_redis_game_service.py -v
+docker exec kkua-backend-1 python -m pytest tests/ -k "redis" -v  # Test pattern matching
 ```
 
 ## WebSocket Implementation
@@ -399,6 +385,19 @@ docker exec kkua-frontend-1 npm test -- --coverage --watchAll=false
 - `GET /guests` - List all guests
 - `GET /guests/{guest_id}` - Get guest details
 
+#### Game Modes
+- `GET /game-modes` - List available game modes
+- `GET /game-modes/{mode_id}` - Get specific mode details
+
+#### Items
+- `GET /items` - List all available items
+- `POST /items/use` - Use an item during gameplay
+
+#### Friends
+- `GET /friends` - Get friend list
+- `POST /friends/request` - Send friend request
+- `POST /friends/accept/{request_id}` - Accept friend request
+
 ### API Response Format
 All API responses follow a consistent format:
 ```json
@@ -430,82 +429,15 @@ All API responses follow a consistent format:
 - **feature/***: Feature development branches
 - **release/***: Release preparation branches
 - **hotfix/***: Emergency fixes for production
-- **feature/production-ready-deployment**: Current production readiness improvements
-
-### Development Workflow
-1. Create feature branch from develop: `git checkout -b feature/feature-name`
-2. Make atomic commits with clear, descriptive messages
-3. Test thoroughly before merging
-4. Create pull request to develop for code review
-5. After approval, merge to develop: `git checkout develop && git merge feature/feature-name`
-
-### Release Workflow
-1. Create release branch: `git checkout -b release/1.0.0 develop`
-2. Perform final testing and bug fixes
-3. Merge to main: `git checkout main && git merge --no-ff release/1.0.0`
-4. Tag release: `git tag -a v1.0.0 -m "Release version 1.0.0"`
-5. Merge back to develop: `git checkout develop && git merge --no-ff release/1.0.0`
-
-### Hotfix Workflow
-1. Create hotfix from main: `git checkout -b hotfix/fix-name main`
-2. Fix the issue and test thoroughly
-3. Merge to main: `git checkout main && git merge --no-ff hotfix/fix-name`
-4. Tag if necessary: `git tag -a v1.0.1 -m "Hotfix version 1.0.1"`
-5. Merge to develop: `git checkout develop && git merge --no-ff hotfix/fix-name`
 
 ### Commit Message Convention
-- **feat**: New feature (e.g., `feat: Add session-based authentication`)
-- **fix**: Bug fix (e.g., `fix: Resolve WebSocket connection issue`)
-- **refactor**: Code refactoring (e.g., `refactor: Split ConnectionManager into focused services`)
-- **test**: Adding or updating tests (e.g., `test: Add auth service unit tests`)
-- **docs**: Documentation changes (e.g., `docs: Update CLAUDE.md with new architecture`)
-- **chore**: Maintenance tasks (e.g., `chore: Update dependencies`)
+- **feat**: New feature
+- **fix**: Bug fix
+- **refactor**: Code refactoring
+- **test**: Adding or updating tests
+- **docs**: Documentation changes
+- **chore**: Maintenance tasks
 
-### CI/CD Pipeline Status
-- **Note**: No CI/CD configuration files found in current codebase
-- **Documentation References**: `deployment-guide.md` exists but no `.github/workflows/` directory
-- **Manual Deployment**: Currently using manual Docker-based deployment process
-
-## Recent Architectural Improvements
-
-### Phase 1: Repository Layer Optimization
-- Split GameroomRepository into focused, single-responsibility components
-- Removed GameroomActions class and integrated functionality
-- Improved data access patterns
-
-### Phase 2: WebSocket Architecture Refactoring
-- Separated ConnectionManager into specialized managers
-- Created WebSocketMessageService for message processing (528→197 lines)
-- Improved separation of concerns between connection handling and business logic
-
-### Phase 3-4: Service Layer Consolidation
-- Merged GameroomActionsService into GameroomService
-- Centralized WebSocket notifications
-- Unified method signatures using Guest objects
-- Enhanced documentation with detailed docstrings
-
-## Development Workflow
-
-1. **Environment Setup**: Use `docker-compose up -d` to start all services
-2. **Code Changes**: Edit source files (auto-reload enabled in development)
-3. **Testing**: Run backend tests with `pytest` and frontend tests with `npm test`
-4. **Code Quality**: Use `ruff` for Python code formatting and `prettier`/`eslint` for JavaScript
-5. **Database Changes**: Update models and run migrations if needed
-
-## Key Configuration Files
-
-- **docker-compose.yml**: Development environment configuration
-- **docker-compose.prod.yml**: Production environment configuration
-- **backend/app_config.py**: Environment-based application settings
-- **backend/.env.example**: Environment variables template
-- **backend/requirements.txt**: Python dependencies including pydantic-settings
-- **frontend/package.json**: Node.js dependencies including React, axios, zustand
-- **frontend/.prettierrc**: Frontend code formatting configuration
-- **frontend/Dockerfile.prod**: Production build configuration
-- **frontend/nginx.conf**: Nginx configuration for production serving
-- **frontend/tailwind.config.js**: TailwindCSS configuration
-- **frontend/postcss.config.js**: PostCSS configuration with TailwindCSS
-- **deployment-guide.md**: Comprehensive deployment instructions
 
 ## Environment Variables
 
@@ -530,6 +462,8 @@ All API responses follow a consistent format:
 - **SESSION_SAMESITE**: Cookie SameSite policy (`lax`, `strict`, or `none`)
 - **ENABLE_SECURITY_HEADERS**: Enable security headers middleware
 - **HSTS_MAX_AGE**: HSTS max age in seconds for production
+- **SENTRY_DSN**: Sentry error tracking DSN (optional)
+- **LOG_LEVEL**: Logging level (DEBUG, INFO, WARNING, ERROR)
 
 ### Frontend Environment Variables
 - **REACT_APP_API_URL**: Backend API URL (default: `http://localhost:8000`)
@@ -602,249 +536,98 @@ All API responses follow a consistent format:
 - **Session Security**: Always use HTTPS in production with `SESSION_SECURE=true`
 - **Database Passwords**: Use strong, unique passwords for production databases
 - **API Rate Limiting**: Rate limiting middleware is implemented for API protection
+- **Production Settings**: Always review `backend/.env.production` before deployment
 
-## Troubleshooting
+## Common Issues
 
-### Common Docker Issues
-
-#### Backend container fails to start
+### Docker Issues
 ```bash
-# Check logs
-docker-compose logs backend
+# Check container logs
+docker-compose logs [service]
 
-# Common solutions:
-# 1. Ensure database is ready
-docker-compose restart backend
+# Restart services
+docker-compose restart [service]
 
-# 2. Check environment variables
-docker exec kkua-backend-1 env | grep DATABASE
+# Rebuild if dependencies changed
+docker-compose build [service]
 
-# 3. Rebuild if dependencies changed
-docker-compose build backend
+# Reset database (deletes all data)
+docker-compose down -v && docker-compose up -d
 ```
 
-#### Frontend hot reload not working
+### WebSocket Issues
+- Check backend health: `curl http://localhost:8000/health`
+- Verify session cookie in browser DevTools
+- Check WebSocket URL: `ws://localhost:8000` for development
+- Monitor reconnection in browser console
+
+### Database Issues
 ```bash
-# Ensure CHOKIDAR_USEPOLLING is set in docker-compose.yml
-# Restart the frontend container
-docker-compose restart frontend
+# Check database logs
+./scripts/logs.sh development db
+
+# Access database directly
+docker exec -it kkua-db-1 psql -U postgres -d mydb
+
+# Reset database (WARNING: deletes all data!)
+./stop.sh development --with-data
+./deploy.sh
 ```
 
-#### Database connection issues
+### Redis Issues  
 ```bash
-# Check if database is running
-docker-compose ps db
+# Check Redis connection
+docker exec kkua-redis-1 redis-cli ping
 
-# Test database connection
-docker exec -it kkua-db-1 psql -U postgres -d mydb -c "SELECT 1"
+# Monitor Redis commands
+docker exec kkua-redis-1 redis-cli monitor
 
-# Reset database if needed
-docker-compose down -v  # Warning: This deletes all data
-docker-compose up -d
+# Clear Redis cache
+docker exec kkua-redis-1 redis-cli FLUSHDB
 ```
 
-#### Redis connection issues
+
+## Key Development Patterns
+
+### Dual Architecture Pattern
+- **Redis**: Real-time game state, timers, temporary data (<24h)
+- **PostgreSQL**: User accounts, game logs, persistent relationships
+- **WebSocket**: Real-time communication with exponential backoff reconnection
+- **Session-based Auth**: HTTP-only cookies with middleware validation
+
+### Performance Optimization
+- Client-side timer synchronization with server validation
+- Selective WebSocket broadcasts at critical moments
+- Toast notifications for connection feedback
+- Retry logic for data integrity
+
+### New Features Architecture
+- **Game Modes**: Configurable game modes with different rules and scoring
+- **Item System**: Purchase and use items during gameplay for strategic advantages
+- **Friend System**: Social features with friend requests and friend-only rooms
+- **Advanced Scoring**: Speed bonuses, combo multipliers, word rarity scoring
+- **Player Profiles**: Extended profiles with statistics and achievements
+
+## Deployment Scripts
+
+### Main Scripts
+- **deploy.sh**: Main deployment script with environment support
+- **stop.sh**: Stop services with optional data cleanup
+- **scripts/status.sh**: Check service health and status
+- **scripts/logs.sh**: View logs with service and environment filtering
+- **scripts/backup/**: Database backup and restore utilities
+
+### Script Usage
 ```bash
-# Check if Redis is running
-docker-compose ps redis
+# Deploy with environment
+./deploy.sh [development|production]
 
-# Test Redis connection
-docker exec -it kkua-redis-1 redis-cli ping
+# Stop with data cleanup
+./stop.sh [environment] [--with-data]
 
-# Check Redis logs
-docker-compose logs redis
+# Check specific service logs
+./scripts/logs.sh [environment] [service] [--follow]
 
-# Clear Redis data if needed
-docker exec -it kkua-redis-1 redis-cli FLUSHALL
+# Service status
+./scripts/status.sh [environment]
 ```
-
-### WebSocket Connection Issues
-
-#### Connection fails immediately
-- Check if backend is running: `curl http://localhost:8000/health`
-- Verify WebSocket URL in frontend: Should be `ws://localhost:8000` for development
-- Check browser console for CORS errors
-- Ensure session cookie is present (check browser DevTools > Application > Cookies)
-
-#### Connection drops frequently
-- Check backend logs for errors: `docker-compose logs -f backend`
-- Verify network stability
-- Check if session is expiring
-- Monitor WebSocket reconnection attempts in browser console
-- Use manual reconnection button if automatic reconnection fails
-
-### Performance Issues
-
-#### Game performance optimization patterns
-- **Timer Synchronization**: Use client-side timers with server validation to reduce WebSocket traffic
-- **Selective Broadcasting**: Only broadcast timer updates at critical moments (≤10 seconds)
-- **Redis Connection Pooling**: Configure max_connections=20 with keepalive for Redis client
-- **Progressive Rendering**: Avoid excessive animations during gameplay for multi-window scenarios
-
-#### WebSocket message handling best practices
-- **Message Format Validation**: Always validate WebSocket message structure with Pydantic schemas
-- **Error Recovery**: Implement automatic reconnection with exponential backoff (already implemented)
-- **State Synchronization**: Use periodic REST API calls (3-second intervals) as WebSocket backup
-- **User Feedback**: Provide visual connection status and toast notifications for connection events
-- **Manual Recovery**: Offer manual reconnection controls when automatic reconnection fails
-
-### Testing Issues
-
-#### Tests fail with database errors
-```bash
-# Ensure test database is accessible
-docker exec kkua-backend-1 python -m pytest tests/conftest.py -v
-
-# Run with fresh database
-docker-compose down -v
-docker-compose up -d
-docker-compose run --rm backend-test
-```
-
-#### Frontend tests fail
-```bash
-# Clear Jest cache
-docker exec kkua-frontend-1 npm test -- --clearCache
-
-# Run with no cache
-docker exec kkua-frontend-1 npm test -- --no-cache
-```
-
-### Performance Issues
-
-#### Slow API responses
-- Check database query performance
-- Enable backend debug logs to identify bottlenecks
-- Monitor container resource usage: `docker stats`
-
-#### High memory usage
-```bash
-# Check container limits
-docker-compose ps
-
-# Restart containers to free memory
-docker-compose restart
-
-# For production, set resource limits in docker-compose.prod.yml
-```
-
-## Development Tips
-
-### Quick Development Cycle
-1. Use `docker-compose logs -f [service]` to monitor specific service
-2. Backend auto-reloads on file changes (uvicorn --reload)
-3. Frontend hot-reloads automatically
-4. Use `docker exec` for quick debugging without rebuilding
-
-### Debugging
-- Backend: Add `import pdb; pdb.set_trace()` for breakpoints
-- Frontend: Use Chrome DevTools and React Developer Tools
-- WebSocket: Use browser Network tab to inspect WS messages
-- Database: Use `docker exec -it kkua-db-1 psql` for direct queries
-
-### Best Practices
-1. Always run tests before committing
-2. Use meaningful commit messages following the convention
-3. Keep Docker images updated: `docker-compose pull`
-4. Clean up unused images: `docker system prune -a`
-5. Use `.env` files for local configuration, never commit secrets
-
-## Critical Development Patterns
-
-### WebSocket Connection Management
-Enhanced connection handling with user feedback:
-```javascript
-// Frontend - Enhanced useGameRoomSocket with toast notifications
-const { 
-  connected, 
-  isReconnecting, 
-  connectionAttempts, 
-  maxReconnectAttempts,
-  manualReconnect 
-} = useGameRoomSocket(roomId);
-
-// ToastContext usage for user notifications
-const { showSuccess, showError, showWarning } = useToast();
-```
-
-### WebSocket Message Structure
-Always follow this pattern for WebSocket message validation:
-```python
-# Backend - Pydantic schema validation
-class GameActionMessage(BaseModel):
-    type: str = "game_action"
-    action: str  # toggle_ready, submit_word, etc.
-    data: Dict[str, Any] = {}
-
-# Frontend - Consistent message format
-const message = {
-    type: 'game_action',
-    action: 'toggle_ready',
-    data: {}
-};
-```
-
-### Timer Implementation Best Practices
-1. **Client-side Primary**: Use client-side countdown for UI responsiveness
-2. **Server Validation**: Validate timing on server for security
-3. **Synchronization**: Sync client timer with server at critical moments
-4. **Graceful Degradation**: Fall back to server timer if client sync fails
-
-### Authentication Flow Patterns
-```javascript
-// Frontend - Always include credentials for API calls
-axiosInstance.defaults.withCredentials = true;
-
-// Backend - Validate session in middleware
-async def require_authentication(request: Request, db: Session = Depends(get_db)) -> Guest:
-    session_token = request.cookies.get("session_token")
-    # Validate and return guest object
-```
-
-### Redis vs PostgreSQL Decision Matrix
-- **Use Redis for**: Active game state, real-time data, temporary data (<24h)
-- **Use PostgreSQL for**: User accounts, game logs, persistent relationships
-- **Hybrid approach**: Store references in PostgreSQL, active state in Redis
-
-### Toast Notification System
-Centralized user feedback with contextual messaging:
-```javascript
-// Setup ToastProvider in App.js (already implemented)
-<ToastProvider>
-  <Router>
-    {/* App content */}
-  </Router>
-</ToastProvider>
-
-// Usage in components
-const { showSuccess, showError, showWarning, showInfo } = useToast();
-
-// Connection events (automatically handled in useGameRoomSocket)
-toast.showWarning('연결이 끊어졌습니다. 자동으로 재연결 중...', 3000);
-toast.showSuccess('실시간 연결이 복구되었습니다!', 2000);
-toast.showError('연결을 복구할 수 없습니다. 수동으로 재연결해주세요.', 5000);
-```
-
-### Game Result Data Handling
-Robust data retrieval with retry logic:
-```javascript
-// Frontend - Enhanced useGameResult with retry logic
-const allScoresZero = validatedPlayers.every(player => player.total_score === 0);
-if (allScoresZero && retryCount < 3) {
-  // Automatic retry with progressive delay
-  setTimeout(() => fetchGameResult(), 2000 * (retryCount + 1));
-}
-
-// Backend - Data integrity validation
-if (all_scores_zero && no_words && game_has_used_words) {
-  for player in players_data:
-    player.total_score = -1  # Signal incomplete processing
-}
-```
-
-### Performance Optimization Guidelines
-1. **Minimize WebSocket Broadcasts**: Only send critical updates
-2. **Batch Database Operations**: Use bulk operations where possible
-3. **Implement Client-side Caching**: Cache static data and recent API responses
-4. **Progressive Enhancement**: Core functionality should work without real-time features
-5. **Connection Resilience**: Use exponential backoff and user feedback for network issues

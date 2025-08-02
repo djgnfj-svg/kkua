@@ -24,6 +24,7 @@ const useWordChain = () => {
   const [inputWord, setInputWord] = useState('');
   const [isMyTurn, setIsMyTurn] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [lastScoreInfo, setLastScoreInfo] = useState(null);
 
   const { 
     connected, 
@@ -89,6 +90,18 @@ const useWordChain = () => {
             timeLeft: message.time_left || prevState.turnTimeLimit, // 서버에서 시간을 주지 않으면 기본값 사용
             usedWords: [...prevState.usedWords, message.word]
           }));
+          
+          // 고급 점수 정보 처리
+          if (message.score_info && message.submitted_by_nickname) {
+            setLastScoreInfo({
+              scoreInfo: message.score_info,
+              playerTotalScore: message.player_total_score,
+              scoreBreakdownMessage: message.score_breakdown_message,
+              playerNickname: message.submitted_by_nickname,
+              timestamp: Date.now()
+            });
+          }
+          
           setInputWord('');
           setErrorMessage('');
         } else if (message.type === 'game_time_update') {
@@ -244,6 +257,8 @@ const useWordChain = () => {
     inputWord,
     isMyTurn,
     errorMessage,
+    lastScoreInfo,
+    setLastScoreInfo,
     connected,
     isReconnecting,
     connectionAttempts,

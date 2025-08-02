@@ -9,6 +9,9 @@ from routers import (
     gameroom_actions_router,
     csrf_router,
     game_api_router,
+    item_router,
+    game_mode_router,
+    friendship_router,
 )
 from fastapi.openapi.utils import get_openapi
 from app_config import settings
@@ -18,10 +21,14 @@ from middleware.logging_middleware import RequestLoggingMiddleware
 from middleware.rate_limiter import RateLimitMiddleware
 from middleware.exception_handler import GlobalExceptionHandler
 from config.logging_config import setup_logging
+from config.sentry_config import init_sentry
 import logging
 from contextlib import asynccontextmanager
+from datetime import datetime
 
+# 로깅 및 모니터링 초기화
 setup_logging()
+init_sentry()  # Sentry 모니터링 초기화
 logger = logging.getLogger(__name__)
 
 
@@ -115,6 +122,9 @@ app.include_router(gameroom_actions_router.router)
 app.include_router(gameroom_ws_router.router)
 app.include_router(csrf_router.router)
 app.include_router(game_api_router.router)
+app.include_router(item_router.router)
+app.include_router(game_mode_router.router)
+app.include_router(friendship_router.router)
 
 
 @app.get("/")
@@ -129,7 +139,67 @@ async def root():
 
 @app.get("/health")
 async def health_check():
+    """기본 헬스체크 엔드포인트"""
     return {"status": "healthy", "environment": settings.environment}
+
+
+@app.get("/health/detailed")
+async def detailed_health_check():
+    """상세 헬스체크 - 모든 의존성 상태 확인"""
+    health_status = {
+        "status": "healthy",
+        "environment": settings.environment,
+        "timestamp": datetime.now().isoformat(),
+        "services": {}
+    }
+    
+    # Redis 연결 상태 확인
+    try:
+        from services.redis_game_service import get_redis_game_service
+        redis_service = await get_redis_game_service()
+        is_redis_connected = await redis_service.is_connected()
+        health_status["services"]["redis"] = {
+            "status": "healthy" if is_redis_connected else "unhealthy",
+            "connected": is_redis_connected
+        }
+    except Exception as e:
+        health_status["services"]["redis"] = {
+            "status": "unhealthy",
+            "error": str(e)
+        }
+    
+    # PostgreSQL 연결 상태 확인
+    try:
+        from db.postgres import get_db
+        db_session = next(get_db())
+        db_session.execute("SELECT 1")
+        db_session.close()
+        health_status["services"]["postgresql"] = {
+            "status": "healthy",
+            "connected": True
+        }
+    except Exception as e:
+        health_status["services"]["postgresql"] = {
+            "status": "unhealthy",
+            "error": str(e)
+        }
+    
+    # Sentry 연결 상태 확인
+    health_status["services"]["sentry"] = {
+        "status": "healthy" if settings.sentry_dsn else "disabled",
+        "configured": bool(settings.sentry_dsn)
+    }
+    
+    # 전체 상태 결정
+    all_services_healthy = all(
+        service.get("status") == "healthy" or service.get("status") == "disabled"
+        for service in health_status["services"].values()
+    )
+    
+    if not all_services_healthy:
+        health_status["status"] = "degraded"
+    
+    return health_status
 
 
 def custom_openapi():

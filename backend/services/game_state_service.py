@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 from typing import Optional
+import logging
 from datetime import datetime
 
 from repositories.gameroom_repository import GameroomRepository
@@ -12,6 +13,7 @@ class GameStateService:
     def __init__(self, db: Session):
         self.db = db
         self.repository = GameroomRepository(db)
+        self.logger = logging.getLogger(__name__)
 
     def start_game(self, room_id: int) -> bool:
         """게임을 시작 상태로 변경합니다."""
@@ -37,7 +39,7 @@ class GameStateService:
             
         except Exception as e:
             self.db.rollback()
-            print(f"게임 시작 오류: {str(e)}")
+            self.logger.error(f"게임 시작 오류: {str(e)}", exc_info=True)
             return False
 
     def end_game(self, room_id: int) -> bool:
@@ -68,7 +70,7 @@ class GameStateService:
             
         except Exception as e:
             self.db.rollback()
-            print(f"게임 종료 오류: {str(e)}")
+            self.logger.error(f"게임 종료 오류: {str(e)}", exc_info=True)
             return False
 
     def check_all_ready(self, room_id: int) -> bool:
@@ -97,7 +99,7 @@ class GameStateService:
             return all_ready
             
         except Exception as e:
-            print(f"준비 상태 확인 오류: {str(e)}")
+            self.logger.error(f"준비 상태 확인 오류: {str(e)}", exc_info=True)
             return False
     
     def can_start_game(self, room_id: int, host_id: int) -> tuple[bool, str]:

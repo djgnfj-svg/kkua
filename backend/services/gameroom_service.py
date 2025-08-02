@@ -350,8 +350,26 @@ class GameroomService:
                 'use_items': True
             }
             
-            # Redis에 게임 생성 및 시작
-            await redis_game.create_game(room_id, participant_data, game_settings)
+            # 게임 모드 설정이 있으면 추가
+            game_mode_config = None
+            if room.game_mode_config:
+                game_mode_config = room.game_mode_config
+                # 게임 모드 설정으로 기본 설정 덮어쓰기
+                if 'settings' in game_mode_config:
+                    mode_settings = game_mode_config['settings']
+                    if 'turn_time_limit' in mode_settings:
+                        game_settings['turn_time_limit'] = mode_settings['turn_time_limit']
+                    if 'max_rounds' in mode_settings:
+                        game_settings['max_rounds'] = mode_settings['max_rounds']
+                    if 'min_word_length' in mode_settings:
+                        game_settings['word_min_length'] = mode_settings['min_word_length']
+                    if 'score_multiplier' in mode_settings:
+                        game_settings['score_multiplier'] = mode_settings['score_multiplier']
+                    if 'special_rules' in mode_settings:
+                        game_settings['special_rules'] = mode_settings['special_rules']
+            
+            # Redis에 게임 생성 및 시작 (게임 모드 설정 전달)
+            await redis_game.create_game(room_id, participant_data, game_settings, game_mode_config)
             await redis_game.start_game(room_id, "끝말잇기")
             
             logger.info(f"Redis 게임 초기화 완료: room_id={room_id}, participants={len(participant_data)}")

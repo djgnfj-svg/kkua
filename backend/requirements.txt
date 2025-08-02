@@ -33,3 +33,6 @@ ruff==0.12.4
 # Additional Dependencies for Production
 alembic==1.14.0  # Database migrations
 python-dotenv==1.0.1  # Environment variable loading
+
+# Monitoring & Error Tracking
+sentry-sdk[fastapi]==2.19.0  # Error tracking and performance monitoring

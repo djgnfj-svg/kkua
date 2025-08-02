@@ -13,6 +13,7 @@ from redis.exceptions import (
     ResponseError, BusyLoadingError, ReadOnlyError
 )
 from app_config import settings
+from config.sentry_config import capture_redis_error, capture_game_event
 import logging
 
 logger = logging.getLogger(__name__)
@@ -177,12 +178,15 @@ class RedisGameService:
             return True
         except (ConnectionError, TimeoutError) as e:
             logger.warning(f"Redis connection check failed: {e}")
+            capture_redis_error(e, operation="connection_check")
             return False
         except (ResponseError, BusyLoadingError) as e:
             logger.warning(f"Redis server error during ping: {e}")
+            capture_redis_error(e, operation="ping")
             return False
         except RedisError as e:
             logger.error(f"Redis error during connection check: {e}")
+            capture_redis_error(e, operation="connection_check")
             return False
         except Exception as e:
             logger.error(f"Unexpected error in Redis connection check: {e}", exc_info=True)
@@ -196,17 +200,41 @@ class RedisGameService:
     
     # === 게임 상태 관리 ===
     
-    async def create_game(self, room_id: int, participants: List[Dict], settings: Dict = None) -> bool:
-        """새 게임 생성"""
+    async def create_game(self, room_id: int, participants: List[Dict], settings: Dict = None, game_mode: Dict = None) -> bool:
+        """새 게임 생성 (게임 모드 지원)"""
         try:
             # 기존 게임 데이터가 있다면 정리
             await self.cleanup_game(room_id)
-            default_settings = {
-                'turn_time_limit': 30,  # 30초 제한
-                'max_rounds': 10,
-                'word_min_length': 2,
-                'use_items': True
-            }
+            
+            # 게임 모드 기반 기본 설정
+            if game_mode:
+                default_settings = {
+                    'turn_time_limit': game_mode.get('turn_time_limit', 30),
+                    'max_rounds': game_mode.get('max_rounds', 10),
+                    'word_min_length': game_mode.get('min_word_length', 2),
+                    'word_max_length': game_mode.get('max_word_length', 10),
+                    'score_multiplier': game_mode.get('score_multiplier', 1.0),
+                    'enable_advanced_scoring': game_mode.get('enable_advanced_scoring', True),
+                    'special_rules': game_mode.get('special_rules', {}),
+                    'mode_name': game_mode.get('name', 'classic'),
+                    'mode_display_name': game_mode.get('display_name', '클래식 모드'),
+                    'use_items': True
+                }
+            else:
+                # 클래식 모드 기본 설정
+                default_settings = {
+                    'turn_time_limit': 30,
+                    'max_rounds': 10,
+                    'word_min_length': 2,
+                    'word_max_length': 10,
+                    'score_multiplier': 1.0,
+                    'enable_advanced_scoring': True,
+                    'special_rules': {},
+                    'mode_name': 'classic',
+                    'mode_display_name': '클래식 모드',
+                    'use_items': True
+                }
+            
             if settings:
                 default_settings.update(settings)
             
@@ -269,13 +297,21 @@ class RedisGameService:
                 await self.redis_client.expire(player_games_key, 86400)
             
             logger.info(f"게임 생성: room_id={room_id}, participants={len(participants)}")
+            # Sentry 게임 이벤트 캡처
+            capture_game_event("game_created", {
+                "room_id": room_id,
+                "participant_count": len(participants),
+                "game_settings": default_settings
+            })
             return True
             
         except (ConnectionError, TimeoutError) as e:
             logger.error(f"Redis 연결 오류로 게임 생성 실패: room_id={room_id}, error={e}")
+            capture_redis_error(e, operation="game_creation", key=f"game:{room_id}")
             return False
         except (ResponseError, RedisError) as e:
             logger.error(f"Redis 서버 오류로 게임 생성 실패: room_id={room_id}, error={e}")
+            capture_redis_error(e, operation="game_creation", key=f"game:{room_id}")
             return False
         except (ValueError, KeyError) as e:
             logger.error(f"잘못된 데이터로 게임 생성 실패: room_id={room_id}, error={e}")
@@ -371,6 +407,8 @@ class RedisGameService:
                     validation_result = await self._validate_word(game_state, word)
                     if not validation_result['valid']:
                         await pipe.unwatch()
+                        # 잘못된 단어 제출 시 연속 성공 초기화
+                        await self._reset_consecutive_success(room_id, guest_id)
                         return {'success': False, 'message': validation_result['message']}
                     
                     # 현재 플레이어 정보 가져오기
@@ -452,10 +490,48 @@ class RedisGameService:
                             'created_at': datetime.utcnow().isoformat()
                         }
                     
-                    # 통계 업데이트
-                    player_data['score'] += len(word) * 10
+                    # 고급 점수 계산 시스템 적용
+                    from services.advanced_score_service import get_score_calculator
+                    score_calculator = get_score_calculator()
+                    
+                    # 연속 성공 횟수 계산
+                    consecutive_success = player_data.get('consecutive_success', 0) + 1
+                    
+                    # 고급 점수 계산 (게임 모드 배수 적용)
+                    game_mode_multiplier = game_state['game_settings'].get('score_multiplier', 1.0)
+                    special_rules = game_state['game_settings'].get('special_rules', {})
+                    
+                    score_info = score_calculator.calculate_word_score(
+                        word=word,
+                        response_time=response_time,
+                        consecutive_success=consecutive_success,
+                        game_context={
+                            'room_id': room_id,
+                            'game_mode_multiplier': game_mode_multiplier,
+                            'special_rules': special_rules
+                        }
+                    )
+                    
+                    # 게임 모드 배수 적용
+                    if game_mode_multiplier != 1.0:
+                        score_info['final_score'] = int(score_info['final_score'] * game_mode_multiplier)
+                        score_info['mode_multiplier'] = game_mode_multiplier
+                        score_info['total_multiplier'] = score_info['total_multiplier'] * game_mode_multiplier
+                    
+                    # 통계 업데이트 (고급 점수 시스템 적용)
+                    player_data['score'] += score_info['final_score']
                     player_data['words_submitted'] += 1
                     player_data['total_response_time'] += response_time
+                    player_data['consecutive_success'] = consecutive_success
+                    
+                    # 점수 상세 정보 저장
+                    if 'score_history' not in player_data:
+                        player_data['score_history'] = []
+                    player_data['score_history'].append({
+                        'word': word,
+                        'score_info': score_info,
+                        'timestamp': datetime.utcnow().isoformat()
+                    })
                     
                     if response_time < player_data['fastest_response']:
                         player_data['fastest_response'] = response_time
@@ -473,7 +549,7 @@ class RedisGameService:
                     
                     # === 원자적 업데이트 완료 ===
                     
-                    # 결과 준비
+                    # 결과 준비 (고급 점수 정보 포함)
                     result = {
                         'success': True,
                         'word': word,
@@ -483,7 +559,9 @@ class RedisGameService:
                         'max_rounds': game_state['game_settings']['max_rounds'],
                         'game_over': game_over_check['game_over'],
                         'game_over_reason': game_over_check.get('reason', ''),
-                        'time_left': game_state['time_left']
+                        'time_left': game_state['time_left'],
+                        'score_info': score_info,
+                        'player_total_score': player_data['score']
                     }
                     
                     # 타이머 관리 (트랜잭션 외부)
@@ -521,10 +599,18 @@ class RedisGameService:
         """단어 유효성 검증"""
         word = word.strip()
         
-        # 길이 검증
-        min_length = game_state['game_settings']['word_min_length']
+        # 게임 모드 설정 가져오기
+        game_settings = game_state['game_settings']
+        
+        # 길이 검증 (게임 모드별 설정 적용)
+        min_length = game_settings.get('word_min_length', 2)
+        max_length = game_settings.get('word_max_length', 10)
+        
         if len(word) < min_length:
             return {'valid': False, 'message': f'단어는 최소 {min_length}글자 이상이어야 합니다.'}
+        
+        if len(word) > max_length:
+            return {'valid': False, 'message': f'단어는 최대 {max_length}글자 이하여야 합니다.'}
         
         # 한글 검증
         if not all(ord('가') <= ord(char) <= ord('힣') for char in word):
@@ -537,6 +623,13 @@ class RedisGameService:
         # 중복 단어 검증
         if word in game_state['used_words']:
             return {'valid': False, 'message': '이미 사용된 단어입니다.'}
+        
+        # 특수 모드 규칙 적용
+        special_rules = game_settings.get('special_rules', {})
+        
+        # 마라톤 모드: 긴 단어만 허용
+        if special_rules.get('long_words_only') and len(word) < 5:
+            return {'valid': False, 'message': '마라톤 모드에서는 5글자 이상 단어만 사용할 수 있습니다.'}
         
         # 기본 한국어 단어 검증 (간단한 패턴 체크)
         if not await self._validate_korean_word(word):
@@ -871,6 +964,11 @@ class RedisGameService:
             if not game_state:
                 return
             
+            # 현재 플레이어의 연속 성공 초기화 (시간 초과 패널티)
+            current_player_id = game_state.get('current_player_id')
+            if current_player_id:
+                await self._reset_consecutive_success(room_id, current_player_id)
+            
             # 현재 플레이어 패널티 또는 자동 턴 넘김
             await self._advance_turn(room_id, game_state)
             
@@ -878,7 +976,7 @@ class RedisGameService:
             await self._smart_broadcast(room_id, {
                 'type': 'game_time_over',
                 'current_player_id': game_state['current_player_id'],
-                'message': '시간 초과! 다음 플레이어 차례입니다.',
+                'message': '⏰ 시간 초과! 다음 플레이어 차례입니다.',
                 'timestamp': datetime.utcnow().isoformat()
             }, 'game_time_over')
             
@@ -887,6 +985,21 @@ class RedisGameService:
             
         except Exception as e:
             logger.error(f"시간 초과 처리 실패: {e}")
+    
+    async def _reset_consecutive_success(self, room_id: int, guest_id: int):
+        """플레이어의 연속 성공 횟수 초기화"""
+        try:
+            player_key = f"game:{room_id}:player:{guest_id}"
+            player_data_str = await self.redis_client.get(player_key)
+            
+            if player_data_str:
+                player_data = json.loads(player_data_str)
+                player_data['consecutive_success'] = 0
+                player_data['updated_at'] = datetime.utcnow().isoformat()
+                await self.redis_client.setex(player_key, 86400, json.dumps(player_data))
+                logger.debug(f"연속 성공 초기화: room_id={room_id}, guest_id={guest_id}")
+        except Exception as e:
+            logger.error(f"연속 성공 초기화 실패: {e}")
     
     # === 상태 조회 ===
     
@@ -999,6 +1112,52 @@ class RedisGameService:
             
         except Exception as e:
             logger.error(f"게임 통계 조회 실패: {e}")
+            return {}
+    
+    async def get_final_game_results(self, room_id: int) -> Dict:
+        """게임 종료 시 최종 결과 및 성과 정보 조회"""
+        try:
+            game_state = await self.get_game_state(room_id)
+            if not game_state:
+                return {}
+            
+            # 모든 플레이어 통계 조회
+            player_stats = await self.get_all_player_stats(room_id)
+            game_stats = await self.get_game_stats(room_id)
+            
+            # 고급 점수 계산기를 사용해 성과 보너스 계산
+            from services.advanced_score_service import get_score_calculator
+            score_calculator = get_score_calculator()
+            
+            enhanced_player_stats = []
+            for stats in player_stats:
+                # 개별 성과 보너스 계산
+                performance_bonus = score_calculator.calculate_game_performance_bonus(
+                    stats, game_stats
+                )
+                
+                enhanced_stats = {
+                    **stats,
+                    'performance_bonus': performance_bonus,
+                    'final_score': stats['score'] + performance_bonus['total_bonus'],
+                    'rank': 0  # 나중에 계산
+                }
+                enhanced_player_stats.append(enhanced_stats)
+            
+            # 최종 점수 기준으로 순위 매기기
+            enhanced_player_stats.sort(key=lambda x: x['final_score'], reverse=True)
+            for i, stats in enumerate(enhanced_player_stats):
+                stats['rank'] = i + 1
+            
+            return {
+                'game_state': game_state,
+                'player_stats': enhanced_player_stats,
+                'game_stats': game_stats,
+                'word_entries': await self.get_word_entries(room_id)
+            }
+            
+        except Exception as e:
+            logger.error(f"최종 게임 결과 조회 실패: {e}")
             return {}
     
     async def _save_game_state(self, room_id: int, game_state: Dict):

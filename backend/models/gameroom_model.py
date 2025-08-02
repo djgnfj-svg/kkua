@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Index
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Index, JSON
 from sqlalchemy.orm import relationship
 from db.postgres import Base
 import enum
@@ -39,6 +39,9 @@ class Gameroom(Base):
     ended_at = Column(DateTime, nullable=True)
     participant_count = Column(Integer, nullable=False, default=0)
     room_type = Column(String, nullable=False, default="normal")
+    
+    # 게임 모드 관련 필드
+    game_mode_config = Column(JSON, nullable=True)  # 게임 모드 설정 JSON
 
     creator = relationship("Guest")
     participants = relationship(

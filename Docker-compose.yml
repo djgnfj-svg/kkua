@@ -6,26 +6,103 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./backend:/app
+      # Development only: mount source for live reload
+      - ${PWD}/backend:/app:${MOUNT_MODE:-rw}
     environment:
-      - DATABASE_URL=postgresql://postgres:mysecretpassword@db:5432/mydb
+      - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-mysecretpassword}@db:5432/${DB_NAME:-mydb}
       - REDIS_URL=redis://redis:6379/0
-      - ENVIRONMENT=development
-      - DEBUG=true
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - DEBUG=${DEBUG:-true}
+      - SECRET_KEY=${SECRET_KEY:-change-this-in-production}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      - HOST=0.0.0.0
+      - PORT=8000
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_started
     restart: unless-stopped
+    command: >
+      sh -c "
+      if [ \"$ENVIRONMENT\" = \"development\" ]; then
+        python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+      else  
+        python -m uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4
+      fi
+      "
 
-  # 테스트 서비스 추가
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ${FRONTEND_DOCKERFILE:-Dockerfile}
+    ports:
+      - "${FRONTEND_PORT:-3000}:${FRONTEND_CONTAINER_PORT:-3000}"
+    volumes:
+      # Development only: mount source for live reload
+      - ${PWD}/frontend/src:/app/src:${MOUNT_MODE:-rw}
+      - ${PWD}/frontend/public:/app/public:${MOUNT_MODE:-rw}
+    environment:
+      - REACT_APP_API_URL=${REACT_APP_API_URL:-http://localhost:8000}
+      - REACT_APP_WS_URL=${REACT_APP_WS_URL:-ws://localhost:8000}
+      - CHOKIDAR_USEPOLLING=${CHOKIDAR_USEPOLLING:-true}
+    depends_on:
+      - backend
+    restart: unless-stopped
+    profiles:
+      # Frontend only runs in development or when explicitly requested
+      - ${FRONTEND_PROFILE:-frontend}
+
+  db:
+    image: postgres:15-alpine
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    environment:
+      - POSTGRES_USER=${DB_USER:-postgres}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-mysecretpassword}
+      - POSTGRES_DB=${DB_NAME:-mydb}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Utility services
+  backend-migrate:
+    build: ./backend
+    environment:
+      - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-mysecretpassword}@db:5432/${DB_NAME:-mydb}
+    depends_on:
+      db:
+        condition: service_healthy
+    command: python scripts/migrate.py upgrade
+    profiles:
+      - migrate
+
   backend-test:
     build: ./backend
     volumes:
       - ./backend:/app
     environment:
-      - DATABASE_URL=postgresql://postgres:mysecretpassword@db:5432/mydb
+      - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-mysecretpassword}@db:5432/${DB_NAME:-mydb}
       - REDIS_URL=redis://redis:6379/0
       - TESTING=true
     depends_on:
@@ -33,67 +110,16 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
-    # 테스트 실행 명령으로 덮어씀
     command: python -m pytest tests/ -v
-
-  # 데이터베이스 마이그레이션 서비스
-  backend-migrate:
-    build: ./backend
-    volumes:
-      - ./backend:/app
-    environment:
-      - DATABASE_URL=postgresql://postgres:mysecretpassword@db:5432/mydb
-      - REDIS_URL=redis://redis:6379/0
-    depends_on:
-      db:
-        condition: service_healthy
-    command: python scripts/migrate.py upgrade
-
-  frontend:
-    build: ./frontend
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    environment:
-      - CHOKIDAR_USEPOLLING=true
-      - REACT_APP_API_URL=http://localhost:8000
-      - REACT_APP_WS_URL=ws://localhost:8000
-    depends_on:
-      - backend
-    restart: unless-stopped
-  db:
-    build: ./DB
-    ports:
-      - "5432:5432"
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=mysecretpassword
-      - POSTGRES_DB=mydb
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-    restart: unless-stopped
-
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-    restart: unless-stopped
+    profiles:
+      - test
 
 volumes:
   postgres_data:
+    driver: local
   redis_data:
+    driver: local
+
+networks:
+  default:
+    name: kkua_network
