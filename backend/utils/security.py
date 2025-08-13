@@ -8,7 +8,7 @@ import hmac
 import logging
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
-from jose import JWTError, jwt, ExpiredSignatureError, JWTClaimsError
+from jose import JWTError, jwt, ExpiredSignatureError
 from app_config import settings
 
 logger = logging.getLogger(__name__)

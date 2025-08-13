@@ -78,6 +78,41 @@ class RedisGameService:
         logger.error(f"Redis 연결 완전 실패 (URL: {self.redis_url})")
         raise ConnectionError(f"Redis 서버에 연결할 수 없습니다: {last_exception}")
     
+    def _get_default_player_data(self, guest_id: int, nickname: str) -> Dict[str, Any]:
+        """표준 플레이어 데이터 템플릿 반환"""
+        return {
+            'guest_id': guest_id,
+            'nickname': nickname,
+            'score': 0,
+            'words_submitted': 0,
+            'total_response_time': 0.0,
+            'fastest_response': None,
+            'slowest_response': None,
+            'longest_word': '',
+            'shortest_word': '',
+            'consecutive_success': 0,
+            'items_used': [],
+            'status': 'active',
+            'created_at': datetime.utcnow().isoformat(),
+            'updated_at': datetime.utcnow().isoformat()
+        }
+    
+    def _get_default_game_state_fields(self) -> Dict[str, Any]:
+        """표준 게임 상태에 포함되어야 하는 통계 필드들 반환"""
+        return {
+            'fastest_response': None,
+            'slowest_response': None,
+            'total_game_time': 0,
+            'avg_response_time': 0,
+            'total_words_count': 0,
+            'game_stats': {
+                'total_turns': 0,
+                'successful_words': 0,
+                'failed_attempts': 0,
+                'average_word_length': 0
+            }
+        }
+
     async def disconnect(self):
         """Redis 연결 해제 및 완전한 리소스 정리"""
         # 모든 타이머 정리
@@ -245,6 +280,7 @@ class RedisGameService:
             # 첫 번째 플레이어도 무작위 선택
             first_player_index = random.randint(0, len(shuffled_participants) - 1) if shuffled_participants else 0
             
+            # 기본 게임 상태 생성
             game_state = {
                 'room_id': room_id,
                 'status': 'waiting',  # waiting, playing, paused, finished
@@ -263,6 +299,9 @@ class RedisGameService:
                 'updated_at': datetime.utcnow().isoformat()
             }
             
+            # 통계 추적용 필드들 추가
+            game_state.update(self._get_default_game_state_fields())
+            
             # Redis에 게임 상태 저장 (24시간 만료)
             await self.redis_client.setex(
                 f"game:{room_id}", 
@@ -277,14 +316,11 @@ class RedisGameService:
             # 참가자별 개인 정보 저장 및 플레이어 게임 추적
             for participant in participants:
                 guest_id = participant['guest_id']
-                player_data = {
-                    'guest_id': guest_id,
-                    'nickname': participant['nickname'],
-                    'score': 0,
-                    'words_submitted': 0,
-                    'items_used': [],
-                    'status': 'active'
-                }
+                nickname = participant['nickname']
+                
+                # 표준 플레이어 데이터 템플릿 사용
+                player_data = self._get_default_player_data(guest_id, nickname)
+                
                 await self.redis_client.setex(
                     f"game:{room_id}:player:{guest_id}",
                     86400,
@@ -383,6 +419,13 @@ class RedisGameService:
                     
                     game_state = json.loads(game_state_str)
                     
+                    # 게임 상태에 누락된 필드 보완 (방어 로직)
+                    default_fields = self._get_default_game_state_fields()
+                    for field, default_value in default_fields.items():
+                        if field not in game_state:
+                            game_state[field] = default_value
+                            logger.debug(f"게임 상태 누락된 필드 보완: {field}={default_value} (room_id={room_id})")
+                    
                     # 기본 검증 (트랜잭션 외부에서 빠른 실패)
                     if game_state['status'] != 'playing':
                         await pipe.unwatch()
@@ -476,19 +519,18 @@ class RedisGameService:
                     
                     if player_data_str:
                         player_data = json.loads(player_data_str)
+                        
+                        # 기존 플레이어 데이터에 누락된 필드 보완 (방어 로직)
+                        default_data = self._get_default_player_data(guest_id, player_data.get('nickname', 'Unknown'))
+                        for field, default_value in default_data.items():
+                            if field not in player_data:
+                                player_data[field] = default_value
+                                logger.debug(f"누락된 필드 보완: {field}={default_value} (room_id={room_id}, guest_id={guest_id})")
                     else:
                         # 플레이어 데이터가 없으면 기본 데이터로 초기화
                         logger.warning(f"플레이어 데이터가 없어 새로 생성: room_id={room_id}, guest_id={guest_id}")
-                        player_data = {
-                            'guest_id': guest_id,
-                            'score': 0,
-                            'words_submitted': 0,
-                            'total_response_time': 0.0,
-                            'fastest_response': float('inf'),
-                            'slowest_response': 0.0,
-                            'longest_word': '',
-                            'created_at': datetime.utcnow().isoformat()
-                        }
+                        nickname = next((p['nickname'] for p in game_state['participants'] if p['guest_id'] == guest_id), 'Unknown')
+                        player_data = self._get_default_player_data(guest_id, nickname)
                     
                     # 고급 점수 계산 시스템 적용
                     from services.advanced_score_service import get_score_calculator
@@ -533,9 +575,10 @@ class RedisGameService:
                         'timestamp': datetime.utcnow().isoformat()
                     })
                     
-                    if response_time < player_data['fastest_response']:
+                    # 최단/최장 응답시간 업데이트 (안전한 비교를 위한 방어 로직)
+                    if player_data['fastest_response'] is None or response_time < player_data['fastest_response']:
                         player_data['fastest_response'] = response_time
-                    if response_time > player_data['slowest_response']:
+                    if player_data['slowest_response'] is None or response_time > player_data['slowest_response']:
                         player_data['slowest_response'] = response_time
                     if len(word) > len(player_data['longest_word']):
                         player_data['longest_word'] = word

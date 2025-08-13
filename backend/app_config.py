@@ -1,6 +1,7 @@
 import os
 import secrets
 from typing import List
+from pydantic import ConfigDict
 from pydantic_settings import BaseSettings
 
 
@@ -24,15 +25,16 @@ class Settings(BaseSettings):
     port: int = int(os.getenv("PORT", "8000"))
     debug: bool = os.getenv("DEBUG", "True").lower() == "true"
     
-    # CORS
-    cors_origins: List[str] = [
-        origin.strip() 
-        for origin in os.getenv(
-            "CORS_ORIGINS", 
-            "http://localhost:3000,http://127.0.0.1:3000"
-        ).split(",")
-        if origin.strip()
-    ]
+    # CORS - Pydantic v2에서는 str 타입으로 받아서 직접 파싱
+    _cors_origins: str = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
+    
+    @property
+    def cors_origins(self) -> List[str]:
+        return [
+            origin.strip() 
+            for origin in self._cors_origins.split(",")
+            if origin.strip()
+        ]
     
     # Environment
     environment: str = os.getenv("ENVIRONMENT", "development")
@@ -55,9 +57,11 @@ class Settings(BaseSettings):
     sentry_traces_sample_rate: float = float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "1.0"))
     sentry_profiles_sample_rate: float = float(os.getenv("SENTRY_PROFILES_SAMPLE_RATE", "1.0"))
     
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    model_config = ConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore"  # 정의되지 않은 필드 무시
+    )
     
     def validate_production_settings(self):
         """프로덕션 환경에서 보안 설정 검증"""
