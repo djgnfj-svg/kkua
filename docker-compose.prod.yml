@@ -32,7 +32,7 @@ services:
     restart: unless-stopped
 
   db:
-    build: ./DB
+    image: postgres:15-alpine
     ports:
       - "5432:5432"
     environment:
@@ -64,18 +64,6 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # Production database migration service
-  backend-migrate:
-    build: ./backend
-    env_file:
-      - ./backend/.env.production
-    environment:
-      - ENVIRONMENT=production
-    depends_on:
-      db:
-        condition: service_healthy
-    command: python scripts/migrate.py upgrade
-    restart: "no"  # Only run once for migrations
 
 volumes:
   postgres_data:

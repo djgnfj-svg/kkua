@@ -7,28 +7,19 @@ from routers import (
     gamerooms_router,
     gameroom_ws_router,
     gameroom_actions_router,
-    csrf_router,
     game_api_router,
-    item_router,
-    game_mode_router,
-    friendship_router,
 )
 from fastapi.openapi.utils import get_openapi
 from app_config import settings
-from middleware.csrf_middleware import CSRFProtectionMiddleware
-from middleware.security_headers_middleware import SecurityHeadersMiddleware
 from middleware.logging_middleware import RequestLoggingMiddleware
-from middleware.rate_limiter import RateLimitMiddleware
 from middleware.exception_handler import GlobalExceptionHandler
 from config.logging_config import setup_logging
-from config.sentry_config import init_sentry
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime
 
-# 로깅 및 모니터링 초기화
+# 로깅 초기화
 setup_logging()
-init_sentry()  # Sentry 모니터링 초기화
 logger = logging.getLogger(__name__)
 
 
@@ -91,27 +82,7 @@ app.add_middleware(
 )
 
 app.add_middleware(RequestLoggingMiddleware)
-
-app.add_middleware(SecurityHeadersMiddleware)
-
-app.add_middleware(RateLimitMiddleware)
-
 app.add_middleware(GlobalExceptionHandler)
-
-app.add_middleware(
-    CSRFProtectionMiddleware,
-    exclude_paths=[
-        "/docs",
-        "/redoc", 
-        "/openapi.json",
-        "/health",
-        "/",
-        "/ws",
-        "/auth/login",
-        "/csrf/token",
-        "/csrf/status"
-    ]
-)
 
 Base.metadata.create_all(bind=engine)
 
@@ -120,11 +91,7 @@ app.include_router(guests_router.router)
 app.include_router(gamerooms_router.router)
 app.include_router(gameroom_actions_router.router)
 app.include_router(gameroom_ws_router.router)
-app.include_router(csrf_router.router)
 app.include_router(game_api_router.router)
-app.include_router(item_router.router)
-app.include_router(game_mode_router.router)
-app.include_router(friendship_router.router)
 
 
 @app.get("/")
@@ -184,11 +151,6 @@ async def detailed_health_check():
             "error": str(e)
         }
     
-    # Sentry 연결 상태 확인
-    health_status["services"]["sentry"] = {
-        "status": "healthy" if settings.sentry_dsn else "disabled",
-        "configured": bool(settings.sentry_dsn)
-    }
     
     # 전체 상태 결정
     all_services_healthy = all(
