@@ -6,7 +6,7 @@ services:
     ports:
       - "8000:8000"
     env_file:
-      - ./backend/.env.prod
+      - ./backend/.env.production
     environment:
       # Override specific values if needed
       - ENVIRONMENT=production
@@ -68,7 +68,7 @@ services:
   backend-migrate:
     build: ./backend
     env_file:
-      - ./backend/.env.prod
+      - ./backend/.env.production
     environment:
       - ENVIRONMENT=production
     depends_on:
