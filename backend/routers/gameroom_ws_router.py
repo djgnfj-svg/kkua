@@ -1,6 +1,7 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
 from sqlalchemy.orm import Session
 import json
+import logging
 from datetime import datetime
 from typing import Tuple, Optional
 
@@ -8,7 +9,7 @@ from db.postgres import get_db
 from repositories.gameroom_repository import GameroomRepository
 from repositories.guest_repository import GuestRepository
 from models.guest_model import Guest
-from services.gameroom_service import ws_manager
+from services.gameroom_service import ws_manager, GameroomService
 from services.session_service import get_session_store
 from services.websocket_message_service import WebSocketMessageService
 from middleware.rate_limiter import check_websocket_rate_limit
@@ -17,6 +18,8 @@ router = APIRouter(
     prefix="/ws/gamerooms",
     tags=["websockets"],
 )
+
+logger = logging.getLogger(__name__)
 
 
 async def validate_websocket_connection(
@@ -98,7 +101,7 @@ async def websocket_endpoint(
 
         message_service = WebSocketMessageService(db, ws_manager)
 
-        await ws_manager.connect(websocket, room_id, guest.guest_id)
+        await ws_manager.connect(websocket, room_id, guest.guest_id, guest.nickname)
 
         gameroom_repo = GameroomRepository(db)
         participants = gameroom_repo.find_room_participants(room_id)
@@ -106,16 +109,19 @@ async def websocket_endpoint(
             {
                 "guest_id": p.guest.guest_id,
                 "nickname": p.guest.nickname,
-                "status": p.status.value if hasattr(p.status, "value") else p.status,
-                "is_owner": p.guest.guest_id == p.gameroom.created_by,
+                "status": p.status,
+                "is_creator": p.is_creator,
+                "is_owner": p.is_creator,  # 호환성을 위해 둘 다 포함
             }
             for p in participants
         ]
 
+        logger.info(f"WebSocket 참가자 입장 브로드캐스트: room_id={room_id}, guest_id={guest.guest_id}, participants_count={len(participant_data)}")
+        
         await ws_manager.broadcast_to_room(
             room_id,
             {
-                "type": "participants_update",
+                "type": "participant_list_updated",
                 "participants": participant_data,
                 "message": f"{guest.nickname}님이 입장했습니다.",
             },
@@ -209,7 +215,7 @@ async def websocket_endpoint(
             logger.info(
                 f"웹소켓 연결 해제: room_id={room_id}, guest_id={guest.guest_id}"
             )
-            await ws_manager.disconnect(websocket, room_id, guest.guest_id)
+            await ws_manager.disconnect(websocket, room_id, guest.guest_id, guest.nickname)
 
             # WebSocket 연결 해제 시 자동으로 방 나가기 처리 (DB 동기화)
             try:
@@ -219,19 +225,34 @@ async def websocket_endpoint(
                 logger.info(
                     f"자동 방 나가기 처리 완료: room_id={room_id}, guest_id={guest.guest_id}, result={result}"
                 )
+            except HTTPException as http_error:
+                # 이미 나간 경우나 방이 없는 경우는 정상적인 상황으로 처리
+                logger.info(f"방 나가기 처리 (예상된 상황): room_id={room_id}, guest_id={guest.guest_id}, detail={http_error.detail}")
             except Exception as leave_error:
                 logger.error(f"자동 방 나가기 처리 실패: {leave_error}", exc_info=True)
 
-            await ws_manager.broadcast_room_update(
-                room_id,
-                "user_left",
-                {"guest_id": guest.guest_id, "nickname": guest.nickname},
-            )
+            # 참가자 목록 업데이트 (WebSocket 연결 해제 시)
+            try:
+                gameroom_repo = GameroomRepository(db)
+                updated_participants = gameroom_repo.get_participants(room_id)
+                
+                await ws_manager.broadcast_room_update(
+                    room_id,
+                    "participant_list_updated",
+                    {
+                        "guest_id": guest.guest_id, 
+                        "nickname": guest.nickname,
+                        "participants": updated_participants,
+                        "message": f"{guest.nickname}님이 연결을 해제했습니다."
+                    },
+                )
+            except Exception as broadcast_error:
+                logger.error(f"연결 해제 브로드캐스트 실패: {broadcast_error}")
 
     except Exception as e:
         logger.error(f"웹소켓 오류: {str(e)}", exc_info=True)
         if guest:
-            await ws_manager.disconnect(websocket, room_id, guest.guest_id)
+            await ws_manager.disconnect(websocket, room_id, guest.guest_id, guest.nickname)
         try:
             await websocket.close(code=4003, reason=f"오류 발생: {str(e)}")
         except Exception:
@@ -245,7 +266,7 @@ async def websocket_endpoint(
                 participants = gameroom_service.repository.find_room_participants(
                     room_id
                 )
-                active_connections = ws_manager.get_room_connections(room_id)
+                active_connections = ws_manager.websocket_manager.get_room_connections(room_id)
 
                 # WebSocket에는 없지만 DB에 남아있는 참가자들 정리
                 for participant in participants:

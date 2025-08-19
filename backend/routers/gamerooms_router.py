@@ -37,7 +37,7 @@ def list_gamerooms(
 
 
 @router.post("/", response_model=GameroomResponse, status_code=status.HTTP_201_CREATED)
-def create_gameroom(
+async def create_gameroom(
     create_data: CreateGameroomRequest,
     guest: Guest = Depends(get_current_guest),
     service: GameroomService = Depends(get_gameroom_service),
@@ -98,3 +98,67 @@ def delete_gameroom(
         raise HTTPException(status_code=404, detail="게임룸을 찾을 수 없습니다")
 
     return {"message": "게임룸이 삭제되었습니다"}
+
+
+@router.get("/{room_id}/is-owner")
+def check_room_owner(
+    room_id: int,
+    guest: Guest = Depends(get_current_guest),
+    service: GameroomService = Depends(get_gameroom_service),
+) -> Dict[str, bool]:
+    """현재 사용자가 방장인지 확인합니다."""
+    room = service.get_gameroom(room_id)
+    if not room:
+        raise HTTPException(status_code=404, detail="게임룸을 찾을 수 없습니다")
+    
+    is_owner = room.created_by == guest.guest_id
+    return {"is_owner": is_owner}
+
+
+@router.post("/{room_id}/join")
+async def join_gameroom(
+    room_id: int,
+    guest: Guest = Depends(get_current_guest),
+    service: GameroomService = Depends(get_gameroom_service),
+) -> Dict[str, str]:
+    """게임룸에 참가합니다."""
+    try:
+        result = await service.join_gameroom(room_id, guest)
+        return {"message": result.message}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/{room_id}/leave")
+def leave_gameroom(
+    room_id: int,
+    guest: Guest = Depends(get_current_guest),
+    service: GameroomService = Depends(get_gameroom_service),
+) -> Dict[str, str]:
+    """게임룸에서 나갑니다."""
+    try:
+        result = service.leave_gameroom(room_id, guest)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/{room_id}/start")
+def start_game(
+    room_id: int,
+    guest: Guest = Depends(get_current_guest),
+    service: GameroomService = Depends(get_gameroom_service),
+) -> Dict[str, str]:
+    """게임을 시작합니다. 방장만 시작할 수 있습니다."""
+    room = service.get_gameroom(room_id)
+    if not room:
+        raise HTTPException(status_code=404, detail="게임룸을 찾을 수 없습니다")
+    
+    if room.created_by != guest.guest_id:
+        raise HTTPException(status_code=403, detail="방장만 게임을 시작할 수 있습니다")
+    
+    try:
+        # 게임 시작 로직 (향후 구현)
+        return {"message": "게임이 시작되었습니다"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

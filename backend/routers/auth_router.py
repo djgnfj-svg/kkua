@@ -4,6 +4,7 @@ Authentication router for handling login, logout, and profile management
 
 from fastapi import APIRouter, Depends, HTTPException, Response, Request, status
 from sqlalchemy.orm import Session
+from datetime import datetime
 from db.postgres import get_db
 from repositories.guest_repository import GuestRepository
 from services.auth_service import AuthService
@@ -131,3 +132,33 @@ async def get_auth_status(
         )
     else:
         return AuthStatusResponse(authenticated=False, guest=None, redirect_url=None)
+
+
+@router.get("/session-health")
+async def get_session_health():
+    """
+    Check session store health and status
+    """
+    try:
+        from services.redis_session_service import get_redis_session_store
+        
+        redis_store = get_redis_session_store()
+        health_ok = redis_store.health_check()
+        session_count = redis_store.get_session_count()
+        
+        return {
+            "status": "healthy" if health_ok else "unhealthy",
+            "redis_connected": health_ok,
+            "active_sessions": session_count,
+            "session_store_type": "redis",
+            "timestamp": str(datetime.utcnow())
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "redis_connected": False,
+            "active_sessions": 0,
+            "session_store_type": "redis",
+            "error": str(e),
+            "timestamp": str(datetime.utcnow())
+        }

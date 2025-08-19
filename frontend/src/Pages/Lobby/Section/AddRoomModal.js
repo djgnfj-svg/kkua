@@ -67,19 +67,24 @@ function AddRoomModal({ isOpen, isClose }) {
         max_rounds: maxRounds,
       });
 
-      // 성공 처리
+      // 성공 처리 - 모달 닫기와 상태 초기화
       isClose(false);
       setRoomTitle('');
-      navigate(gameLobbyUrl(response.data.room_id));
+      
+      // 약간의 지연 후 네비게이션 (백엔드 동기화 대기)
+      setTimeout(() => {
+        navigate(gameLobbyUrl(response.data.room_id));
+      }, 300);
+      
     } catch (error) {
       console.error('방 생성 오류:', error);
 
       const errorMessage =
         error.response?.data?.detail || '방 생성에 실패했습니다';
       setErrors({ submit: errorMessage });
-    } finally {
       setIsCreating(false);
     }
+    // isCreating 상태는 네비게이션 후에 자동으로 리셋됨
   };
 
   const handleClose = () => {

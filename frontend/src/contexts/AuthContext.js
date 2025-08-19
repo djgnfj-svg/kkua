@@ -120,8 +120,12 @@ export function AuthProvider({ children }) {
     // 이미 체크 중이면 중복 실행 방지
     if (isCheckingRef.current) return;
     
-    // 항상 서버에서 인증 상태를 확인 (localStorage 정보보다 서버 세션을 우선 신뢰)
-    checkAuthStatus();
+    // 초기 렌더링 시에만 인증 상태 확인
+    const timer = setTimeout(() => {
+      checkAuthStatus();
+    }, 100); // 작은 딜레이를 추가하여 무한 루프 방지
+    
+    return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // 초기 렌더링 시에만 실행
 
@@ -149,16 +153,16 @@ export function AuthProvider({ children }) {
         
         // 스마트 리다이렉트: 루트 페이지에 있을 때만 서버 추천 URL로 이동
         // 현재 페이지가 보호된 경로라면 그대로 유지
-        const protectedPaths = ['/lobby', '/kealobby', '/keaing', '/gamerooms'];
+        const protectedPaths = ['/lobby', '/kealobby', '/keaing', '/gamerooms', '/gameroom'];
         const isProtectedPath = protectedPaths.some(path => location.pathname.startsWith(path));
         
+        // 리다이렉트를 더 제한적으로 만들기 - 루트 페이지에서만 실행
         if (location.pathname === '/' && response.data.redirect_url) {
-          navigate(response.data.redirect_url, { replace: true });
-        } else if (!isProtectedPath && response.data.redirect_url) {
-          // 보호되지 않은 경로에 있고 추천 URL이 있으면 이동
-          navigate(response.data.redirect_url, { replace: true });
+          setTimeout(() => {
+            navigate(response.data.redirect_url, { replace: true });
+          }, 50); // 딜레이 추가
         }
-        // 이미 보호된 경로에 있으면 그대로 유지
+        // 다른 경우에는 리다이렉트하지 않음
       } else {
         // 서버에서 인증되지 않았을 때
         // localStorage에 정보가 있으면 유지 (네트워크 문제일 수 있음)

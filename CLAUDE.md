@@ -9,11 +9,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Quick Start Commands
 
 ```bash
-# Start development environment (auto-creates .env from .env.example)
-./deploy.sh
+# Setup environment (first time only)
+cp backend/.env.example backend/.env
 
-# Start production environment
-./deploy.sh production
+# Start development environment
+docker-compose up -d
+
+# Start with frontend
+docker-compose --profile frontend up -d
 
 # Stop services
 docker-compose down
@@ -76,6 +79,9 @@ docker exec kkua-redis-1 redis-cli monitor
 
 # Clear Redis cache
 docker exec kkua-redis-1 redis-cli FLUSHDB
+
+# Run database migrations
+docker-compose --profile migrate run --rm backend-migrate
 ```
 
 ## Architecture: Dual Data Management
@@ -135,6 +141,7 @@ docker exec kkua-redis-1 redis-cli FLUSHDB
 - URL: `ws://localhost:8000/ws/gamerooms/{room_id}`
 - Authentication: Session cookie required
 - Key events: `game_started_redis`, `word_submitted`, `game_time_update`, `game_over`
+- Connection validates session from cookie headers
 
 ## Testing Strategy
 
@@ -237,14 +244,17 @@ docker-compose down -v && docker-compose up -d
 
 ```bash
 # Setup production config
-cp backend/.env.production.example backend/.env.production
-# Edit with production values
+cp backend/.env.example backend/.env
+# Edit with production values (change SECRET_KEY, set ENVIRONMENT=production)
 
-# Deploy
-./deploy.sh production
+# Deploy backend only (typical production setup)
+ENVIRONMENT=production docker-compose up -d backend db redis
+
+# Or deploy with frontend
+ENVIRONMENT=production docker-compose --profile frontend up -d
 
 # Production deployment features:
 # - Environment variables for production
-# - Optimized Docker builds
+# - Multi-worker uvicorn for backend
 # - Production security configurations
 ```

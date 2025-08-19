@@ -11,7 +11,7 @@ const useGameLobby = () => {
   const { user, isAuthenticated } = useAuth();
   const [roomInfo, setRoomInfo] = useState(null);
   const [participants, setParticipants] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
   const [redirectingToGame] = useState(false);
   const [isStartingGame, setIsStartingGame] = useState(false);
@@ -113,9 +113,12 @@ const useGameLobby = () => {
     }
   }, [messages, isStartingGame]);
   const fetchRoomData = useCallback(async () => {
+    console.log('fetchRoomData 호출됨:', { roomId, user: !!user });
     try {
       setIsLoading(true);
+      console.log('API 요청 시작:', `/gamerooms/${roomId}`);
       const response = await axiosInstance.get(`/gamerooms/${roomId}`);
+      console.log('API 응답 받음:', response.data);
 
       if (response.data) {
         if (response.data.room) {
@@ -135,6 +138,7 @@ const useGameLobby = () => {
           );
 
           if (!isParticipant) {
+            setIsLoading(false);
             alert('이 방에 참가하지 않은 사용자입니다. 로비로 이동합니다.');
             navigate('/lobby');
             return;
@@ -155,18 +159,23 @@ const useGameLobby = () => {
     }
   }, [roomId, user, navigate]);
   const checkIfOwnerFromParticipants = useCallback(() => {
-    if (!user?.guest_id) return false;
+    console.log('방장 체크:', { user: user?.guest_id, participants, participantsLength: participants.length });
+    if (!user?.guest_id || !Array.isArray(participants) || participants.length === 0) return false;
     const currentUser = participants.find(
-      (p) => String(p.guest_id) === String(user.guest_id)
+      (p) => p && p.guest_id && String(p.guest_id) === String(user.guest_id)
     );
+    console.log('찾은 사용자:', currentUser, '방장 여부:', currentUser?.is_creator);
     return currentUser?.is_creator === true;
   }, [participants, user]);
 
   useEffect(() => {
-    fetchRoomData();
-    const interval = setInterval(fetchRoomData, 30000);
-    return () => clearInterval(interval);
-  }, [fetchRoomData]);
+    // 초기 데이터 로드만 수행
+    console.log('초기 데이터 로드 useEffect:', { roomInfo: !!roomInfo, roomId, user: !!user, isLoading });
+    if (!roomInfo && roomId && user) {
+      console.log('fetchRoomData 호출 예정');
+      fetchRoomData();
+    }
+  }, [roomId, user, fetchRoomData]); // 초기 로드만, 인터벌 제거로 성능 개선
 
   useEffect(() => {
     const isOwnerFromParticipants = checkIfOwnerFromParticipants();
@@ -191,7 +200,7 @@ const useGameLobby = () => {
       }
     };
     checkIfOwner();
-  }, [roomId, checkIfOwnerFromParticipants]);
+  }, [roomId, participants, user]); // 실제 dependencies로 변경
 
   const handleClickExit = () => {
     const lobbyUrl = '/lobby';
@@ -207,11 +216,11 @@ const useGameLobby = () => {
               navigate(lobbyUrl);
             })
             .catch((error) => {
-              alert('당신은 나갈수 없어요. 끄아지옥 ON....');
+              alert('방 삭제에 실패했습니다. 다시 시도해주세요.');
               console.error('방 삭제 실패:', error);
             });
         } catch (error) {
-          alert('당신은 나갈수 없어요. 끄아지옥 ON.... Create User');
+          alert('방 삭제 중 오류가 발생했습니다.');
           console.error('방 삭제 오류:', error);
         }
       }
@@ -227,11 +236,11 @@ const useGameLobby = () => {
             })
             .catch((error) => {
               console.error('방 나가기 실패:', error);
-              alert('당신은 나갈수 없어요. 끄아지옥 ON....');
+              alert('방 나가기에 실패했습니다. 다시 시도해주세요.');
             });
         } catch (error) {
           console.error('방 나가기 실패:', error);
-          alert('당신은 나갈수 없어요. 끄아지옥 ON....');
+          alert('방 나가기 중 오류가 발생했습니다.');
         }
       }
     }
@@ -274,24 +283,79 @@ const useGameLobby = () => {
     }
   };
 
+  const handleKickPlayer = useCallback((targetGuestId, reason = '') => {
+    // 안전성 검사
+    if (!user?.guest_id) {
+      alert('사용자 정보를 확인할 수 없습니다.');
+      return;
+    }
+
+    if (!isOwner) {
+      alert('방장만 플레이어를 강퇴할 수 있습니다.');
+      return;
+    }
+
+    if (!targetGuestId) {
+      alert('강퇴할 플레이어를 선택해주세요.');
+      return;
+    }
+
+    if (targetGuestId === user.guest_id) {
+      alert('자기 자신을 강퇴할 수 없습니다.');
+      return;
+    }
+
+    if (!connected) {
+      alert('서버와의 연결이 끊어졌습니다. 다시 시도해주세요.');
+      return;
+    }
+
+    try {
+      const success = sendMessage({
+        type: 'kick_player',
+        target_guest_id: targetGuestId,
+        reason: reason || null
+      });
+
+      if (!success) {
+        alert('강퇴 요청 전송에 실패했습니다. 연결 상태를 확인해주세요.');
+      }
+    } catch (error) {
+      console.error('강퇴 요청 실패:', error);
+      alert('강퇴 요청에 실패했습니다.');
+    }
+  }, [isOwner, user?.guest_id, sendMessage, connected]);
+
+  // WebSocket에서 직접 참가자 목록 업데이트 (가장 간단한 방법)
   useEffect(() => {
-    if (connected && socketParticipants && socketParticipants.length > 0) {
+    if (connected && socketParticipants && socketParticipants.length >= 0) {
+      console.log('🔥 WebSocket 참가자 직접 업데이트:', socketParticipants);
       setParticipants(socketParticipants);
     }
   }, [connected, socketParticipants]);
 
+  // roomUpdated 플래그 처리 (단순화)
   useEffect(() => {
-    if (roomUpdated) {
+    if (roomUpdated && !connected) {
+      // WebSocket 미연결 시에만 REST API 사용
+      console.log('🔄 WebSocket 미연결 - REST API 호출');
       fetchRoomData();
       setRoomUpdated(false);
+    } else if (roomUpdated) {
+      // WebSocket 연결 상태면 이미 socketParticipants로 업데이트됨
+      console.log('🔄 WebSocket 연결됨 - roomUpdated 플래그만 리셋');
+      setRoomUpdated(false);
     }
-  }, [roomUpdated, fetchRoomData, setRoomUpdated]);
+  }, [roomUpdated, connected, fetchRoomData, setRoomUpdated]);
 
   useEffect(() => {
-    if (connected) {
+    console.log('WebSocket 연결 useEffect:', { connected, roomInfo: !!roomInfo, isLoading });
+    if (connected && !roomInfo) {
+      // WebSocket 연결 시 방 정보가 없는 경우에만 로드
+      console.log('WebSocket 연결 후 fetchRoomData 호출 예정');
       fetchRoomData();
     }
-  }, [connected, fetchRoomData]);
+  }, [connected, roomInfo, fetchRoomData]);
 
   return {
     roomId,
@@ -312,6 +376,7 @@ const useGameLobby = () => {
     manualReconnect,
     handleClickExit,
     handleClickStartBtn,
+    handleKickPlayer,
   };
 };
 

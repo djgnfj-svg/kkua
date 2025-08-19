@@ -20,22 +20,21 @@ class GameRoomWebSocketFacade:
 
     # ============ WebSocket 연결 관리 ============
 
-    async def connect(self, websocket: WebSocket, room_id: int, guest_id: int):
+    async def connect(self, websocket: WebSocket, room_id: int, guest_id: int, nickname: str = None):
         """웹소켓 연결을 관리합니다."""
         await self.websocket_manager.connect(websocket, room_id, guest_id)
-        await self.broadcast_room_update(room_id, "user_joined", {"guest_id": guest_id})
+        await self.broadcast_room_update(room_id, "user_joined", {
+            "guest_id": guest_id,
+            "user": {
+                "guest_id": guest_id,
+                "nickname": nickname or f"게스트_{guest_id}"
+            }
+        })
 
-    async def disconnect(self, websocket: WebSocket, room_id: int, guest_id: int):
+    async def disconnect(self, websocket: WebSocket, room_id: int, guest_id: int, nickname: str = None):
         """웹소켓 연결 제거"""
         await self.websocket_manager.disconnect(websocket, room_id, guest_id)
-        await self.broadcast_to_room(
-            room_id,
-            {
-                "type": "user_left",
-                "guest_id": guest_id,
-                "timestamp": datetime.utcnow().isoformat(),
-            },
-        )
+        # 브로드캐스트는 gameroom_ws_router.py에서 처리함 (중복 방지)
 
     async def send_personal_message(self, message: dict, websocket: WebSocket):
         """특정 웹소켓에 메시지 전송"""
@@ -64,6 +63,16 @@ class GameRoomWebSocketFacade:
         await self.websocket_manager.broadcast_room_update(
             room_id, "ready_status_changed", message
         )
+
+    async def broadcast_room_created(self, room_id: int, room_data: dict):
+        """새로운 방 생성을 브로드캐스트합니다."""
+        message = {
+            "type": "room_created",
+            "timestamp": datetime.utcnow().isoformat(),
+            **room_data
+        }
+        # 해당 방에 연결된 사용자들에게 알림 (방금 생성된 방의 방장에게)
+        await self.websocket_manager.broadcast_to_room(room_id, message)
 
     # ============ 끝말잇기 게임 관리 ============
 

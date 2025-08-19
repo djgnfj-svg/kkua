@@ -9,6 +9,8 @@ class MessageType(str, Enum):
     CHAT = "chat"
     GAME_ACTION = "game_action"
     WORD_CHAIN = "word_chain"
+    KICK_PLAYER = "kick_player"
+    TOGGLE_READY = "toggle_ready"
     PING = "ping"
     PONG = "pong"
 
@@ -19,6 +21,7 @@ class GameActionType(str, Enum):
     TOGGLE_READY = "toggle_ready"
     START_GAME = "start_game"
     END_GAME = "end_game"
+    KICK_PLAYER = "kick_player"
 
 
 class BaseWebSocketMessage(BaseModel):
@@ -96,11 +99,35 @@ class PongMessage(BaseWebSocketMessage):
     timestamp: Optional[float] = None
 
 
+class KickPlayerMessage(BaseWebSocketMessage):
+    """플레이어 강퇴 메시지 스키마"""
+
+    type: Literal[MessageType.KICK_PLAYER] = MessageType.KICK_PLAYER
+    target_guest_id: int = Field(..., gt=0, description="강퇴할 플레이어의 guest_id")
+    reason: Optional[str] = Field(None, max_length=200, description="강퇴 사유 (선택사항)")
+
+    @field_validator("reason")
+    @classmethod
+    def validate_reason(cls, v):
+        if v is not None and not v.strip():
+            return None
+        return v
+
+
+class ToggleReadyMessage(BaseWebSocketMessage):
+    """준비 상태 토글 메시지 스키마"""
+
+    type: Literal[MessageType.TOGGLE_READY] = MessageType.TOGGLE_READY
+    guest_id: int = Field(..., gt=0, description="준비 상태를 변경할 플레이어의 guest_id")
+
+
 # 메시지 타입별 스키마 매핑
 MESSAGE_SCHEMAS = {
     MessageType.CHAT: ChatMessage,
     MessageType.GAME_ACTION: GameActionMessage,
     MessageType.WORD_CHAIN: WordChainMessage,
+    MessageType.KICK_PLAYER: KickPlayerMessage,
+    MessageType.TOGGLE_READY: ToggleReadyMessage,
     MessageType.PING: PingMessage,
     MessageType.PONG: PongMessage,
 }
@@ -108,7 +135,7 @@ MESSAGE_SCHEMAS = {
 
 def validate_websocket_message(
     message_data: Dict[str, Any],
-) -> Union[ChatMessage, GameActionMessage, WordChainMessage, PingMessage, PongMessage]:
+) -> Union[ChatMessage, GameActionMessage, WordChainMessage, KickPlayerMessage, ToggleReadyMessage, PingMessage, PongMessage]:
     """WebSocket 메시지 검증"""
     message_type = message_data.get("type")
 

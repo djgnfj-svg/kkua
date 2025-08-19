@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional, Tuple, Dict, Any
 from datetime import datetime
 from sqlalchemy import text
+import logging
 
 from models.gameroom_model import (
     Gameroom,
@@ -9,6 +10,8 @@ from models.gameroom_model import (
     GameroomParticipant,
     ParticipantStatus,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class GameroomRepository:
@@ -250,4 +253,54 @@ class GameroomRepository:
         except Exception as e:
             self.db.rollback()
             logger.error(f"참가자 수 업데이트 오류: {str(e)}")
+            return False
+
+    def is_room_creator(self, room_id: int, guest_id: int) -> bool:
+        """특정 게스트가 해당 방의 방장인지 확인합니다."""
+        try:
+            room = self.find_by_id(room_id)
+            return room is not None and room.created_by == guest_id
+        except Exception as e:
+            logger.error(f"방장 확인 오류: {str(e)}")
+            return False
+
+    def kick_participant(self, room_id: int, target_guest_id: int, kicker_guest_id: int) -> bool:
+        """참가자를 강퇴합니다."""
+        try:
+            # 강퇴하는 사람이 방장인지 확인
+            if not self.is_room_creator(room_id, kicker_guest_id):
+                logger.warning(f"권한 없음: {kicker_guest_id}는 방 {room_id}의 방장이 아님")
+                return False
+
+            # 자기 자신은 강퇴할 수 없음
+            if target_guest_id == kicker_guest_id:
+                logger.warning(f"자기 자신 강퇴 시도: {kicker_guest_id}")
+                return False
+
+            # 참가자 찾기
+            participant = self.find_participant(room_id, target_guest_id)
+            if not participant or participant.left_at is not None:
+                logger.warning(f"참가자 없음 또는 이미 나감: room_id={room_id}, guest_id={target_guest_id}")
+                return False
+
+            # 방장 자신은 강퇴 불가 (추가 보안)
+            if participant.is_creator:
+                logger.warning(f"방장 강퇴 시도: {target_guest_id}")
+                return False
+
+            # 강퇴 처리: left_at 시간 설정, 상태를 LEFT로 변경
+            participant.left_at = datetime.now()
+            participant.status = ParticipantStatus.LEFT
+
+            self.db.commit()
+            
+            # 참가자 수 업데이트
+            self.update_participant_count(room_id)
+            
+            logger.info(f"강퇴 완료: room_id={room_id}, target={target_guest_id}, kicker={kicker_guest_id}")
+            return True
+
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"강퇴 처리 오류: {str(e)}")
             return False

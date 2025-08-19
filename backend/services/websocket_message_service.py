@@ -50,6 +50,10 @@ class WebSocketMessageService:
                 await self.handle_word_chain(
                     validated_message.dict(), room_id, guest, websocket
                 )
+            elif validated_message.type == MessageType.KICK_PLAYER:
+                await self.handle_kick_player(validated_message.dict(), room_id, guest, websocket)
+            elif validated_message.type == MessageType.TOGGLE_READY:
+                await self.handle_ready_toggle(websocket, room_id, guest)
             elif validated_message.type == MessageType.PING:
                 await self.handle_ping(websocket)
             else:
@@ -158,8 +162,8 @@ class WebSocketMessageService:
             {
                 "type": "chat",
                 "guest_id": guest.guest_id,
-                "nickname": nickname,
-                "message": message_data.get("message", ""),
+                "user": {"nickname": nickname},
+                "content": message_data.get("message", ""),
                 "timestamp": message_data.get("timestamp", ""),
             },
         )
@@ -197,11 +201,11 @@ class WebSocketMessageService:
             return
 
         # 현재 상태에 따라 토글
-        if current_status == ParticipantStatus.WAITING.value:
-            new_status = ParticipantStatus.READY.value
+        if current_status == ParticipantStatus.WAITING:
+            new_status = ParticipantStatus.READY
             is_ready = True
-        elif current_status == ParticipantStatus.READY.value:
-            new_status = ParticipantStatus.WAITING.value
+        elif current_status == ParticipantStatus.READY:
+            new_status = ParticipantStatus.WAITING
             is_ready = False
         else:
             # 게임 중에는 상태 변경 불가
@@ -216,7 +220,7 @@ class WebSocketMessageService:
 
         # 참가자 상태 업데이트
         self.repository.update_participant_status(
-            room_id, participant.participant_id, new_status
+            room_id, participant.participant_id, new_status.value
         )
 
         # 준비 상태 변경 알림
@@ -309,11 +313,7 @@ class WebSocketMessageService:
             )
 
             # 상태 변경 알림
-            status_value = (
-                updated.status.value
-                if hasattr(updated.status, "value")
-                else updated.status
-            )
+            status_value = updated.status
             await self.ws_manager.broadcast_room_update(
                 room_id,
                 "status_changed",
@@ -369,7 +369,7 @@ class WebSocketMessageService:
             {
                 "guest_id": p.guest.guest_id,
                 "nickname": p.guest.nickname,
-                "status": p.status.value if hasattr(p.status, "value") else p.status,
+                "status": p.status,
                 "is_creator": p.guest.guest_id == p.gameroom.created_by,
             }
             for p in participants
@@ -582,6 +582,95 @@ class WebSocketMessageService:
                 "message": "참가자 목록이 업데이트되었습니다.",
             },
         )
+
+    async def handle_kick_player(
+        self, message_data: Dict[str, Any], room_id: int, guest: Guest, websocket: WebSocket
+    ):
+        """플레이어 강퇴 처리"""
+        try:
+            target_guest_id = message_data.get("target_guest_id")
+            reason = message_data.get("reason", "").strip() or None
+            
+            logger.info(f"강퇴 요청: room_id={room_id}, kicker={guest.guest_id}, target={target_guest_id}, reason={reason}")
+            
+            # 강퇴 처리
+            success = self.repository.kick_participant(room_id, target_guest_id, guest.guest_id)
+            
+            if success:
+                # 강퇴당한 플레이어 정보 조회 (강퇴 전에 조회해야 함)
+                from repositories.guest_repository import GuestRepository
+                guest_repo = GuestRepository(self.db)
+                kicked_player = guest_repo.find_by_id(target_guest_id)
+                kicked_nickname = kicked_player.nickname if kicked_player else f"Guest_{target_guest_id}"
+                
+                # 강퇴당한 플레이어에게 개인 메시지 전송 (연결이 있는 경우)
+                room_connections = self.ws_manager.websocket_manager.get_room_connections(room_id)
+                kicked_websocket = room_connections.get(target_guest_id)
+                
+                if kicked_websocket:
+                    await self.ws_manager.send_personal_message(
+                        {
+                            "type": "kicked_from_room",
+                            "message": f"방장에 의해 강퇴되었습니다." + (f" 사유: {reason}" if reason else ""),
+                            "room_id": room_id,
+                            "kicked_by": guest.nickname or f"Guest_{guest.guest_id}",
+                            "reason": reason,
+                            "timestamp": str(datetime.utcnow())
+                        },
+                        kicked_websocket
+                    )
+                    
+                    # 강퇴당한 플레이어의 WebSocket 연결 해제
+                    await self.ws_manager.websocket_manager.disconnect(kicked_websocket, room_id, target_guest_id)
+                
+                # 방 전체에 강퇴 알림 브로드캐스트
+                await self.ws_manager.broadcast_to_room(
+                    room_id,
+                    {
+                        "type": "player_kicked",
+                        "kicked_player": {
+                            "guest_id": target_guest_id,
+                            "nickname": kicked_nickname
+                        },
+                        "kicked_by": {
+                            "guest_id": guest.guest_id,
+                            "nickname": guest.nickname or f"Guest_{guest.guest_id}"
+                        },
+                        "reason": reason,
+                        "message": f"{kicked_nickname}님이 방에서 강퇴되었습니다." + (f" (사유: {reason})" if reason else ""),
+                        "timestamp": str(datetime.utcnow())
+                    }
+                )
+                
+                # 참가자 목록 업데이트 알림
+                await self.handle_participant_list_update(room_id)
+                
+                # 강퇴 실행자에게 성공 메시지
+                await self.ws_manager.send_personal_message(
+                    {
+                        "type": "kick_success",
+                        "message": f"{kicked_nickname}님을 강퇴했습니다.",
+                        "kicked_player": {
+                            "guest_id": target_guest_id,
+                            "nickname": kicked_nickname
+                        }
+                    },
+                    websocket
+                )
+                
+                logger.info(f"강퇴 성공: room_id={room_id}, target={target_guest_id}, kicker={guest.guest_id}")
+                
+            else:
+                # 강퇴 실패 - 에러 메시지 전송
+                await self.send_error_message(
+                    websocket, 
+                    "강퇴에 실패했습니다. 권한이 없거나 대상을 찾을 수 없습니다."
+                )
+                logger.warning(f"강퇴 실패: room_id={room_id}, target={target_guest_id}, kicker={guest.guest_id}")
+                
+        except Exception as e:
+            logger.error(f"강퇴 처리 중 오류: {str(e)}")
+            await self.send_error_message(websocket, "강퇴 처리 중 오류가 발생했습니다.")
 
     def is_room_owner(self, room_id: int, guest_id: int) -> bool:
         """특정 게스트가 게임룸의 방장인지 확인합니다."""

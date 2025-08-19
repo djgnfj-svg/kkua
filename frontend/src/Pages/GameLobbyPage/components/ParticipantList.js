@@ -1,6 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
+import KickPlayerModal from './KickPlayerModal';
 
-const ParticipantList = ({ participants }) => {
+const ParticipantList = ({ participants, isOwner, onKickPlayer }) => {
+  const [showKickModal, setShowKickModal] = useState(false);
+  const [selectedPlayer, setSelectedPlayer] = useState(null);
   const getStatusColor = (status, isCreator) => {
     if (isCreator) {
       return 'bg-gradient-to-r from-purple-500 to-purple-600 text-white';
@@ -47,6 +50,24 @@ const ParticipantList = ({ participants }) => {
     return colors[index % colors.length];
   };
 
+  const handleKickClick = (player) => {
+    setSelectedPlayer(player);
+    setShowKickModal(true);
+  };
+
+  const handleKickConfirm = (reason) => {
+    if (selectedPlayer && onKickPlayer) {
+      onKickPlayer(selectedPlayer.guest_id, reason);
+    }
+    setShowKickModal(false);
+    setSelectedPlayer(null);
+  };
+
+  const handleKickCancel = () => {
+    setShowKickModal(false);
+    setSelectedPlayer(null);
+  };
+
   return (
     <div className="w-full">
       <div className="text-center mb-4">
@@ -54,7 +75,7 @@ const ParticipantList = ({ participants }) => {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {participants.map((player, index) => (
+        {participants.filter(player => player && player.guest_id).map((player, index) => (
           <div
             key={player.guest_id || index}
             className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/20 shadow-lg hover:bg-white/20 transition-all duration-200 transform hover:scale-105"
@@ -83,6 +104,17 @@ const ParticipantList = ({ participants }) => {
               <div className="text-white/70 text-xs text-center">
                 {player.is_creator ? '방장님' : `ID: ${player.guest_id}`}
               </div>
+
+              {/* 강퇴 버튼 (방장만 보이고, 방장 자신 제외) */}
+              {isOwner && !player.is_creator && (
+                <button
+                  onClick={() => handleKickClick(player)}
+                  className="mt-2 px-3 py-1 text-xs bg-red-500 hover:bg-red-600 text-white rounded-md transition-colors duration-200 font-semibold shadow-md hover:shadow-lg"
+                  title={`${player.nickname}님을 강퇴`}
+                >
+                  🚫 강퇴
+                </button>
+              )}
             </div>
           </div>
         ))}
@@ -107,6 +139,15 @@ const ParticipantList = ({ participants }) => {
           )
         )}
       </div>
+
+      {/* 강퇴 확인 모달 */}
+      {showKickModal && selectedPlayer && (
+        <KickPlayerModal
+          player={selectedPlayer}
+          onConfirm={handleKickConfirm}
+          onCancel={handleKickCancel}
+        />
+      )}
     </div>
   );
 };

@@ -34,17 +34,6 @@ class JoinGameroomResponse(BaseModel):
     room_id: int
 
 
-# 게임룸 상세 응답 스키마  
-class GameroomDetailResponse(BaseModel):
-    """게임룸 상세 정보 응답"""
-    room_id: int
-    title: str
-    max_players: int
-    current_players: int
-    status: GameStatus
-    created_at: datetime.datetime
-
-
 class GameroomUpdate(BaseModel):
     title: Optional[str] = None
     max_players: Optional[int] = None
@@ -67,6 +56,13 @@ class GameroomResponse(GameroomBase):
     class Config:
         orm_mode = True
         from_attributes = True
+
+
+# 게임룸 상세 응답 스키마  
+class GameroomDetailResponse(BaseModel):
+    """게임룸 상세 정보 응답"""
+    room: GameroomResponse
+    participants: List[Dict[str, Any]]
 
 
 # 게임룸 목록 응답 스키마

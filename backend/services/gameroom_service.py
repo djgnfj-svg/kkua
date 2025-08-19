@@ -102,12 +102,44 @@ class GameroomService:
             room_data["created_by"] = guest_id
             new_room = self.repository.create(room_data)
 
-            self.repository.add_participant(
+            # 방장을 참가자로 추가
+            participant = self.repository.add_participant(
                 room_id=new_room.room_id, guest_id=guest_id, is_creator=True
             )
 
             self.db.commit()
             self.db.refresh(new_room)
+            self.db.refresh(participant)
+
+            # 방 생성 완료 후 WebSocket 이벤트 발송
+            if self.ws_manager:
+                # 방장 정보 가져오기
+                creator = self.guest_repository.find_by_id(guest_id)
+                creator_nickname = creator.nickname if creator else f"게스트_{guest_id}"
+                
+                try:
+                    self.create_background_task(
+                        self.ws_manager.broadcast_room_created(
+                            new_room.room_id,
+                            {
+                                "room_id": new_room.room_id,
+                                "title": new_room.title,
+                                "created_by_id": guest_id,
+                                "created_by_nickname": creator_nickname,
+                                "max_players": new_room.max_players,
+                                "participant_count": 1,
+                                "status": new_room.status,
+                                "created_at": new_room.created_at.isoformat(),
+                                "message": f"'{new_room.title}' 방이 생성되었습니다."
+                            }
+                        ),
+                        name=f"room_created_broadcast_{new_room.room_id}"
+                    )
+                except Exception as ws_error:
+                    # WebSocket 오류가 있어도 방 생성은 성공으로 처리
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.warning(f"WebSocket 알림 실패 (방 생성은 성공): {ws_error}")
 
             return new_room
 
@@ -192,14 +224,20 @@ class GameroomService:
     def leave_gameroom(self, room_id: int, guest: Guest) -> Dict[str, str]:
         """게임룸을 떠납니다."""
         try:
+            logger.info(f"방 나가기 시도: room_id={room_id}, guest_id={guest.guest_id}")
             room = self.repository.find_by_id(room_id)
             participant = self.repository.find_participant(room_id, guest.guest_id)
 
-            if not room or not participant:
+            if not room:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="게임룸 퇴장에 실패했습니다.",
+                    detail="게임룸을 찾을 수 없습니다.",
                 )
+            
+            if not participant:
+                # 이미 나간 참가자인 경우 (WebSocket 연결 해제 시 정상적인 상황)
+                logger.info(f"참가자를 찾을 수 없음: room_id={room_id}, guest_id={guest.guest_id} (이미 나간 상태)")
+                return {"message": "이미 게임룸에서 퇴장한 상태입니다."}
 
             self.repository.remove_participant(room_id, guest.guest_id)
 
@@ -231,16 +269,21 @@ class GameroomService:
 
             self.db.commit()
 
-            # 웹소켓 이벤트 발송 (참가자 퇴장)
+            # 웹소켓 이벤트 발송 (참가자 퇴장) - 업데이트된 참가자 목록도 함께 전송
             if self.ws_manager:
+                # 현재 참가자 목록 가져오기 (나간 후 상태)
+                updated_participants = self.get_participants(room_id)
+                
                 self.create_background_task(
                     self.ws_manager.broadcast_room_update(
                         room_id,
-                        "player_left",
+                        "participant_list_updated",
                         {
                             "guest_id": guest.guest_id,
                             "nickname": guest.nickname,
                             "left_at": datetime.now().isoformat(),
+                            "participants": updated_participants,
+                            "message": f"{guest.nickname}님이 퇴장했습니다.",
                         },
                     ),
                     name=f"player_left_broadcast_{room_id}_{guest.guest_id}",
@@ -296,7 +339,7 @@ class GameroomService:
                 detail="게임룸을 찾을 수 없습니다.",
             )
 
-        room.status = GameStatus.PLAYING.value
+        room.status = GameStatus.PLAYING
         room.started_at = datetime.now()
         self.db.commit()
 
@@ -304,7 +347,7 @@ class GameroomService:
         success = self.game_state_service.start_game(room_id)
         if not success:
             # 상태 롤백
-            room.status = GameStatus.WAITING.value
+            room.status = GameStatus.WAITING
             room.started_at = None
             self.db.commit()
             raise HTTPException(
@@ -396,7 +439,7 @@ class GameroomService:
         except Exception as e:
             logger.error(f"Redis 게임 초기화 실패: {e}")
             # Redis 실패 시 DB 상태 롤백
-            room.status = GameStatus.WAITING.value
+            room.status = GameStatus.WAITING
             room.started_at = None
             self.db.commit()
 
@@ -462,7 +505,7 @@ class GameroomService:
             )
 
         # 게임룸 상태를 FINISHED로 변경
-        room.status = GameStatus.FINISHED.value
+        room.status = GameStatus.FINISHED
         room.ended_at = datetime.now()
         self.db.commit()
 
@@ -565,7 +608,7 @@ class GameroomService:
             )
 
         # 게임룸 상태를 FINISHED로 변경
-        room.status = GameStatus.FINISHED.value
+        room.status = GameStatus.FINISHED
         room.ended_at = datetime.now()
         self.db.commit()
 
@@ -678,7 +721,7 @@ class GameroomService:
                 self.ws_manager.broadcast_room_update(
                     room_id,
                     "status_changed",
-                    {"guest_id": guest_id, "status": updated_participant.status.value},
+                    {"guest_id": guest_id, "status": updated_participant.status},
                 ),
                 name=f"status_changed_broadcast_{room_id}_{guest_id}",
             )
