@@ -16,8 +16,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ./deploy.sh production
 
 # Stop services
-./stop.sh [development|production]
-./stop.sh development --with-data  # Also removes data volumes
+docker-compose down
+docker-compose down -v  # Also removes data volumes
 
 # Check service status
 docker-compose ps

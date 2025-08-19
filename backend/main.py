@@ -3,23 +3,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from db.postgres import Base, engine
 from routers import (
     auth_router,
-    guests_router,
     gamerooms_router,
     gameroom_ws_router,
-    gameroom_actions_router,
-    game_api_router,
 )
 from fastapi.openapi.utils import get_openapi
 from app_config import settings
 from middleware.logging_middleware import RequestLoggingMiddleware
 from middleware.exception_handler import GlobalExceptionHandler
-from config.logging_config import setup_logging
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime
 
 # 로깅 초기화
-setup_logging()
 logger = logging.getLogger(__name__)
 
 
@@ -89,11 +84,8 @@ app.add_middleware(GlobalExceptionHandler)
 Base.metadata.create_all(bind=engine)
 
 app.include_router(auth_router.router)
-app.include_router(guests_router.router)
 app.include_router(gamerooms_router.router)
-app.include_router(gameroom_actions_router.router)
 app.include_router(gameroom_ws_router.router)
-app.include_router(game_api_router.router)
 
 
 @app.get("/")
