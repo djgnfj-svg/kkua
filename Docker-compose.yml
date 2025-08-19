@@ -93,7 +93,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    command: python scripts/migrate.py upgrade
+    command: alembic upgrade head
     profiles:
       - migrate
 
