@@ -15,16 +15,16 @@ function Loading() {
   const toast = useToast();
 
   useEffect(() => {
-    if (!loading && isAuthenticated) {
-      navigate(lobbyUrl);
-    }
-  }, [isAuthenticated, loading, navigate]);
+    // AuthContext에서 이미 스마트 리다이렉트를 처리하므로 
+    // 여기서는 추가 리다이렉트 로직을 제거
+    // 사용자가 직접 루트 경로로 접근했을 때만 Loading 페이지 표시
+  }, []);
 
   const handleQuickStart = async () => {
     try {
       setIsLoading(true);
       await login();
-      setShowModal(true);
+      // login 함수에서 자동으로 적절한 페이지로 리다이렉트됨
       setIsLoading(false);
     } catch (error) {
       const errorMessage = error.response?.data?.detail || '로그인에 실패했습니다.';
@@ -42,7 +42,7 @@ function Loading() {
     try {
       setIsLoading(true);
       await login(nickname.trim());
-      setShowModal(true);
+      // login 함수에서 자동으로 적절한 페이지로 리다이렉트됨
       setIsLoading(false);
     } catch (error) {
       const errorMessage = error.response?.data?.detail || '로그인에 실패했습니다.';

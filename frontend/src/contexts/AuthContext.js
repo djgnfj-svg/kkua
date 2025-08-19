@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import axiosInstance from '../Api/axiosInstance';
 
 const AuthContext = createContext();
@@ -14,7 +15,7 @@ const getInitialState = () => {
         return {
           isAuthenticated: true,
           user: parsedAuth.user,
-          loading: false, // localStorage에 유효한 정보가 있으면 바로 사용
+          loading: false, // localStorage에 유효한 정보가 있으면 바로 사용 (서버 검증은 백그라운드에서)
           error: null,
         };
       }
@@ -111,23 +112,30 @@ function authReducer(state, action) {
 
 export function AuthProvider({ children }) {
   const [state, dispatch] = useReducer(authReducer, initialState);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isCheckingRef = React.useRef(false);
 
   useEffect(() => {
-    // localStorage에 유효한 정보가 있으면 백그라운드에서 검증만 수행
-    // 없으면 정상적으로 로딩 상태에서 체크
-    if (state.isAuthenticated && state.user && !state.loading) {
-      // 백그라운드 검증 (사용자는 이미 인증된 상태로 보임)
-      checkAuthStatusSilently();
-    } else {
-      // 정상적인 인증 상태 체크 (로딩 표시)
-      checkAuthStatus();
-    }
+    // 이미 체크 중이면 중복 실행 방지
+    if (isCheckingRef.current) return;
+    
+    // 항상 서버에서 인증 상태를 확인 (localStorage 정보보다 서버 세션을 우선 신뢰)
+    checkAuthStatus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // 초기 렌더링 시에만 실행
 
   const checkAuthStatus = async () => {
+    // 중복 실행 방지
+    if (isCheckingRef.current) return;
+    isCheckingRef.current = true;
+    
     try {
-      dispatch({ type: 'SET_LOADING', payload: true });
+      // localStorage에 인증 정보가 있으면 loading 상태를 변경하지 않음
+      const hasStoredAuth = localStorage.getItem('auth_state');
+      if (!hasStoredAuth) {
+        dispatch({ type: 'SET_LOADING', payload: true });
+      }
 
       const timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => reject(new Error('TIMEOUT')), 5000); // 타임아웃 5초로 증가
@@ -138,8 +146,37 @@ export function AuthProvider({ children }) {
 
       if (response.data.authenticated) {
         dispatch({ type: 'LOGIN_SUCCESS', payload: response.data.guest });
+        
+        // 스마트 리다이렉트: 루트 페이지에 있을 때만 서버 추천 URL로 이동
+        // 현재 페이지가 보호된 경로라면 그대로 유지
+        const protectedPaths = ['/lobby', '/kealobby', '/keaing', '/gamerooms'];
+        const isProtectedPath = protectedPaths.some(path => location.pathname.startsWith(path));
+        
+        if (location.pathname === '/' && response.data.redirect_url) {
+          navigate(response.data.redirect_url, { replace: true });
+        } else if (!isProtectedPath && response.data.redirect_url) {
+          // 보호되지 않은 경로에 있고 추천 URL이 있으면 이동
+          navigate(response.data.redirect_url, { replace: true });
+        }
+        // 이미 보호된 경로에 있으면 그대로 유지
       } else {
-        // 서버에서 인증되지 않았다고 하면 로그아웃
+        // 서버에서 인증되지 않았을 때
+        // localStorage에 정보가 있으면 유지 (네트워크 문제일 수 있음)
+        const savedAuth = localStorage.getItem('auth_state');
+        if (savedAuth) {
+          try {
+            const parsedAuth = JSON.parse(savedAuth);
+            if (parsedAuth.user && parsedAuth.isAuthenticated) {
+              // localStorage 정보를 신뢰하고 유지
+              console.log('서버 인증 실패했지만 localStorage 정보 유지');
+              return;
+            }
+          } catch (e) {
+            // 파싱 실패
+          }
+        }
+        // localStorage에도 정보가 없으면 로그아웃
+        localStorage.removeItem('auth_state');
         dispatch({ type: 'LOGOUT' });
       }
     } catch (error) {
@@ -175,7 +212,12 @@ export function AuthProvider({ children }) {
         // 서버 에러인 경우 현재 상태 유지
       }
     } finally {
-      dispatch({ type: 'SET_LOADING', payload: false });
+      // localStorage에 정보가 없었을 때만 loading 상태 해제
+      const hasStoredAuth = localStorage.getItem('auth_state');
+      if (!hasStoredAuth) {
+        dispatch({ type: 'SET_LOADING', payload: false });
+      }
+      isCheckingRef.current = false;
     }
   };
 
@@ -215,6 +257,18 @@ export function AuthProvider({ children }) {
       });
 
       dispatch({ type: 'LOGIN_SUCCESS', payload: response.data });
+      
+      // 로그인 후 적절한 페이지로 리다이렉트 (auth/status 호출해서 redirect_url 확인)
+      try {
+        const statusResponse = await axiosInstance.get('/auth/status');
+        if (statusResponse.data.authenticated && statusResponse.data.redirect_url) {
+          navigate(statusResponse.data.redirect_url, { replace: true });
+        }
+      } catch (statusError) {
+        // 상태 확인 실패 시 기본 로비로 이동
+        navigate('/lobby', { replace: true });
+      }
+      
       return response.data;
     } catch (error) {
       const errorMessage =

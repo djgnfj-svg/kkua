@@ -55,6 +55,9 @@ class AuthStatusResponse(BaseModel):
     guest: Optional[ProfileResponse] = Field(
         None, description="Guest information if authenticated"
     )
+    redirect_url: Optional[str] = Field(
+        None, description="Recommended URL to redirect to after authentication"
+    )
 
 
 class LogoutResponse(BaseModel):

@@ -127,6 +127,7 @@ async def get_auth_status(
                 nickname=auth_status["guest"]["nickname"],
                 last_login=auth_status["guest"]["last_login"],
             ),
+            redirect_url=auth_status.get("redirect_url", "/lobby"),
         )
     else:
-        return AuthStatusResponse(authenticated=False, guest=None)
+        return AuthStatusResponse(authenticated=False, guest=None, redirect_url=None)

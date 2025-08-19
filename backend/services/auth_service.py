@@ -23,28 +23,24 @@ class AuthService:
         Login or create a new guest
         Returns: (Guest object, session_token)
         """
+        from utils.security import SecurityUtils
+        
         if nickname:
             existing_guest = self.guest_repo.find_by_nickname(nickname)
             if existing_guest:
                 guest = self.guest_repo.update_last_login(existing_guest, device_info)
-                session_token = self.session_store.create_session(
-                    guest.guest_id, guest.nickname
-                )
+                session_token = self.session_store.create_session(guest.guest_id, guest.nickname)
                 return guest, session_token
             else:
                 guest_uuid_obj = uuid.uuid4()
                 guest = self.guest_repo.create(guest_uuid_obj, nickname, device_info)
-                session_token = self.session_store.create_session(
-                    guest.guest_id, guest.nickname
-                )
+                session_token = self.session_store.create_session(guest.guest_id, guest.nickname)
                 return guest, session_token
         else:
             guest_uuid_obj = uuid.uuid4()
             auto_nickname = f"게스트_{str(guest_uuid_obj)[:8]}"
             guest = self.guest_repo.create(guest_uuid_obj, auto_nickname, device_info)
-            session_token = self.session_store.create_session(
-                guest.guest_id, guest.nickname
-            )
+            session_token = self.session_store.create_session(guest.guest_id, guest.nickname)
             return guest, session_token
 
     def check_auth_status(self, request: Request) -> dict:
@@ -65,6 +61,11 @@ class AuthService:
 
         if guest:
             has_active_game, room_id = self.guest_repo.check_active_game(guest.guest_id)
+            
+            # 적절한 리다이렉트 URL 결정
+            redirect_url = "/lobby"  # 기본값
+            if has_active_game and room_id:
+                redirect_url = f"/kealobby/{room_id}"
 
             return {
                 "authenticated": True,
@@ -80,6 +81,7 @@ class AuthService:
                     else None,
                 },
                 "room_id": room_id if has_active_game else None,
+                "redirect_url": redirect_url,
             }
         else:
             self.session_store.delete_session(session_token)
@@ -145,10 +147,11 @@ class AuthService:
         response.set_cookie(
             key="session_token",
             value=session_token,
-            httponly=True,
+            httponly=False if settings.environment == "development" else True,
             secure=settings.session_secure,
             samesite=settings.session_samesite,
             max_age=settings.session_timeout,
+            domain="localhost" if settings.environment == "development" else None,
         )
 
         return None  # Simplified: no CSRF token

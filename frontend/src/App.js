@@ -12,9 +12,9 @@ import NotFound from './Pages/NotFound/NotFound';
 function App() {
   return (
     <div className="App">
-      <AuthProvider>
-        <ToastProvider>
-          <Router>
+      <ToastProvider>
+        <Router>
+          <AuthProvider>
             <Routes>
               <Route path="/" element={<Loading />} />
               <Route
@@ -51,9 +51,9 @@ function App() {
               />
               <Route path="*" element={<NotFound />} />
             </Routes>
-          </Router>
-        </ToastProvider>
-      </AuthProvider>
+          </AuthProvider>
+        </Router>
+      </ToastProvider>
     </div>
   );
 }
