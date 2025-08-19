@@ -11,8 +11,8 @@ from schemas.gameroom_schema import (
     CreateGameroomRequest,
     GameroomUpdate,
     GameroomListResponse,
+    GameroomDetailResponse,
 )
-from schemas.gameroom_actions_schema import GameroomDetailResponse
 
 router = APIRouter(
     prefix="/gamerooms",

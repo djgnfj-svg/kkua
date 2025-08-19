@@ -27,6 +27,24 @@ class CreateGameroomRequest(GameroomBase):
 
 
 # 게임룸 업데이트 요청 스키마
+# 게임룸 입장 응답 스키마
+class JoinGameroomResponse(BaseModel):
+    """게임룸 입장 응답"""
+    message: str
+    room_id: int
+
+
+# 게임룸 상세 응답 스키마  
+class GameroomDetailResponse(BaseModel):
+    """게임룸 상세 정보 응답"""
+    room_id: int
+    title: str
+    max_players: int
+    current_players: int
+    status: GameStatus
+    created_at: datetime.datetime
+
+
 class GameroomUpdate(BaseModel):
     title: Optional[str] = None
     max_players: Optional[int] = None

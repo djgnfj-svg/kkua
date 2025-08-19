@@ -12,7 +12,7 @@ from models.guest_model import Guest
 from websocket.connection_manager import GameRoomWebSocketFacade
 from repositories.guest_repository import GuestRepository
 from services.game_state_service import GameStateService
-from schemas.gameroom_actions_schema import JoinGameroomResponse
+from schemas.gameroom_schema import JoinGameroomResponse
 
 ws_manager = GameRoomWebSocketFacade()
 logger = logging.getLogger(__name__)

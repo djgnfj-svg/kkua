@@ -151,8 +151,7 @@ class AuthService:
             max_age=settings.session_timeout,
         )
 
-        csrf_token = CSRFTokenManager.get_csrf_token_for_response(response)
-        return csrf_token
+        return None  # Simplified: no CSRF token
 
     def get_session_stats(self) -> dict:
         """
