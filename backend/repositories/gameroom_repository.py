@@ -13,12 +13,12 @@ from models.gameroom_model import (
 
 class GameroomRepository:
     """간소화된 게임룸 레포지토리 - 핵심 CRUD 기능만 포함"""
-    
+
     def __init__(self, db: Session):
         self.db = db
 
     # ============ Core CRUD Operations ============
-    
+
     def find_by_id(self, room_id: int) -> Optional[Gameroom]:
         """ID로 게임룸을 찾습니다."""
         return self.db.query(Gameroom).filter(Gameroom.room_id == room_id).first()
@@ -26,7 +26,7 @@ class GameroomRepository:
     def create(self, data: Dict[str, Any]) -> Gameroom:
         """게임룸을 생성합니다."""
         now = datetime.now()
-        
+
         new_room = Gameroom(
             title=data.get("title", "새 게임"),
             max_players=data.get("max_players", 8),
@@ -39,7 +39,7 @@ class GameroomRepository:
             participant_count=0,
             room_type=data.get("room_type", "normal"),
         )
-        
+
         self.db.add(new_room)
         self.db.flush()  # room_id를 얻기 위해 flush
         return new_room
@@ -70,17 +70,19 @@ class GameroomRepository:
         self.db.commit()
         return True
 
-    def find_all(self, limit=10, offset=0, filter_args=None) -> Tuple[List[Gameroom], int]:
+    def find_all(
+        self, limit=10, offset=0, filter_args=None
+    ) -> Tuple[List[Gameroom], int]:
         """모든 게임룸을 조회합니다 (생성자 정보 포함, 최적화된 쿼리)."""
         from sqlalchemy.orm import joinedload
-        
+
         query = self.db.query(Gameroom).options(joinedload(Gameroom.creator))
 
         # 필터링 적용 (인덱스 활용)
         if filter_args:
             for key, value in filter_args.items():
                 if hasattr(Gameroom, key) and value is not None:
-                    if key == 'status':
+                    if key == "status":
                         # 상태별 필터링 (인덱스 활용)
                         query = query.filter(Gameroom.status == value)
                     else:
@@ -102,8 +104,10 @@ class GameroomRepository:
         return rooms, total
 
     # ============ Participant Management ============
-    
-    def find_participant(self, room_id: int, guest_id: int) -> Optional[GameroomParticipant]:
+
+    def find_participant(
+        self, room_id: int, guest_id: int
+    ) -> Optional[GameroomParticipant]:
         """방 ID와 게스트 ID로 특정 참가자를 찾습니다 (활성 참가자만)."""
         return (
             self.db.query(GameroomParticipant)
@@ -118,7 +122,7 @@ class GameroomRepository:
     def find_room_participants(self, room_id: int) -> List[GameroomParticipant]:
         """특정 게임룸의 모든 활성 참가자를 조회합니다 (Guest 정보 포함, N+1 쿼리 방지)."""
         from sqlalchemy.orm import joinedload
-        
+
         return (
             self.db.query(GameroomParticipant)
             .options(joinedload(GameroomParticipant.guest))  # N+1 쿼리 방지
@@ -130,13 +134,17 @@ class GameroomRepository:
             .all()
         )
 
-    def add_participant(self, room_id: int, guest_id: int, is_creator: bool = False) -> Optional[GameroomParticipant]:
+    def add_participant(
+        self, room_id: int, guest_id: int, is_creator: bool = False
+    ) -> Optional[GameroomParticipant]:
         """게임룸에 참가자를 추가합니다."""
         participant = GameroomParticipant(
             room_id=room_id,
             guest_id=guest_id,
             joined_at=datetime.now(),
-            status=ParticipantStatus.READY.value if is_creator else ParticipantStatus.WAITING.value,
+            status=ParticipantStatus.READY.value
+            if is_creator
+            else ParticipantStatus.WAITING.value,
             is_creator=is_creator,
         )
 
@@ -156,10 +164,10 @@ class GameroomRepository:
 
         participant.left_at = datetime.now()
         participant.status = ParticipantStatus.LEFT.value
-        
+
         # 참가자 수 업데이트
         self.update_participant_count(room_id)
-        
+
         self.db.commit()
         return True
 
@@ -205,7 +213,8 @@ class GameroomRepository:
                     "is_creator": bool(row[3]),  # is_creator 필드 사용
                     "joined_at": row[2],
                     "status": row[4],  # status 필드 추가
-                    "is_ready": row[4].lower() == 'ready',  # status 기반으로 is_ready 계산
+                    "is_ready": row[4].lower()
+                    == "ready",  # status 기반으로 is_ready 계산
                 }
                 for row in result
             ]
@@ -213,7 +222,7 @@ class GameroomRepository:
             # 생성자가 먼저 오도록 정렬
             participants.sort(key=lambda p: (not p["is_creator"], p["joined_at"]))
             return participants
-            
+
         except Exception as e:
             logger.error(f"참가자 목록 조회 오류: {str(e)}")
             return []
@@ -237,7 +246,7 @@ class GameroomRepository:
             room.participant_count = count
             self.db.commit()
             return True
-            
+
         except Exception as e:
             self.db.rollback()
             logger.error(f"참가자 수 업데이트 오류: {str(e)}")

@@ -1,12 +1,12 @@
 import React from 'react';
 
-const WebSocketStatus = ({ 
-  connected, 
-  isReconnecting, 
-  connectionAttempts, 
+const WebSocketStatus = ({
+  connected,
+  isReconnecting,
+  connectionAttempts,
   maxAttempts = 5,
   onReconnect,
-  className = '' 
+  className = '',
 }) => {
   if (connected) {
     return (

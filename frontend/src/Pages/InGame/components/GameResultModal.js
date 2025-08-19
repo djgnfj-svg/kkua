@@ -7,14 +7,7 @@ const GameResultModal = ({ isOpen, onClose, roomId, winnerData }) => {
   const navigate = useNavigate();
   const [showConfetti, setShowConfetti] = useState(false);
 
-  const {
-    gameData,
-    winner,
-    players,
-    loading,
-    error
-  } = useGameResult(roomId);
-
+  const { gameData, winner, players, loading, error } = useGameResult(roomId);
 
   useEffect(() => {
     // 모달이 열리고 우승자가 있으면 confetti 효과
@@ -69,7 +62,9 @@ const GameResultModal = ({ isOpen, onClose, roomId, winnerData }) => {
         <div className="relative bg-white rounded-2xl p-8 max-w-md mx-4">
           <div className="text-center">
             <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <div className="text-xl font-semibold text-gray-700">게임 결과를 불러오는 중...</div>
+            <div className="text-xl font-semibold text-gray-700">
+              게임 결과를 불러오는 중...
+            </div>
           </div>
         </div>
       </div>
@@ -80,11 +75,16 @@ const GameResultModal = ({ isOpen, onClose, roomId, winnerData }) => {
   if (error) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center">
-        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm" onClick={handleBackdropClick}></div>
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm"
+          onClick={handleBackdropClick}
+        ></div>
         <div className="relative bg-white rounded-2xl p-8 max-w-md mx-4">
           <div className="text-center">
             <div className="text-6xl mb-4">😵</div>
-            <div className="text-xl font-semibold text-gray-700 mb-2">게임 결과를 불러올 수 없습니다</div>
+            <div className="text-xl font-semibold text-gray-700 mb-2">
+              게임 결과를 불러올 수 없습니다
+            </div>
             <div className="text-gray-600 mb-6">{error}</div>
             <button
               onClick={onClose}
@@ -101,7 +101,7 @@ const GameResultModal = ({ isOpen, onClose, roomId, winnerData }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* 배경 오버레이 */}
-      <div 
+      <div
         className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm transition-opacity duration-300"
         onClick={handleBackdropClick}
       ></div>
@@ -116,7 +116,7 @@ const GameResultModal = ({ isOpen, onClose, roomId, winnerData }) => {
               style={{
                 left: `${Math.random() * 100}%`,
                 animationDelay: `${Math.random() * 3}s`,
-                animationDuration: `${3 + Math.random() * 2}s`
+                animationDuration: `${3 + Math.random() * 2}s`,
               }}
             />
           ))}
@@ -129,13 +129,17 @@ const GameResultModal = ({ isOpen, onClose, roomId, winnerData }) => {
         <div className="bg-white/80 backdrop-blur-sm border-b border-gray-200 p-4 rounded-t-2xl sticky top-0 z-10">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <img src="/imgs/logo/kkeua_logoA.png" alt="끄아 로고" className="h-10" />
+              <img
+                src="/imgs/logo/kkeua_logoA.png"
+                alt="끄아 로고"
+                className="h-10"
+              />
               <div>
                 <h1 className="text-2xl font-bold text-gray-800">게임 결과</h1>
                 <div className="text-sm text-gray-600">방 #{roomId}</div>
               </div>
             </div>
-            
+
             <div className="flex items-center space-x-4">
               <div className="text-right">
                 <div className="text-sm text-gray-600">게임 완료</div>
@@ -143,14 +147,24 @@ const GameResultModal = ({ isOpen, onClose, roomId, winnerData }) => {
                   {new Date().toLocaleTimeString()}
                 </div>
               </div>
-              
+
               {/* 닫기 버튼 */}
               <button
                 onClick={onClose}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </button>
             </div>
@@ -164,53 +178,69 @@ const GameResultModal = ({ isOpen, onClose, roomId, winnerData }) => {
 
           {/* 플레이어 순위 (단순화된 버전) */}
           <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg p-8">
-            <h2 className="text-3xl font-bold text-gray-800 mb-8 text-center">🏆 최종 순위</h2>
+            <h2 className="text-3xl font-bold text-gray-800 mb-8 text-center">
+              🏆 최종 순위
+            </h2>
             {Array.isArray(players) && players.length > 0 ? (
               <div className="space-y-4">
                 {players.map((player, index) => {
                   // 더 안전한 데이터 접근 및 디버깅
                   // 플레이어 데이터 처리
-                  
+
                   const nickname = player?.nickname || '알 수 없는 플레이어';
                   const totalScore = Number(player?.total_score) || 0;
                   const wordsSubmitted = Number(player?.words_submitted) || 0;
                   const guestId = player?.guest_id || index;
-                  
+
                   // 플레이어 통계 확인 완료
-                  
+
                   // 점수가 0인 경우에 대한 특별 처리
-                  const displayScore = totalScore === 0 ? '점수 집계 중...' : totalScore.toLocaleString();
-                  
+                  const displayScore =
+                    totalScore === 0
+                      ? '점수 집계 중...'
+                      : totalScore.toLocaleString();
+
                   // 순위별 스타일링
                   const getRankStyle = (rank) => {
-                    switch(rank) {
-                      case 0: return 'bg-gradient-to-r from-yellow-100 to-yellow-200 border-yellow-300 text-yellow-800';
-                      case 1: return 'bg-gradient-to-r from-gray-100 to-gray-200 border-gray-300 text-gray-800';
-                      case 2: return 'bg-gradient-to-r from-orange-100 to-orange-200 border-orange-300 text-orange-800';
-                      default: return 'bg-white border-gray-200 text-gray-700';
+                    switch (rank) {
+                      case 0:
+                        return 'bg-gradient-to-r from-yellow-100 to-yellow-200 border-yellow-300 text-yellow-800';
+                      case 1:
+                        return 'bg-gradient-to-r from-gray-100 to-gray-200 border-gray-300 text-gray-800';
+                      case 2:
+                        return 'bg-gradient-to-r from-orange-100 to-orange-200 border-orange-300 text-orange-800';
+                      default:
+                        return 'bg-white border-gray-200 text-gray-700';
                     }
                   };
 
                   const getRankIcon = (rank) => {
-                    switch(rank) {
-                      case 0: return { icon: '🥇', size: 'text-4xl' };
-                      case 1: return { icon: '🥈', size: 'text-4xl' };
-                      case 2: return { icon: '🥉', size: 'text-4xl' };
-                      default: return { icon: '🏅', size: 'text-3xl' };
+                    switch (rank) {
+                      case 0:
+                        return { icon: '🥇', size: 'text-4xl' };
+                      case 1:
+                        return { icon: '🥈', size: 'text-4xl' };
+                      case 2:
+                        return { icon: '🥉', size: 'text-4xl' };
+                      default:
+                        return { icon: '🏅', size: 'text-3xl' };
                     }
                   };
 
                   const rankStyle = getRankStyle(index);
                   const rankIcon = getRankIcon(index);
-                  
+
                   return (
-                    <div key={guestId} className={`flex items-center justify-between p-6 rounded-xl border-2 ${rankStyle} shadow-lg transform transition-all duration-300 hover:scale-105`}>
+                    <div
+                      key={guestId}
+                      className={`flex items-center justify-between p-6 rounded-xl border-2 ${rankStyle} shadow-lg transform transition-all duration-300 hover:scale-105`}
+                    >
                       <div className="flex items-center space-x-6">
                         {/* 순위 아이콘 */}
                         <div className={`${rankIcon.size} flex-shrink-0`}>
                           {rankIcon.icon}
                         </div>
-                        
+
                         {/* 플레이어 정보 */}
                         <div className="flex items-center space-x-4">
                           <div className="w-12 h-12 bg-purple-500 text-white rounded-full flex items-center justify-center text-lg font-bold">
@@ -224,17 +254,21 @@ const GameResultModal = ({ isOpen, onClose, roomId, winnerData }) => {
                           </div>
                         </div>
                       </div>
-                      
+
                       {/* 점수 */}
                       <div className="text-right">
                         <div className="text-3xl font-bold">
                           {totalScore === 0 ? (
-                            <span className="text-gray-500 text-lg">점수 집계 중...</span>
+                            <span className="text-gray-500 text-lg">
+                              점수 집계 중...
+                            </span>
                           ) : (
                             <span>{totalScore.toLocaleString()}</span>
                           )}
                         </div>
-                        {totalScore > 0 && <div className="text-sm opacity-75">점</div>}
+                        {totalScore > 0 && (
+                          <div className="text-sm opacity-75">점</div>
+                        )}
                       </div>
                     </div>
                   );
@@ -274,8 +308,12 @@ const GameResultModal = ({ isOpen, onClose, roomId, winnerData }) => {
         {/* 푸터 */}
         <div className="bg-white/50 backdrop-blur-sm border-t border-gray-200 p-6 rounded-b-2xl">
           <div className="text-center text-gray-600">
-            <div className="mb-2">끄아 (KKUA) - 실시간 멀티플레이어 끝말잇기</div>
-            <div className="text-sm">재미있게 플레이하셨나요? 다시 한 게임 어떠세요? 🎮</div>
+            <div className="mb-2">
+              끄아 (KKUA) - 실시간 멀티플레이어 끝말잇기
+            </div>
+            <div className="text-sm">
+              재미있게 플레이하셨나요? 다시 한 게임 어떠세요? 🎮
+            </div>
           </div>
         </div>
       </div>

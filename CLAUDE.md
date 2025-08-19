@@ -20,10 +20,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ./stop.sh development --with-data  # Also removes data volumes
 
 # Check service status
-./scripts/status.sh [environment]
+docker-compose ps
 
 # View logs
-./scripts/logs.sh [environment] [service] [--follow]
 docker-compose logs -f [backend|frontend|db|redis]
 ```
 
@@ -85,8 +84,11 @@ docker exec kkua-redis-1 redis-cli FLUSHDB
 - User accounts and sessions
 - Game room metadata
 - Game logs and historical data
-- Friend relationships
-- Permanent statistics
+- Friend relationships with status tracking (pending/accepted/blocked/rejected)
+- Item system with rarities (common/uncommon/rare/epic/legendary) and types
+- Player profiles and game statistics
+- Game modes and configurations
+- Permanent statistics and leaderboards
 
 ### Redis (Real-time State)
 - Active game state with 24-hour TTL
@@ -103,12 +105,17 @@ docker exec kkua-redis-1 redis-cli FLUSHDB
 - `session_service.py`: Thread-safe in-memory session storage with auto-cleanup
 - `websocket_message_service.py`: WebSocket message processing and routing
 - `advanced_score_service.py`: Speed bonuses, combos, word rarity scoring
+- `friendship_service.py`: Friend system with requests, blocking, and status management
+- `item_service.py`: Game items and power-ups with different rarities and effects
+- `game_mode_service.py`: Multiple game modes with varying rules and mechanics
 
 **Frontend Architecture:**
 - Pages have dedicated `components/` and `hooks/` subdirectories
 - Zustand for state management with localStorage persistence
+- TailwindCSS for styling and responsive design
 - `useGameRoomSocket.js`: WebSocket with exponential backoff reconnection
 - Toast notifications for user feedback
+- Error boundary handling with proper fallback UI
 
 ## API Patterns
 
@@ -134,6 +141,9 @@ docker exec kkua-redis-1 redis-cli FLUSHDB
 ### Backend Tests
 - Structure mirrors source code in `backend/tests/`
 - Uses pytest with fixtures in `conftest.py`
+- Test layers: models/ → repositories/ → services/ → integration
+- Comprehensive test coverage for all new features (friendship, items, game modes)
+- Mock Redis and PostgreSQL connections for isolated testing
 - Coverage target: Comprehensive unit and integration tests
 - CI runs: `python -m pytest tests/ -v --tb=short`
 
@@ -175,9 +185,15 @@ docker exec kkua-redis-1 redis-cli FLUSHDB
 ## Common Development Tasks
 
 ### Adding New Features
-1. **Backend API**: Schema → Repository → Service → Router → Tests
+1. **Backend API**: Schema → Model → Repository → Service → Router → Tests
+   - Models define database schema with SQLAlchemy (enums for statuses/types)
+   - Repositories handle database operations with error handling
+   - Services contain business logic and validation  
+   - Routers expose FastAPI endpoints with Pydantic schemas
 2. **Frontend Feature**: Page/components → hooks → API calls → State management
 3. **WebSocket**: Add message type to `websocket_message_service.py` and frontend hook
+4. **New Models**: Follow existing patterns with enums, relationships, and proper indexing
+5. **Database Changes**: Use Alembic for migrations, test in development first
 
 ### Debugging Issues
 ```bash
@@ -206,6 +222,10 @@ docker-compose down -v && docker-compose up -d
 - `services/redis_game_service.py`: Core game logic
 - `websocket/connection_manager.py`: WebSocket facade
 - `middleware/auth_middleware.py`: Session validation
+- `middleware/csrf_middleware.py`: CSRF protection for forms
+- `middleware/rate_limiter.py`: Rate limiting for API and WebSocket endpoints
+- `config/sentry_config.py`: Error tracking and monitoring utilities  
+- `config/logging_config.py`: Centralized logging configuration
 
 ### Frontend  
 - `App.js`: Main routing configuration
@@ -223,9 +243,8 @@ cp backend/.env.production.example backend/.env.production
 # Deploy
 ./deploy.sh production
 
-# Uses docker-compose.prod.yml with:
-# - Nginx reverse proxy
-# - No source volume mounts
-# - Production builds
-# - Security headers
+# Production deployment features:
+# - Environment variables for production
+# - Optimized Docker builds
+# - Production security configurations
 ```

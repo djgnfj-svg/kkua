@@ -17,7 +17,6 @@ const ActionButtons = ({
       player.is_ready === true
   );
 
-
   return (
     <div className="w-full bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20 shadow-lg">
       <div className="flex justify-between items-center mb-4">
@@ -27,12 +26,12 @@ const ActionButtons = ({
         >
           {isOwner ? '🗑️ 방 삭제' : '🚪 나가기'}
         </button>
-        
+
         <div className="text-white/80 text-sm">
           {isOwner ? '👑 방장' : '👤 참가자'}
         </div>
       </div>
-      
+
       {/* 디버깅 정보 */}
       <div className="mb-4 p-3 bg-black/30 rounded-lg text-xs text-white/80 space-y-1">
         <div>참가자 수: {participants.length}</div>
@@ -40,9 +39,8 @@ const ActionButtons = ({
         <div className="space-y-1">
           {participants.map((player, index) => (
             <div key={index} className="text-xs">
-              👤 {player.nickname || `게스트_${player.guest_id}`}: 
-              방장={player.is_creator ? '✅' : '❌'}, 
-              status="{player.status}", 
+              👤 {player.nickname || `게스트_${player.guest_id}`}: 방장=
+              {player.is_creator ? '✅' : '❌'}, status="{player.status}",
               is_ready={player.is_ready ? '✅' : '❌'}
             </div>
           ))}
@@ -57,7 +55,7 @@ const ActionButtons = ({
                 if (isStartingGame) {
                   return;
                 }
-                
+
                 if (participants.length >= 2 && allNonOwnerPlayersReady) {
                   handleClickStartBtn();
                 } else if (participants.length < 2) {
@@ -70,10 +68,14 @@ const ActionButtons = ({
                 isStartingGame
                   ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white cursor-wait'
                   : participants.length >= 2 && allNonOwnerPlayersReady
-                  ? 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white hover:scale-105'
-                  : 'bg-gradient-to-r from-gray-400 to-gray-500 text-white cursor-not-allowed'
+                    ? 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white hover:scale-105'
+                    : 'bg-gradient-to-r from-gray-400 to-gray-500 text-white cursor-not-allowed'
               }`}
-              disabled={participants.length < 2 || !allNonOwnerPlayersReady || isStartingGame}
+              disabled={
+                participants.length < 2 ||
+                !allNonOwnerPlayersReady ||
+                isStartingGame
+              }
             >
               {isStartingGame ? (
                 <div className="flex items-center justify-center gap-2">
@@ -84,15 +86,16 @@ const ActionButtons = ({
                 <>🎮 게임 시작</>
               )}
             </button>
-            
-            {!isStartingGame && (participants.length < 2 || !allNonOwnerPlayersReady) && (
-              <div className="absolute -top-16 left-1/2 transform -translate-x-1/2 bg-black/80 text-white text-sm px-4 py-2 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 shadow-md">
-                {participants.length < 2 
-                  ? '2인 이상일 때 게임을 시작할 수 있습니다' 
-                  : '모든 플레이어가 준비 상태여야 합니다'}
-              </div>
-            )}
-            
+
+            {!isStartingGame &&
+              (participants.length < 2 || !allNonOwnerPlayersReady) && (
+                <div className="absolute -top-16 left-1/2 transform -translate-x-1/2 bg-black/80 text-white text-sm px-4 py-2 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 shadow-md">
+                  {participants.length < 2
+                    ? '2인 이상일 때 게임을 시작할 수 있습니다'
+                    : '모든 플레이어가 준비 상태여야 합니다'}
+                </div>
+              )}
+
             {isStartingGame && (
               <div className="absolute -top-16 left-1/2 transform -translate-x-1/2 bg-blue-600/90 text-white text-sm px-4 py-2 rounded-lg whitespace-nowrap z-10 shadow-md">
                 모든 플레이어를 게임으로 이동 중...

@@ -15,42 +15,42 @@ function App() {
       <AuthProvider>
         <ToastProvider>
           <Router>
-          <Routes>
-            <Route path="/" element={<Loading />} />
-            <Route
-              path="/lobby"
-              element={
-                <ProtectedRoute>
-                  <Lobby />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/kealobby/:roomId"
-              element={
-                <ProtectedRoute>
-                  <GameLobbyPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/keaing/:gameid"
-              element={
-                <ProtectedRoute>
-                  <InGame />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/gamerooms/:roomId/result"
-              element={
-                <ProtectedRoute>
-                  <GameResult />
-                </ProtectedRoute>
-              }
-            />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+            <Routes>
+              <Route path="/" element={<Loading />} />
+              <Route
+                path="/lobby"
+                element={
+                  <ProtectedRoute>
+                    <Lobby />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/kealobby/:roomId"
+                element={
+                  <ProtectedRoute>
+                    <GameLobbyPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/keaing/:gameid"
+                element={
+                  <ProtectedRoute>
+                    <InGame />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/gamerooms/:roomId/result"
+                element={
+                  <ProtectedRoute>
+                    <GameResult />
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
           </Router>
         </ToastProvider>
       </AuthProvider>

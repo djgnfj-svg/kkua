@@ -9,7 +9,7 @@ const GameStatistics = ({ gameStats }) => {
     longestWord = '',
     fastestResponse = 0,
     slowestResponse = 0,
-    mvp = ''
+    mvp = '',
   } = gameStats || {};
 
   // 데이터 유효성 검사 및 기본값 처리
@@ -24,7 +24,7 @@ const GameStatistics = ({ gameStats }) => {
       unit: '라운드',
       color: 'text-blue-600',
       bgColor: 'bg-blue-50',
-      borderColor: 'border-blue-200'
+      borderColor: 'border-blue-200',
     },
     {
       icon: '⏱️',
@@ -33,7 +33,7 @@ const GameStatistics = ({ gameStats }) => {
       unit: '',
       color: 'text-green-600',
       bgColor: 'bg-green-50',
-      borderColor: 'border-green-200'
+      borderColor: 'border-green-200',
     },
     {
       icon: '📝',
@@ -42,7 +42,7 @@ const GameStatistics = ({ gameStats }) => {
       unit: '개',
       color: 'text-purple-600',
       bgColor: 'bg-purple-50',
-      borderColor: 'border-purple-200'
+      borderColor: 'border-purple-200',
     },
     {
       icon: '⚡',
@@ -51,7 +51,7 @@ const GameStatistics = ({ gameStats }) => {
       unit: hasResponseTimeData ? '초' : '',
       color: 'text-yellow-600',
       bgColor: 'bg-yellow-50',
-      borderColor: 'border-yellow-200'
+      borderColor: 'border-yellow-200',
     },
     {
       icon: '📏',
@@ -60,17 +60,20 @@ const GameStatistics = ({ gameStats }) => {
       unit: '',
       color: 'text-red-600',
       bgColor: 'bg-red-50',
-      borderColor: 'border-red-200'
+      borderColor: 'border-red-200',
     },
     {
       icon: '🏃',
       label: '최고 기록',
-      value: hasResponseTimeData && fastestResponse > 0 ? fastestResponse.toFixed(1) : '측정 중',
+      value:
+        hasResponseTimeData && fastestResponse > 0
+          ? fastestResponse.toFixed(1)
+          : '측정 중',
       unit: hasResponseTimeData && fastestResponse > 0 ? '초' : '',
       color: 'text-indigo-600',
       bgColor: 'bg-indigo-50',
-      borderColor: 'border-indigo-200'
-    }
+      borderColor: 'border-indigo-200',
+    },
   ];
 
   return (
@@ -96,19 +99,24 @@ const GameStatistics = ({ gameStats }) => {
             key={index}
             className={`p-4 rounded-xl border-2 ${stat.bgColor} ${stat.borderColor} hover:shadow-md transition-all duration-300 animate-fadeIn`}
             style={{
-              animationDelay: `${index * 0.1}s`
+              animationDelay: `${index * 0.1}s`,
             }}
           >
             <div className="flex items-center justify-between mb-2">
               <span className="text-2xl">{stat.icon}</span>
-              <div className={`text-xs px-2 py-1 rounded-full ${stat.bgColor} ${stat.color} font-medium`}>
+              <div
+                className={`text-xs px-2 py-1 rounded-full ${stat.bgColor} ${stat.color} font-medium`}
+              >
                 {stat.label}
               </div>
             </div>
-            
+
             <div className="text-center">
               <div className={`text-2xl font-bold ${stat.color} mb-1`}>
-                {stat.value} {stat.unit && <span className="text-sm text-gray-600">{stat.unit}</span>}
+                {stat.value}{' '}
+                {stat.unit && (
+                  <span className="text-sm text-gray-600">{stat.unit}</span>
+                )}
               </div>
             </div>
           </div>
@@ -118,42 +126,48 @@ const GameStatistics = ({ gameStats }) => {
       {/* 상세 통계 */}
       <div className="mt-8 pt-6 border-t border-gray-200">
         <h4 className="text-lg font-semibold text-gray-800 mb-4">상세 분석</h4>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* 응답 시간 분석 */}
           <div className="space-y-3">
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-600">최고 기록</span>
               <span className="font-semibold text-green-600">
-                {hasResponseTimeData && fastestResponse > 0 ? `${fastestResponse.toFixed(1)}초` : '측정 중'}
+                {hasResponseTimeData && fastestResponse > 0
+                  ? `${fastestResponse.toFixed(1)}초`
+                  : '측정 중'}
               </span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-600">평균 기록</span>
               <span className="font-semibold text-blue-600">
-                {hasResponseTimeData ? `${averageResponseTime.toFixed(1)}초` : '측정 중'}
+                {hasResponseTimeData
+                  ? `${averageResponseTime.toFixed(1)}초`
+                  : '측정 중'}
               </span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-600">최저 기록</span>
               <span className="font-semibold text-red-600">
-                {hasResponseTimeData && slowestResponse > 0 ? `${slowestResponse.toFixed(1)}초` : '측정 중'}
+                {hasResponseTimeData && slowestResponse > 0
+                  ? `${slowestResponse.toFixed(1)}초`
+                  : '측정 중'}
               </span>
             </div>
-            
+
             {/* 응답시간 시각화 바 */}
             {hasResponseTimeData && slowestResponse > fastestResponse && (
               <div className="mt-4">
                 <div className="text-xs text-gray-500 mb-2">응답시간 분포</div>
                 <div className="relative h-3 bg-gray-200 rounded-full overflow-hidden">
-                  <div 
+                  <div
                     className="absolute h-full bg-gradient-to-r from-green-400 to-red-400 rounded-full"
                     style={{ width: '100%' }}
                   />
-                  <div 
+                  <div
                     className="absolute h-full w-1 bg-white border border-gray-400"
-                    style={{ 
-                      left: `${Math.min(Math.max(((averageResponseTime - fastestResponse) / (slowestResponse - fastestResponse)) * 100, 0), 100)}%` 
+                    style={{
+                      left: `${Math.min(Math.max(((averageResponseTime - fastestResponse) / (slowestResponse - fastestResponse)) * 100, 0), 100)}%`,
                     }}
                   />
                 </div>
@@ -171,19 +185,22 @@ const GameStatistics = ({ gameStats }) => {
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-600">라운드당 평균 시간</span>
               <span className="font-semibold text-purple-600">
-                {totalRounds > 0 ? (averageResponseTime).toFixed(1) : 0}초
+                {totalRounds > 0 ? averageResponseTime.toFixed(1) : 0}초
               </span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-600">평균 단어 길이</span>
               <span className="font-semibold text-indigo-600">
-                {totalWords > 0 ? (longestWord.length || 0) : 0}글자
+                {totalWords > 0 ? longestWord.length || 0 : 0}글자
               </span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-600">게임 효율성</span>
               <span className="font-semibold text-teal-600">
-                {totalRounds > 0 ? Math.round((totalWords / totalRounds) * 100) : 0}%
+                {totalRounds > 0
+                  ? Math.round((totalWords / totalRounds) * 100)
+                  : 0}
+                %
               </span>
             </div>
 
@@ -195,16 +212,20 @@ const GameStatistics = ({ gameStats }) => {
                   <div
                     key={i}
                     className={`flex-1 h-2 rounded ${
-                      i < Math.floor((totalWords / Math.max(totalRounds, 1)) * 2) 
-                        ? 'bg-gradient-to-r from-green-400 to-blue-400' 
+                      i <
+                      Math.floor((totalWords / Math.max(totalRounds, 1)) * 2)
+                        ? 'bg-gradient-to-r from-green-400 to-blue-400'
                         : 'bg-gray-200'
                     }`}
                   />
                 ))}
               </div>
               <div className="text-xs text-center text-gray-500 mt-1">
-                {totalWords > totalRounds * 0.8 ? '우수' : 
-                 totalWords > totalRounds * 0.5 ? '보통' : '개선 필요'}
+                {totalWords > totalRounds * 0.8
+                  ? '우수'
+                  : totalWords > totalRounds * 0.5
+                    ? '보통'
+                    : '개선 필요'}
               </div>
             </div>
           </div>

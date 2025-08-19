@@ -62,10 +62,10 @@ docker-compose run --rm backend-test
 ## 📋 주요 기능
 
 - 실시간 멀티플레이어 끝말잇기
-- 아이템 시스템이 있는 게임플레이
-- 세션 기반 인증
-- 실시간 채팅
-- 게임 통계 및 결과
+- 게스트 기반 간편 로그인
+- WebSocket 실시간 통신
+- 게임 룸 생성 및 참가
+- 게임 결과 및 통계
 
 ## 👥 팀 구성
 
@@ -74,4 +74,4 @@ docker-compose run --rm backend-test
 
 ---
 
-더 자세한 배포 정보는 [DEPLOYMENT.md](./DEPLOYMENT.md)를 참고하세요.
+더 자세한 정보는 [CLAUDE.md](./CLAUDE.md)를 참고하세요.

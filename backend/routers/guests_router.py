@@ -21,27 +21,26 @@ def get_guest_service(db: Session = Depends(get_db)) -> GuestService:
 
 @router.get("/me", response_model=GuestResponse)
 def get_current_guest(
-    current_guest: Guest = Depends(require_authentication)
+    current_guest: Guest = Depends(require_authentication),
 ) -> GuestResponse:
     """Get current guest information"""
     return GuestResponse(
         guest_uuid=current_guest.guest_uuid,
         nickname=current_guest.nickname,
-        last_login=current_guest.last_login
+        last_login=current_guest.last_login,
     )
 
 
 @router.get("/{guest_uuid}", response_model=GuestResponse)
 def get_guest_by_uuid(
-    guest_uuid: str,
-    service: GuestService = Depends(get_guest_service)
+    guest_uuid: str, service: GuestService = Depends(get_guest_service)
 ) -> GuestResponse:
     """Get guest by UUID (public endpoint)"""
     guest = service.get_guest_by_uuid(guest_uuid)
     if not guest:
         from fastapi import HTTPException, status
+
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Guest not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Guest not found"
         )
     return guest

@@ -1,18 +1,11 @@
 """Alembic Environment Configuration for KKUA Project"""
 
-import asyncio
 import os
 from logging.config import fileConfig
 from sqlalchemy import create_engine, pool
-from sqlalchemy.ext.asyncio import create_async_engine
 from alembic import context
 
 # Import models for autogenerate support
-from models.guest_model import Guest
-from models.gameroom_model import Gameroom, GameroomParticipant
-from models.game_log_model import GameLog
-from models.player_game_stats_model import PlayerGameStats
-from models.word_chain_entry_model import WordChainEntry
 from db.postgres import Base
 
 # this is the Alembic Config object, which provides
@@ -38,15 +31,15 @@ def get_database_url():
     """Get database URL from environment variables with fallback to alembic.ini"""
     # Try environment variable first (for Docker environments)
     database_url = os.getenv("DATABASE_URL")
-    
+
     if not database_url:
         # Fallback to alembic.ini configuration
         database_url = config.get_main_option("sqlalchemy.url")
-    
+
     # Convert async URL to sync URL if needed for migrations
     if database_url and database_url.startswith("postgresql+asyncpg://"):
         database_url = database_url.replace("postgresql+asyncpg://", "postgresql://")
-    
+
     return database_url
 
 
@@ -82,7 +75,7 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
     """
     database_url = get_database_url()
-    
+
     connectable = create_engine(
         database_url,
         poolclass=pool.NullPool,  # Don't use connection pooling for migrations

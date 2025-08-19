@@ -5,7 +5,6 @@ import { ROOM_API } from '../../../Api/roomApi';
 import { gameLobbyUrl } from '../../../utils/urls';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useToast } from '../../../contexts/ToastContext';
-import { getErrorMessage, ERROR_MESSAGES } from '../../../utils/errorMessages';
 
 const useLobbyData = () => {
   const navigate = useNavigate();
@@ -45,13 +44,13 @@ const useLobbyData = () => {
   useEffect(() => {
     if (isAuthenticated) {
       fetchRoom();
-      
+
       const interval = setInterval(() => {
         if (!isEntering) {
           fetchRoom();
         }
       }, 10000);
-      
+
       return () => clearInterval(interval);
     }
   }, [isAuthenticated, isEntering]);
@@ -85,15 +84,15 @@ const useLobbyData = () => {
     try {
       setIsEntering(true);
       setEnteringRoomId(room_id);
-      
+
       const response = await axiosInstance.post(ROOM_API.JOIN_ROOMS(room_id));
-      
+
       navigate(gameLobbyUrl(room_id));
     } catch (err) {
       // 방 입장 실패 시 사용자에게 알림
-      const errorMessage = getErrorMessage(err) || ERROR_MESSAGES.ROOM_JOIN_FAILED;
+      const errorMessage = err.response?.data?.detail || '방 입장에 실패했습니다.';
       toast.showError(errorMessage);
-      
+
       await fetchRoom();
     } finally {
       setIsEntering(false);
@@ -108,12 +107,14 @@ const useLobbyData = () => {
 
     try {
       setIsLoading(true);
-      
+
       const res = await axiosInstance.get(ROOM_API.get_ROOMS);
       let currentRooms = [];
-      
+
       if (res.data && Array.isArray(res.data.rooms)) {
-        currentRooms = res.data.rooms.filter((room) => room.status !== 'finished');
+        currentRooms = res.data.rooms.filter(
+          (room) => room.status !== 'finished'
+        );
         setRoomsData(currentRooms);
       }
 
@@ -127,15 +128,16 @@ const useLobbyData = () => {
         return;
       }
 
-      const randomRoom = availableRooms[Math.floor(Math.random() * availableRooms.length)];
-      
+      const randomRoom =
+        availableRooms[Math.floor(Math.random() * availableRooms.length)];
+
       await handleEnterGame(randomRoom.room_id);
     } catch (err) {
       // 랜덤 입장 실패 시 사용자에게 알림
-      const errorMessage = getErrorMessage(err);
-      toast.showError(errorMessage || '랜덤 입장에 실패했습니다. 다시 시도해주세요.');
-      
-      const errorMessage = getErrorMessage(err);
+      const errorMessage = err.response?.data?.detail;
+      toast.showError(
+        errorMessage || '랜덤 입장에 실패했습니다. 다시 시도해주세요.'
+      );
       alert(errorMessage);
     } finally {
       setIsLoading(false);

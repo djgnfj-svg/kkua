@@ -5,7 +5,7 @@ const ParticipantList = ({ participants }) => {
     if (isCreator) {
       return 'bg-gradient-to-r from-purple-500 to-purple-600 text-white';
     }
-    
+
     switch (status) {
       case 'READY':
       case 'ready':
@@ -20,7 +20,7 @@ const ParticipantList = ({ participants }) => {
 
   const getStatusText = (status, isCreator) => {
     if (isCreator) return '👑 방장';
-    
+
     switch (status) {
       case 'READY':
       case 'ready':
@@ -52,7 +52,7 @@ const ParticipantList = ({ participants }) => {
       <div className="text-center mb-4">
         <h3 className="text-white text-lg font-semibold">👥 참가자 목록</h3>
       </div>
-      
+
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {participants.map((player, index) => (
           <div
@@ -61,20 +61,24 @@ const ParticipantList = ({ participants }) => {
           >
             <div className="flex flex-col items-center space-y-3">
               {/* 아바타 */}
-              <div className={`w-16 h-16 ${getAvatarColor(index)} rounded-full flex items-center justify-center text-white text-xl font-bold shadow-lg`}>
+              <div
+                className={`w-16 h-16 ${getAvatarColor(index)} rounded-full flex items-center justify-center text-white text-xl font-bold shadow-lg`}
+              >
                 {player.nickname?.charAt(0)?.toUpperCase() || 'G'}
               </div>
-              
+
               {/* 닉네임 */}
               <div className="text-white font-semibold text-center truncate w-full">
                 {player.nickname || `Guest_${player.guest_id}`}
               </div>
-              
+
               {/* 상태 배지 */}
-              <div className={`text-xs px-3 py-1 rounded-full font-semibold shadow-md ${getStatusColor(player.status, player.is_creator)}`}>
+              <div
+                className={`text-xs px-3 py-1 rounded-full font-semibold shadow-md ${getStatusColor(player.status, player.is_creator)}`}
+              >
                 {getStatusText(player.status, player.is_creator)}
               </div>
-              
+
               {/* 추가 정보 */}
               <div className="text-white/70 text-xs text-center">
                 {player.is_creator ? '방장님' : `ID: ${player.guest_id}`}
@@ -82,24 +86,26 @@ const ParticipantList = ({ participants }) => {
             </div>
           </div>
         ))}
-        
+
         {/* 빈 슬롯 표시 */}
-        {Array.from({ length: Math.max(0, 8 - participants.length) }).map((_, index) => (
-          <div
-            key={`empty-${index}`}
-            className="bg-white/5 backdrop-blur-md rounded-xl p-4 border border-white/10 shadow-lg"
-          >
-            <div className="flex flex-col items-center space-y-3">
-              <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center text-white/50 text-xl">
-                👤
-              </div>
-              <div className="text-white/50 text-sm">빈 슬롯</div>
-              <div className="text-xs px-3 py-1 rounded-full bg-white/10 text-white/50">
-                대기중
+        {Array.from({ length: Math.max(0, 8 - participants.length) }).map(
+          (_, index) => (
+            <div
+              key={`empty-${index}`}
+              className="bg-white/5 backdrop-blur-md rounded-xl p-4 border border-white/10 shadow-lg"
+            >
+              <div className="flex flex-col items-center space-y-3">
+                <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center text-white/50 text-xl">
+                  👤
+                </div>
+                <div className="text-white/50 text-sm">빈 슬롯</div>
+                <div className="text-xs px-3 py-1 rounded-full bg-white/10 text-white/50">
+                  대기중
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          )
+        )}
       </div>
     </div>
   );

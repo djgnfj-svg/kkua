@@ -48,9 +48,9 @@ def create_gameroom(
 
 @router.get("/{room_id}", response_model=GameroomDetailResponse)
 def get_gameroom(
-    room_id: int, 
+    room_id: int,
     guest: Guest = Depends(get_current_guest),
-    service: GameroomService = Depends(get_gameroom_service)
+    service: GameroomService = Depends(get_gameroom_service),
 ) -> GameroomDetailResponse:
     """게임룸 상세 정보를 조회합니다. 참가자만 조회할 수 있습니다."""
     room = service.get_gameroom(room_id)
@@ -58,21 +58,19 @@ def get_gameroom(
         raise HTTPException(status_code=404, detail="게임룸을 찾을 수 없습니다")
 
     participants = service.get_participants(room_id)
-    
+
     # 현재 사용자가 방 참가자인지 확인
-    is_participant = any(
-        p.get('guest_id') == guest.guest_id for p in participants
-    )
-    
+    is_participant = any(p.get("guest_id") == guest.guest_id for p in participants)
+
     # 방장인지 확인
     is_creator = room.created_by == guest.guest_id
-    
+
     if not (is_participant or is_creator):
         raise HTTPException(
-            status_code=403, 
-            detail="이 방에 참가하지 않은 사용자는 방 정보를 조회할 수 없습니다"
+            status_code=403,
+            detail="이 방에 참가하지 않은 사용자는 방 정보를 조회할 수 없습니다",
         )
-    
+
     return {"room": room, "participants": participants}
 
 

@@ -307,19 +307,21 @@ class TestGameroomService:
         # 테스트 데이터
         room_id = 1
         guest_id = 1
-        
+
         # mock 참가자 객체 생성 (방장)
         mock_participant = Mock(spec=GameroomParticipant)
         mock_participant.is_creator = True
-        
+
         # repository mock 설정
         self.service.repository.find_participant.return_value = mock_participant
-        
+
         # 테스트 실행
         result = self.service.is_room_owner(room_id, guest_id)
-        
+
         # 검증
-        self.service.repository.find_participant.assert_called_once_with(room_id, guest_id)
+        self.service.repository.find_participant.assert_called_once_with(
+            room_id, guest_id
+        )
         assert result is True
 
     def test_is_room_owner_false(self):
@@ -327,19 +329,21 @@ class TestGameroomService:
         # 테스트 데이터
         room_id = 1
         guest_id = 2
-        
+
         # mock 참가자 객체 생성 (일반 참가자)
         mock_participant = Mock(spec=GameroomParticipant)
         mock_participant.is_creator = False
-        
+
         # repository mock 설정
         self.service.repository.find_participant.return_value = mock_participant
-        
+
         # 테스트 실행
         result = self.service.is_room_owner(room_id, guest_id)
-        
+
         # 검증
-        self.service.repository.find_participant.assert_called_once_with(room_id, guest_id)
+        self.service.repository.find_participant.assert_called_once_with(
+            room_id, guest_id
+        )
         assert result is False
 
     def test_is_room_owner_not_participant(self):
@@ -347,15 +351,17 @@ class TestGameroomService:
         # 테스트 데이터
         room_id = 1
         guest_id = 3
-        
+
         # repository mock 설정 (참가자 없음)
         self.service.repository.find_participant.return_value = None
-        
+
         # 테스트 실행
         result = self.service.is_room_owner(room_id, guest_id)
-        
+
         # 검증
-        self.service.repository.find_participant.assert_called_once_with(room_id, guest_id)
+        self.service.repository.find_participant.assert_called_once_with(
+            room_id, guest_id
+        )
         assert result is False
 
     def test_check_if_owner_integration(self):
@@ -364,17 +370,19 @@ class TestGameroomService:
         room_id = 1
         mock_guest = Mock(spec=Guest)
         mock_guest.guest_id = 1
-        
+
         # mock 참가자 객체 생성 (방장)
         mock_participant = Mock(spec=GameroomParticipant)
         mock_participant.is_creator = True
-        
+
         # repository mock 설정
         self.service.repository.find_participant.return_value = mock_participant
-        
+
         # 테스트 실행
         result = self.service.check_if_owner(room_id, mock_guest)
-        
+
         # 검증
-        self.service.repository.find_participant.assert_called_once_with(room_id, mock_guest.guest_id)
+        self.service.repository.find_participant.assert_called_once_with(
+            room_id, mock_guest.guest_id
+        )
         assert result == {"is_owner": True}

@@ -28,22 +28,24 @@ async def lifespan(app: FastAPI):
     """애플리케이션 수명 주기 관리"""
     # 시작 시
     logger.info("애플리케이션 시작 중...")
-    
+
     # Redis 연결 초기화
     try:
         from services.redis_game_service import get_redis_game_service
+
         redis_service = await get_redis_game_service()
         logger.info("Redis 게임 서비스 초기화 완료")
     except Exception as e:
         logger.error(f"Redis 게임 서비스 초기화 실패: {e}")
         # Redis 실패 시에도 앱은 계속 실행되도록 함
-    
+
     yield
-    
+
     # 종료 시
     logger.info("애플리케이션 종료 중...")
     try:
         from services.redis_game_service import get_redis_game_service
+
         redis_service = await get_redis_game_service()
         await redis_service.disconnect()
         logger.info("Redis 연결 종료 완료")
@@ -100,7 +102,7 @@ async def root():
         "message": "끄아 (KKUA) - 실시간 끝말잇기 게임 API에 오신 것을 환영합니다!",
         "version": "1.0.0",
         "environment": settings.environment,
-        "status": "running"
+        "status": "running",
     }
 
 
@@ -117,50 +119,48 @@ async def detailed_health_check():
         "status": "healthy",
         "environment": settings.environment,
         "timestamp": datetime.now().isoformat(),
-        "services": {}
+        "services": {},
     }
-    
+
     # Redis 연결 상태 확인
     try:
         from services.redis_game_service import get_redis_game_service
+
         redis_service = await get_redis_game_service()
         is_redis_connected = await redis_service.is_connected()
         health_status["services"]["redis"] = {
             "status": "healthy" if is_redis_connected else "unhealthy",
-            "connected": is_redis_connected
+            "connected": is_redis_connected,
         }
     except Exception as e:
-        health_status["services"]["redis"] = {
-            "status": "unhealthy",
-            "error": str(e)
-        }
-    
+        health_status["services"]["redis"] = {"status": "unhealthy", "error": str(e)}
+
     # PostgreSQL 연결 상태 확인
     try:
         from db.postgres import get_db
+
         db_session = next(get_db())
         db_session.execute("SELECT 1")
         db_session.close()
         health_status["services"]["postgresql"] = {
             "status": "healthy",
-            "connected": True
+            "connected": True,
         }
     except Exception as e:
         health_status["services"]["postgresql"] = {
             "status": "unhealthy",
-            "error": str(e)
+            "error": str(e),
         }
-    
-    
+
     # 전체 상태 결정
     all_services_healthy = all(
         service.get("status") == "healthy" or service.get("status") == "disabled"
         for service in health_status["services"].values()
     )
-    
+
     if not all_services_healthy:
         health_status["status"] = "degraded"
-    
+
     return health_status
 
 
@@ -192,8 +192,5 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(
-        "main:app", 
-        host=settings.host, 
-        port=settings.port, 
-        reload=settings.debug
+        "main:app", host=settings.host, port=settings.port, reload=settings.debug
     )

@@ -25,7 +25,7 @@ function ProtectedRoute({ children, redirectTo = '/' }) {
       // localStorage에 인증 정보가 있으면 바로 렌더링 (백그라운드에서 검증 중)
       return children;
     }
-    
+
     // localStorage에 정보가 없으면 로딩 화면 표시
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">

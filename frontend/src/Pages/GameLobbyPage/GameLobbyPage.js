@@ -63,7 +63,7 @@ function GameLobbyPage() {
             className="text-white"
           />
         </div>
-        
+
         <RoomInfo
           roomInfo={roomInfo}
           participants={participants}

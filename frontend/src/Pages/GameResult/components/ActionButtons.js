@@ -23,13 +23,13 @@ const ActionButtons = ({ roomId }) => {
 
   const handleShare = async () => {
     setIsSharing(true);
-    
+
     try {
       // 결과 공유 기능 (Web Share API 또는 클립보드 복사)
       const shareData = {
         title: '끄아 게임 결과',
         text: `방 #${roomId}에서 끝말잇기 게임을 플레이했습니다! 🎮`,
-        url: window.location.href
+        url: window.location.href,
       };
 
       if (navigator.share && navigator.canShare(shareData)) {
@@ -37,7 +37,9 @@ const ActionButtons = ({ roomId }) => {
         setShareSuccess(true);
       } else {
         // 클립보드에 복사
-        await navigator.clipboard.writeText(`끄아 게임 결과: ${window.location.href}`);
+        await navigator.clipboard.writeText(
+          `끄아 게임 결과: ${window.location.href}`
+        );
         setShareSuccess(true);
       }
     } catch (error) {
@@ -131,7 +133,7 @@ const ActionButtons = ({ roomId }) => {
         <div className="text-sm text-gray-600 mb-3">
           게임이 어떠셨나요? 피드백을 남겨주세요! 😊
         </div>
-        
+
         <div className="flex justify-center space-x-2">
           {['😍', '😊', '😐', '😕', '😞'].map((emoji, index) => (
             <button

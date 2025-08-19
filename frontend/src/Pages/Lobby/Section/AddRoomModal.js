@@ -5,8 +5,6 @@ import axiosInstance from '../../../Api/axiosInstance';
 import { gameLobbyUrl } from '../../../utils/urls';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
-import { getErrorMessage, SUCCESS_MESSAGES } from '../../../utils/errorMessages';
-import GameModeSelector from '../components/GameModeSelector';
 
 Modal.setAppElement('#root');
 
@@ -15,7 +13,6 @@ function AddRoomModal({ isOpen, isClose }) {
   const { isAuthenticated } = useAuth();
   const [roomTitle, setRoomTitle] = useState('');
   const [maxPlayers, setMaxPlayers] = useState(2);
-  const [selectedGameMode, setSelectedGameMode] = useState(null);
   const [timeLimit] = useState(120);
   const [maxRounds, setMaxRounds] = useState(10);
   const [isCreating, setIsCreating] = useState(false);
@@ -26,7 +23,7 @@ function AddRoomModal({ isOpen, isClose }) {
   useEffect(() => {
     const validateForm = () => {
       const newErrors = {};
-      
+
       if (!roomTitle.trim()) {
         newErrors.title = '방 제목을 입력해주세요';
       } else if (roomTitle.trim().length < 2) {
@@ -34,17 +31,15 @@ function AddRoomModal({ isOpen, isClose }) {
       } else if (roomTitle.trim().length > 20) {
         newErrors.title = '방 제목은 20자 이하여야 합니다';
       }
-      
-      if (!selectedGameMode) {
-        newErrors.gameMode = '게임 모드를 선택해주세요';
-      }
-      
+
       setErrors(newErrors);
-      setIsValid(Object.keys(newErrors).length === 0 && roomTitle.trim().length >= 2);
+      setIsValid(
+        Object.keys(newErrors).length === 0 && roomTitle.trim().length >= 2
+      );
     };
-    
+
     validateForm();
-  }, [roomTitle, selectedGameMode]);
+  }, [roomTitle]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -63,25 +58,13 @@ function AddRoomModal({ isOpen, isClose }) {
     try {
       setIsCreating(true);
       setErrors({});
-      
+
       const response = await axiosInstance.post('/gamerooms/', {
         title: roomTitle.trim(),
         max_players: maxPlayers,
-        game_mode: selectedGameMode?.name || 'classic',
-        game_mode_config: selectedGameMode ? {
-          mode_id: selectedGameMode.mode_id,
-          display_name: selectedGameMode.display_name,
-          settings: {
-            turn_time_limit: selectedGameMode.turn_time_limit,
-            max_rounds: selectedGameMode.max_rounds,
-            min_word_length: selectedGameMode.min_word_length,
-            max_word_length: selectedGameMode.max_word_length,
-            score_multiplier: selectedGameMode.score_multiplier,
-            special_rules: selectedGameMode.special_rules
-          }
-        } : null,
+        game_mode: 'standard',
         time_limit: timeLimit,
-        max_rounds: selectedGameMode?.max_rounds || maxRounds,
+        max_rounds: maxRounds,
       });
 
       // 성공 처리
@@ -90,8 +73,9 @@ function AddRoomModal({ isOpen, isClose }) {
       navigate(gameLobbyUrl(response.data.room_id));
     } catch (error) {
       console.error('방 생성 오류:', error);
-      
-      const errorMessage = getErrorMessage(error);
+
+      const errorMessage =
+        error.response?.data?.detail || '방 생성에 실패했습니다';
       setErrors({ submit: errorMessage });
     } finally {
       setIsCreating(false);
@@ -101,7 +85,6 @@ function AddRoomModal({ isOpen, isClose }) {
   const handleClose = () => {
     if (!isCreating) {
       setRoomTitle('');
-      setSelectedGameMode(null);
       setErrors({});
       isClose(false);
     }
@@ -131,9 +114,7 @@ function AddRoomModal({ isOpen, isClose }) {
 
             {/* 전체 에러 메시지 */}
             {errors.submit && (
-              <div className="error-message submit-error">
-                {errors.submit}
-              </div>
+              <div className="error-message submit-error">{errors.submit}</div>
             )}
 
             {/* 방 제목 입력 */}
@@ -148,25 +129,12 @@ function AddRoomModal({ isOpen, isClose }) {
                 maxLength={20}
               />
               {errors.title && (
-                <div className="error-message">
-                  {errors.title}
-                </div>
+                <div className="error-message">{errors.title}</div>
               )}
             </div>
 
-            {/* 게임 모드 선택 */}
+            {/* 게임 설정 */}
             <div className="game-settings">
-              <GameModeSelector
-                selectedMode={selectedGameMode}
-                onModeChange={setSelectedGameMode}
-                disabled={isCreating}
-              />
-              {errors.gameMode && (
-                <div className="error-message">
-                  {errors.gameMode}
-                </div>
-              )}
-
               <div className="game-size-section">
                 <div className="label">인원</div>
                 <div className="size-buttons">
@@ -186,14 +154,7 @@ function AddRoomModal({ isOpen, isClose }) {
               </div>
 
               <div className="game-rounds-section">
-                <div className="label">
-                  라운드 수 
-                  {selectedGameMode && (
-                    <span className="text-sm text-gray-600 ml-2">
-                      (권장: {selectedGameMode.max_rounds}라운드)
-                    </span>
-                  )}
-                </div>
+                <div className="label">라운드 수</div>
                 <div className="rounds-controls">
                   <div className="rounds-slider">
                     <input
@@ -201,38 +162,38 @@ function AddRoomModal({ isOpen, isClose }) {
                       min="5"
                       max="20"
                       step="1"
-                      value={selectedGameMode?.max_rounds || maxRounds}
+                      value={maxRounds}
                       onChange={(e) => setMaxRounds(parseInt(e.target.value))}
                       className="slider"
-                      disabled={isCreating || !!selectedGameMode}
+                      disabled={isCreating}
                     />
                     <div className="rounds-display">
-                      <span className="rounds-value">{selectedGameMode?.max_rounds || maxRounds}</span>
+                      <span className="rounds-value">{maxRounds}</span>
                       <span className="rounds-text">라운드</span>
                     </div>
                   </div>
-                  {!selectedGameMode && (
-                    <div className="rounds-presets">
-                      {[5, 10, 15, 20].map((rounds) => (
-                        <button
-                          key={rounds}
-                          className={`preset-btn ${maxRounds === rounds ? 'active' : ''}`}
-                          onClick={() => setMaxRounds(rounds)}
-                          disabled={isCreating}
-                          type="button"
-                        >
-                          {rounds}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  <div className="rounds-presets">
+                    {[5, 10, 15, 20].map((rounds) => (
+                      <button
+                        key={rounds}
+                        className={`preset-btn ${maxRounds === rounds ? 'active' : ''}`}
+                        onClick={() => setMaxRounds(rounds)}
+                        disabled={isCreating}
+                        type="button"
+                      >
+                        {rounds}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* 생성 버튼 */}
             <button
-              className={isValid && !isCreating ? 'create-btn' : 'create-btn-fasle'}
+              className={
+                isValid && !isCreating ? 'create-btn' : 'create-btn-fasle'
+              }
               onClick={handleSubmit}
               disabled={!isValid || isCreating}
             >
@@ -245,8 +206,8 @@ function AddRoomModal({ isOpen, isClose }) {
                 '생성하기'
               )}
             </button>
-            <button 
-              className="cancel-btn" 
+            <button
+              className="cancel-btn"
               onClick={handleClose}
               disabled={isCreating}
             >

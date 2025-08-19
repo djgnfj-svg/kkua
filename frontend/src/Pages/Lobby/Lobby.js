@@ -39,7 +39,7 @@ function Lobby() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex">
-        <div className="hidden lg:flex w-64 bg-white/10 backdrop-blur-md border-r border-white/20 flex-col p-4">
+      <div className="hidden lg:flex w-64 bg-white/10 backdrop-blur-md border-r border-white/20 flex-col p-4">
         <h3 className="text-white font-bold text-lg mb-4">🎮 온라인 사용자</h3>
         <div className="space-y-2">
           <div className="flex items-center space-x-2 p-2 bg-white/5 rounded-lg">
@@ -55,9 +55,11 @@ function Lobby() {
             <span className="text-white text-sm">Guest Player</span>
           </div>
         </div>
-        
+
         <div className="mt-8">
-          <h4 className="text-white/80 font-semibold text-sm mb-3">📊 게임 통계</h4>
+          <h4 className="text-white/80 font-semibold text-sm mb-3">
+            📊 게임 통계
+          </h4>
           <div className="space-y-2">
             <div className="bg-white/5 rounded-lg p-3">
               <div className="text-white/60 text-xs">활성 게임</div>
@@ -88,8 +90,10 @@ function Lobby() {
             </div>
             <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full border-2 border-white"></div>
           </div>
-          
-          <h2 className="text-white text-xl font-bold mb-1">{nickname || '게스트'}</h2>
+
+          <h2 className="text-white text-xl font-bold mb-1">
+            {nickname || '게스트'}
+          </h2>
           <div className="flex items-center space-x-4 text-white/70 text-sm mb-3">
             <span className="flex items-center">
               <span className="w-2 h-2 bg-yellow-400 rounded-full mr-1"></span>
@@ -100,25 +104,28 @@ function Lobby() {
               승률 0%
             </span>
           </div>
-          
+
           <div className="flex space-x-2">
             <button className="px-4 py-2 bg-white/10 backdrop-blur-md rounded-lg text-white text-sm hover:bg-white/20 transition-colors border border-white/20">
               프로필 편집
             </button>
-            <button 
+            <button
               onClick={handleClickRefresh}
               data-refresh-btn
               className="px-4 py-2 bg-gradient-to-r from-purple-500 to-blue-500 rounded-lg text-white text-sm hover:from-purple-600 hover:to-blue-600 transition-all duration-300 shadow-lg"
               disabled={isLoading}
             >
-              <span className="transition-transform duration-500">🔄</span> 새로고침
+              <span className="transition-transform duration-500">🔄</span>{' '}
+              새로고침
             </button>
           </div>
         </div>
         <div className="flex justify-between items-center px-6 py-4 border-b border-white/10">
           <div className="flex items-center space-x-2 text-white/70">
             <span className="text-sm">🏆 활성 게임</span>
-            <span className="text-white font-semibold">{roomsData.length}개</span>
+            <span className="text-white font-semibold">
+              {roomsData.length}개
+            </span>
           </div>
           <button
             className="px-6 py-3 bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 text-white font-bold rounded-xl shadow-lg transition-all duration-200 transform hover:scale-105"
@@ -132,13 +139,15 @@ function Lobby() {
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent mx-auto mb-4"></div>
-                <p className="text-white/70 text-lg">방 목록을 불러오는 중...</p>
+                <p className="text-white/70 text-lg">
+                  방 목록을 불러오는 중...
+                </p>
               </div>
             </div>
           ) : (
-            <RoomList 
-              rooms={roomsData} 
-              onEnter={handleEnterGame} 
+            <RoomList
+              rooms={roomsData}
+              onEnter={handleEnterGame}
               isEntering={isEntering}
               enteringRoomId={enteringRoomId}
             />
@@ -146,7 +155,7 @@ function Lobby() {
         </div>
 
         <div className="p-6 border-t border-white/10">
-          <button 
+          <button
             onClick={handleClickOpenModal}
             className="w-full py-4 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white font-bold rounded-xl shadow-lg transition-all duration-200 transform hover:scale-[1.02] flex items-center justify-center space-x-2"
           >
@@ -159,26 +168,40 @@ function Lobby() {
           <AddRoomModal isOpen={modalIsOpen} isClose={setModalIsOpen} />
         )}
       </div>
-      
+
       <div className="hidden lg:flex w-64 bg-white/10 backdrop-blur-md border-l border-white/20 flex-col p-4">
         <h3 className="text-white font-bold text-lg mb-4">🎯 게임 가이드</h3>
         <div className="space-y-3">
           <div className="bg-white/5 rounded-lg p-3">
-            <div className="text-white font-semibold text-sm mb-1">끝말잇기 규칙</div>
-            <div className="text-white/70 text-xs">이전 단어의 마지막 글자로 시작하는 단어를 입력하세요</div>
+            <div className="text-white font-semibold text-sm mb-1">
+              끝말잇기 규칙
+            </div>
+            <div className="text-white/70 text-xs">
+              이전 단어의 마지막 글자로 시작하는 단어를 입력하세요
+            </div>
           </div>
           <div className="bg-white/5 rounded-lg p-3">
-            <div className="text-white font-semibold text-sm mb-1">아이템 사용</div>
-            <div className="text-white/70 text-xs">특별한 아이템으로 게임을 더 재미있게!</div>
+            <div className="text-white font-semibold text-sm mb-1">
+              아이템 사용
+            </div>
+            <div className="text-white/70 text-xs">
+              특별한 아이템으로 게임을 더 재미있게!
+            </div>
           </div>
           <div className="bg-white/5 rounded-lg p-3">
-            <div className="text-white font-semibold text-sm mb-1">승리 조건</div>
-            <div className="text-white/70 text-xs">가장 많은 점수를 획득한 플레이어가 승리</div>
+            <div className="text-white font-semibold text-sm mb-1">
+              승리 조건
+            </div>
+            <div className="text-white/70 text-xs">
+              가장 많은 점수를 획득한 플레이어가 승리
+            </div>
           </div>
         </div>
-        
+
         <div className="mt-8">
-          <h4 className="text-white/80 font-semibold text-sm mb-3">🚀 최근 업데이트</h4>
+          <h4 className="text-white/80 font-semibold text-sm mb-3">
+            🚀 최근 업데이트
+          </h4>
           <div className="bg-white/5 rounded-lg p-3">
             <div className="text-white/60 text-xs mb-1">v1.0.0</div>
             <div className="text-white text-sm">새로운 아이템 시스템 추가</div>

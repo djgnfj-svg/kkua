@@ -10,7 +10,7 @@ global.WebSocket = jest.fn(() => ({
   CONNECTING: 0,
   OPEN: 1,
   CLOSING: 2,
-  CLOSED: 3
+  CLOSED: 3,
 }));
 
 // Mock IntersectionObserver
@@ -33,7 +33,7 @@ global.scrollTo = jest.fn();
 // Mock matchMedia
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
-  value: jest.fn().mockImplementation(query => ({
+  value: jest.fn().mockImplementation((query) => ({
     matches: false,
     media: query,
     onchange: null,

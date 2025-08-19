@@ -7,12 +7,14 @@ function NotFound() {
       <div className="text-center">
         <div className="mb-8">
           <h1 className="text-6xl font-bold text-white mb-4">404</h1>
-          <h2 className="text-2xl font-semibold text-white mb-4">페이지를 찾을 수 없습니다</h2>
+          <h2 className="text-2xl font-semibold text-white mb-4">
+            페이지를 찾을 수 없습니다
+          </h2>
           <p className="text-gray-300 text-lg mb-8">
             요청하신 페이지가 존재하지 않거나 이동되었습니다.
           </p>
         </div>
-        
+
         <div className="space-y-4">
           <Link
             to="/"
@@ -20,9 +22,16 @@ function NotFound() {
           >
             홈으로 돌아가기
           </Link>
-          
+
           <div className="text-gray-400 text-sm">
-            또는 <Link to="/lobby" className="text-blue-400 hover:text-blue-300 underline">로비</Link>로 이동하세요
+            또는{' '}
+            <Link
+              to="/lobby"
+              className="text-blue-400 hover:text-blue-300 underline"
+            >
+              로비
+            </Link>
+            로 이동하세요
           </div>
         </div>
       </div>

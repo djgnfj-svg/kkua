@@ -17,6 +17,7 @@ class GuestRepository:
             return guest
         except Exception as e:
             import logging
+
             logging.error(f"게스트 ID 검색 중 오류 발생: {str(e)}")
             return None
 

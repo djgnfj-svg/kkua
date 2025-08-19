@@ -1,4 +1,13 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Index, JSON
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    DateTime,
+    ForeignKey,
+    Boolean,
+    Index,
+    JSON,
+)
 from sqlalchemy.orm import relationship
 from db.postgres import Base
 import enum
@@ -29,9 +38,7 @@ class Gameroom(Base):
     game_mode = Column(String, nullable=False, default="standard")
     time_limit = Column(Integer, nullable=False, default=300)
     max_rounds = Column(Integer, nullable=False, default=10)
-    status = Column(
-        String, nullable=False, default=GameStatus.WAITING.value
-    )
+    status = Column(String, nullable=False, default=GameStatus.WAITING.value)
     created_by = Column(Integer, ForeignKey("guests.guest_id"), nullable=False)
     created_at = Column(DateTime, nullable=False, default=datetime.now)
     updated_at = Column(DateTime, nullable=False, default=datetime.now)
@@ -39,7 +46,7 @@ class Gameroom(Base):
     ended_at = Column(DateTime, nullable=True)
     participant_count = Column(Integer, nullable=False, default=0)
     room_type = Column(String, nullable=False, default="normal")
-    
+
     # 게임 모드 관련 필드
     game_mode_config = Column(JSON, nullable=True)  # 게임 모드 설정 JSON
 
@@ -51,9 +58,9 @@ class Gameroom(Base):
 
     # 인덱스 정의
     __table_args__ = (
-        Index('idx_gamerooms_status_created', 'status', 'created_at'),
-        Index('idx_gamerooms_created_by', 'created_by'),
-        Index('idx_gamerooms_status', 'status'),
+        Index("idx_gamerooms_status_created", "status", "created_at"),
+        Index("idx_gamerooms_created_by", "created_by"),
+        Index("idx_gamerooms_status", "status"),
     )
 
 
@@ -75,10 +82,10 @@ class GameroomParticipant(Base):
 
     # 인덱스 정의
     __table_args__ = (
-        Index('idx_participants_room_guest', 'room_id', 'guest_id'),
-        Index('idx_participants_guest_active', 'guest_id', 'left_at'),
-        Index('idx_participants_room_active', 'room_id', 'left_at'),
-        Index('idx_participants_status', 'status'),
+        Index("idx_participants_room_guest", "room_id", "guest_id"),
+        Index("idx_participants_guest_active", "guest_id", "left_at"),
+        Index("idx_participants_room_active", "room_id", "left_at"),
+        Index("idx_participants_status", "status"),
     )
 
     @staticmethod

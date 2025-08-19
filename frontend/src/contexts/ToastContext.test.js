@@ -18,9 +18,7 @@ const TestComponent = () => {
       <button onClick={() => showWarning('Warning message', 1000)}>
         Show Warning
       </button>
-      <button onClick={() => showInfo('Info message', 1000)}>
-        Show Info
-      </button>
+      <button onClick={() => showInfo('Info message', 1000)}>Show Info</button>
     </div>
   );
 };

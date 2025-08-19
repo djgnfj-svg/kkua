@@ -17,19 +17,27 @@ const RoomList = ({ rooms, onEnter, isEntering, enteringRoomId }) => {
 
   const getStatusIcon = (status) => {
     switch (status) {
-      case 'waiting': return '⏳';
-      case 'playing': return '🎯';
-      case 'finished': return '🏁';
-      default: return '❓';
+      case 'waiting':
+        return '⏳';
+      case 'playing':
+        return '🎯';
+      case 'finished':
+        return '🏁';
+      default:
+        return '❓';
     }
   };
 
   const getStatusText = (status) => {
     switch (status) {
-      case 'waiting': return '대기중';
-      case 'playing': return '게임중';
-      case 'finished': return '종료됨';
-      default: return '알 수 없음';
+      case 'waiting':
+        return '대기중';
+      case 'playing':
+        return '게임중';
+      case 'finished':
+        return '종료됨';
+      default:
+        return '알 수 없음';
     }
   };
 
@@ -56,7 +64,9 @@ const RoomList = ({ rooms, onEnter, isEntering, enteringRoomId }) => {
                   </span>
                   <span className="flex items-center space-x-1">
                     <span>👥</span>
-                    <span>{room?.participant_count || 0}/{room?.max_players || 0}</span>
+                    <span>
+                      {room?.participant_count || 0}/{room?.max_players || 0}
+                    </span>
                   </span>
                 </div>
                 {room?.creator_nickname && (
@@ -66,15 +76,17 @@ const RoomList = ({ rooms, onEnter, isEntering, enteringRoomId }) => {
                   </div>
                 )}
               </div>
-              
+
               <div className="flex flex-col items-end space-y-2">
-                <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                  room.status === 'waiting' 
-                    ? 'bg-green-500/20 text-green-300 border border-green-500/30' 
-                    : room.status === 'playing'
-                    ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30'
-                    : 'bg-gray-500/20 text-gray-300 border border-gray-500/30'
-                }`}>
+                <span
+                  className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                    room.status === 'waiting'
+                      ? 'bg-green-500/20 text-green-300 border border-green-500/30'
+                      : room.status === 'playing'
+                        ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30'
+                        : 'bg-gray-500/20 text-gray-300 border border-gray-500/30'
+                  }`}
+                >
                   {getStatusText(room.status)}
                 </span>
               </div>

@@ -5,8 +5,8 @@ const axiosInstance = axios.create({
   headers: {
     'Content-Type': 'application/json',
     'Cache-Control': 'no-cache, no-store, must-revalidate', // HTTP 캐시 방지
-    'Pragma': 'no-cache',
-    'Expires': '0'
+    Pragma: 'no-cache',
+    Expires: '0',
   },
   timeout: 10000,
   withCredentials: true,

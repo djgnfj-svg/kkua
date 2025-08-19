@@ -38,16 +38,13 @@ const ChatWindow = ({ messages, sendMessage }) => {
             const isSelf = String(msg.guest_id) === String(user?.guest_id);
 
             return (
-              <div
-                key={i}
-                className={`mb-3 ${
-                  isSystem ? 'text-center' : ''
-                }`}
-              >
+              <div key={i} className={`mb-3 ${isSystem ? 'text-center' : ''}`}>
                 {isSystem ? (
                   <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 border border-white/20">
                     <div className="flex items-center justify-center space-x-2 mb-1">
-                      <span className="text-blue-300 font-semibold">🔔 시스템</span>
+                      <span className="text-blue-300 font-semibold">
+                        🔔 시스템
+                      </span>
                       <span className="text-xs text-white/60">
                         {new Date(msg.timestamp).toLocaleTimeString()}
                       </span>

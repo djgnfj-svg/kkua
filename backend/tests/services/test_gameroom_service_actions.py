@@ -90,7 +90,9 @@ class TestGameroomService:
         self.repository.add_participant.return_value = mock_participant
 
         # 비동기 함수를 패치하여 동기 버전으로 대체
-        with patch.object(self.service.ws_manager, "broadcast_room_update", return_value=None) as mock_broadcast:
+        with patch.object(
+            self.service.ws_manager, "broadcast_room_update", return_value=None
+        ) as mock_broadcast:
             # 테스트 실행
             result = self.service.join_gameroom(room_id, mock_request)
 
@@ -232,7 +234,9 @@ class TestGameroomService:
         self.repository.update_participant_left.return_value = True
 
         # 비동기 함수를 패치하여 동기 버전으로 대체
-        with patch.object(self.service.ws_manager, "broadcast_room_update", return_value=None) as mock_broadcast:
+        with patch.object(
+            self.service.ws_manager, "broadcast_room_update", return_value=None
+        ) as mock_broadcast:
             # 테스트 실행
             result = self.service.leave_gameroom(room_id, mock_request)
 
@@ -291,7 +295,9 @@ class TestGameroomService:
         self.repository.db.commit = Mock()
 
         # 비동기 함수를 패치하여 동기 버전으로 대체
-        with patch.object(self.service.ws_manager, "broadcast_room_update", return_value=None) as mock_broadcast:
+        with patch.object(
+            self.service.ws_manager, "broadcast_room_update", return_value=None
+        ) as mock_broadcast:
             # 테스트 실행
             result = self.service.leave_gameroom(room_id, mock_request)
 
@@ -328,7 +334,9 @@ class TestGameroomService:
         self.repository.start_game.return_value = True
 
         # 비동기 함수를 패치하여 동기 버전으로 대체
-        with patch.object(self.service.ws_manager, "broadcast_room_update", return_value=None) as mock_broadcast:
+        with patch.object(
+            self.service.ws_manager, "broadcast_room_update", return_value=None
+        ) as mock_broadcast:
             # 테스트 실행
             result = self.service.start_game(room_id, mock_request)
 
@@ -374,7 +382,9 @@ class TestGameroomService:
         self.repository.update_participant_status.return_value = True
 
         # 비동기 함수를 패치하여 동기 버전으로 대체
-        with patch.object(self.service.ws_manager, "broadcast_room_update", return_value=None) as mock_broadcast:
+        with patch.object(
+            self.service.ws_manager, "broadcast_room_update", return_value=None
+        ) as mock_broadcast:
             # 테스트 실행
             result = self.service.toggle_ready_status(room_id, mock_request)
 

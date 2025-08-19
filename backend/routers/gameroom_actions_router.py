@@ -7,7 +7,6 @@ from middleware.auth_middleware import get_current_guest
 from models.guest_model import Guest
 from services.gameroom_service import GameroomService
 from schemas.gameroom_actions_schema import JoinGameroomResponse
-from schemas.gameroom_schema import GameResultResponse
 
 router = APIRouter(
     prefix="/gamerooms",
@@ -56,7 +55,9 @@ async def toggle_ready_status(
     service: GameroomService = Depends(get_gameroom_service),
 ):
     """참가자의 준비 상태를 토글합니다."""
-    logger.info(f"준비 상태 토글 API 호출: room_id={room_id}, guest_id={guest.guest_id}")
+    logger.info(
+        f"준비 상태 토글 API 호출: room_id={room_id}, guest_id={guest.guest_id}"
+    )
     try:
         result = await service.toggle_ready_status_with_ws(room_id, guest)
         logger.info(f"준비 상태 토글 성공: {result}")
@@ -122,7 +123,7 @@ async def get_game_result(
 ):
     """게임 결과를 조회합니다. 게임이 종료된 방의 참가자만 조회할 수 있습니다."""
     logger.info(f"게임 결과 API 호출: room_id={room_id}, guest_id={guest.guest_id}")
-    
+
     # 실제 게임 결과 데이터 조회
     try:
         result = await service.get_game_result(room_id, guest)
@@ -132,9 +133,9 @@ async def get_game_result(
         logger.error(f"게임 결과 조회 실패: {e}")
         # 에러 발생 시 적절한 HTTP 예외 발생
         from fastapi import HTTPException
+
         raise HTTPException(
-            status_code=404, 
-            detail=f"게임 결과를 찾을 수 없습니다: {str(e)}"
+            status_code=404, detail=f"게임 결과를 찾을 수 없습니다: {str(e)}"
         )
 
 
@@ -143,16 +144,17 @@ async def test_redis_data(room_id: int):
     """Redis 게임 데이터 테스트용 엔드포인트"""
     try:
         from services.redis_game_service import get_redis_game_service
+
         redis_game = await get_redis_game_service()
-        
+
         game_state = await redis_game.get_game_state(room_id)
         all_player_stats = await redis_game.get_all_player_stats(room_id)
         word_entries = await redis_game.get_word_entries(room_id)
-        
+
         return {
             "game_state": game_state,
             "player_stats": all_player_stats,
-            "word_entries": word_entries
+            "word_entries": word_entries,
         }
     except Exception as e:
         return {"error": str(e)}

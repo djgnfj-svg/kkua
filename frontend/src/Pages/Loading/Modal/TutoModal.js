@@ -6,20 +6,20 @@ function TutoModal({ isOpen, onClose, guideSections }) {
   const defaultGuideSections = [
     {
       text: '🎮 실시간으로 친구들과 끝말잇기를 즐겨보세요!',
-      image: null
+      image: null,
     },
     {
       text: '⚡ 빠른 매칭으로 언제든 게임을 시작할 수 있어요.',
-      image: null
+      image: null,
     },
     {
       text: '🏆 랭킹 시스템으로 실력을 겨뤄보세요!',
-      image: null
+      image: null,
     },
     {
       text: '🎯 다양한 아이템으로 더욱 재미있는 게임을 즐겨보세요.',
-      image: null
-    }
+      image: null,
+    },
   ];
 
   const sectionsToRender = guideSections || defaultGuideSections;
@@ -48,13 +48,12 @@ function TutoModal({ isOpen, onClose, guideSections }) {
 
         <div className="flex flex-col gap-4">
           {sectionsToRender.map((section, index) => (
-            <div
-              key={index}
-              className="flex items-start text-left"
-            >
+            <div key={index} className="flex items-start text-left">
               {section.image}
               {section.text && (
-                <p className="text-sm text-left leading-relaxed">{section.text}</p>
+                <p className="text-sm text-left leading-relaxed">
+                  {section.text}
+                </p>
               )}
             </div>
           ))}

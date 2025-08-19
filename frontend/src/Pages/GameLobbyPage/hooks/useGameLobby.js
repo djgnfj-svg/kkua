@@ -39,7 +39,11 @@ const useGameLobby = () => {
       try {
         if (isOwner) {
           // 방장인 경우 방 삭제 여부 확인
-          if (window.confirm('방장이 나가면 방이 삭제됩니다. 정말 나가시겠습니까?')) {
+          if (
+            window.confirm(
+              '방장이 나가면 방이 삭제됩니다. 정말 나가시겠습니까?'
+            )
+          ) {
             await axiosInstance.delete(ROOM_API.DELET_ROOMSID(roomId));
             navigate('/lobby', { replace: true });
           } else {
@@ -69,7 +73,7 @@ const useGameLobby = () => {
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({})
+            body: JSON.stringify({}),
           }).catch(() => {
             // 에러 무시 (페이지 종료 시점이므로)
           });
@@ -98,10 +102,12 @@ const useGameLobby = () => {
   // WebSocket 메시지를 통한 게임 시작 감지
   useEffect(() => {
     const hasGameStartedMessage = messages.some(
-      msg => msg.type === 'system' && 
-      (msg.message.includes('게임이 시작') || msg.message.includes('게임 페이지로 이동'))
+      (msg) =>
+        msg.type === 'system' &&
+        (msg.message.includes('게임이 시작') ||
+          msg.message.includes('게임 페이지로 이동'))
     );
-    
+
     if (hasGameStartedMessage && isStartingGame) {
       setIsStartingGame(false);
     }
@@ -123,11 +129,11 @@ const useGameLobby = () => {
           Array.isArray(response.data.participants)
         ) {
           setParticipants(response.data.participants);
-          
+
           const isParticipant = response.data.participants.some(
             (p) => String(p.guest_id) === String(user?.guest_id)
           );
-          
+
           if (!isParticipant) {
             alert('이 방에 참가하지 않은 사용자입니다. 로비로 이동합니다.');
             navigate('/lobby');
@@ -235,26 +241,25 @@ const useGameLobby = () => {
     if (isStartingGame) {
       return;
     }
-    
+
     try {
       setIsStartingGame(true);
-      
+
       const apiUrl = ROOM_API.PLAY_ROOMS(roomId);
       const response = await axiosInstance.post(apiUrl);
-      
+
       // 백업 로직: WebSocket 메시지가 3초 내에 오지 않으면 수동 이동
       setTimeout(() => {
         if (isStartingGame) {
           navigate(gameUrl(roomId));
         }
       }, 3000);
-      
     } catch (error) {
       console.error('게임 시작 오류:', error);
       setIsStartingGame(false);
-      
+
       let errorMessage = '게임을 시작할 수 없습니다.';
-      
+
       if (error.response?.data?.detail) {
         errorMessage = error.response.data.detail;
       } else if (error.response?.status === 400) {
@@ -264,7 +269,7 @@ const useGameLobby = () => {
       } else if (error.code === 'ERR_NETWORK') {
         errorMessage = '네트워크 연결을 확인해주세요.';
       }
-      
+
       alert(`게임 시작 실패: ${errorMessage}`);
     }
   };

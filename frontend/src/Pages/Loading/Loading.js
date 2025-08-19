@@ -5,7 +5,6 @@ import { useToast } from '../../contexts/ToastContext';
 import TutoModal from './Modal/TutoModal';
 import { lobbyUrl } from '../../utils/urls';
 import { useAuth } from '../../contexts/AuthContext';
-import { getErrorMessage, ERROR_MESSAGES } from '../../utils/errorMessages';
 
 function Loading() {
   const [showModal, setShowModal] = useState(false);
@@ -28,7 +27,7 @@ function Loading() {
       setShowModal(true);
       setIsLoading(false);
     } catch (error) {
-      const errorMessage = getErrorMessage(error) || ERROR_MESSAGES.AUTH_FAILED;
+      const errorMessage = error.response?.data?.detail || '로그인에 실패했습니다.';
       toast.showError(errorMessage);
       setIsLoading(false);
     }
@@ -46,7 +45,7 @@ function Loading() {
       setShowModal(true);
       setIsLoading(false);
     } catch (error) {
-      const errorMessage = getErrorMessage(error) || ERROR_MESSAGES.AUTH_FAILED;
+      const errorMessage = error.response?.data?.detail || '로그인에 실패했습니다.';
       toast.showError(errorMessage);
       setIsLoading(false);
     }

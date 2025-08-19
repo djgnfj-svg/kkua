@@ -8,7 +8,7 @@ const getInitialState = () => {
     const savedAuth = localStorage.getItem('auth_state');
     if (savedAuth) {
       const parsedAuth = JSON.parse(savedAuth);
-      
+
       // 저장된 인증 정보가 있으면 인증된 상태로 시작하되 loading은 false로 설정
       if (parsedAuth.user && parsedAuth.isAuthenticated) {
         return {
@@ -27,7 +27,7 @@ const getInitialState = () => {
       // localStorage 제거도 실패하면 조용히 처리
     }
   }
-  
+
   return {
     isAuthenticated: false,
     user: null,
@@ -40,7 +40,7 @@ const initialState = getInitialState();
 
 function authReducer(state, action) {
   let newState;
-  
+
   switch (action.type) {
     case 'LOGIN_START':
       newState = { ...state, loading: true, error: null };
@@ -87,18 +87,25 @@ function authReducer(state, action) {
     default:
       newState = state;
   }
-  
-  if (action.type === 'LOGIN_SUCCESS' || action.type === 'LOGOUT' || action.type === 'UPDATE_PROFILE') {
+
+  if (
+    action.type === 'LOGIN_SUCCESS' ||
+    action.type === 'LOGOUT' ||
+    action.type === 'UPDATE_PROFILE'
+  ) {
     try {
-      localStorage.setItem('auth_state', JSON.stringify({
-        isAuthenticated: newState.isAuthenticated,
-        user: newState.user,
-      }));
+      localStorage.setItem(
+        'auth_state',
+        JSON.stringify({
+          isAuthenticated: newState.isAuthenticated,
+          user: newState.user,
+        })
+      );
     } catch (error) {
       // Failed to save auth state to localStorage - 조용히 처리
     }
   }
-  
+
   return newState;
 }
 
@@ -121,14 +128,14 @@ export function AuthProvider({ children }) {
   const checkAuthStatus = async () => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
-      
+
       const timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => reject(new Error('TIMEOUT')), 5000); // 타임아웃 5초로 증가
       });
-      
+
       const apiPromise = axiosInstance.get('/auth/status');
       const response = await Promise.race([apiPromise, timeoutPromise]);
-      
+
       if (response.data.authenticated) {
         dispatch({ type: 'LOGIN_SUCCESS', payload: response.data.guest });
       } else {
@@ -137,13 +144,14 @@ export function AuthProvider({ children }) {
       }
     } catch (error) {
       // Auth status check failed - 조용히 처리
-      
+
       // 네트워크 에러나 타임아웃인 경우 저장된 정보 유지
-      if (error.message === 'TIMEOUT' || 
-          error.code === 'ECONNABORTED' || 
-          error.code === 'ERR_NETWORK' ||
-          error.response?.status >= 500) {
-        
+      if (
+        error.message === 'TIMEOUT' ||
+        error.code === 'ECONNABORTED' ||
+        error.code === 'ERR_NETWORK' ||
+        error.response?.status >= 500
+      ) {
         // 서버 연결 불가 - 저장된 사용자 정보 유지
         const savedAuth = localStorage.getItem('auth_state');
         if (savedAuth) {
@@ -159,7 +167,7 @@ export function AuthProvider({ children }) {
           }
         }
       }
-      
+
       // 401 에러나 기타 클라이언트 에러인 경우에만 로그아웃
       if (error.response?.status === 401 || error.response?.status === 403) {
         dispatch({ type: 'LOGOUT' });
@@ -177,10 +185,10 @@ export function AuthProvider({ children }) {
       const timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => reject(new Error('TIMEOUT')), 3000); // 더 짧은 타임아웃
       });
-      
+
       const apiPromise = axiosInstance.get('/auth/status');
       const response = await Promise.race([apiPromise, timeoutPromise]);
-      
+
       if (!response.data.authenticated) {
         // 서버에서 인증되지 않았다고 하면 로그아웃
         dispatch({ type: 'LOGOUT' });

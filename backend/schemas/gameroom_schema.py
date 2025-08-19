@@ -23,7 +23,7 @@ class GameroomBase(BaseModel):
 
 # 게임룸 생성 요청 스키마
 class CreateGameroomRequest(GameroomBase):
-    pass
+    """게임룸 생성을 위한 요청 스키마"""
 
 
 # 게임룸 업데이트 요청 스키마

@@ -1,5 +1,5 @@
 import { renderHook, act } from '@testing-library/react';
-import useGuestStore from './guestStore';
+import guestStore from './guestStore';
 
 // Mock localStorage
 const mockLocalStorage = {
@@ -14,68 +14,61 @@ describe('guestStore', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     // Reset the store state before each test
-    const { result } = renderHook(() => useGuestStore());
     act(() => {
-      result.current.logout();
+      guestStore.getState().resetGuestData();
     });
   });
 
   test('should initialize with default state', () => {
-    mockLocalStorage.getItem.mockReturnValue(null);
-    const { result } = renderHook(() => useGuestStore());
-    
-    expect(result.current.guest).toBeNull();
-    expect(result.current.isAuthenticated).toBe(false);
+    const state = guestStore.getState();
+
+    expect(state.nickname).toBe('');
+    expect(state.lastLogin).toBeNull();
+    expect(state.preferences).toEqual({
+      notifications: true,
+      sound: true,
+    });
   });
 
-  test('should login user correctly', () => {
-    const { result } = renderHook(() => useGuestStore());
-    const mockGuest = { guest_id: 1, nickname: 'TestUser' };
-    
+  test('should set nickname correctly', () => {
     act(() => {
-      result.current.login(mockGuest);
+      guestStore.getState().setNickname('TestUser');
     });
-    
-    expect(result.current.guest).toEqual(mockGuest);
-    expect(result.current.isAuthenticated).toBe(true);
-    expect(mockLocalStorage.setItem).toHaveBeenCalledWith('guest', JSON.stringify(mockGuest));
+
+    const state = guestStore.getState();
+    expect(state.nickname).toBe('TestUser');
   });
 
-  test('should logout user correctly', () => {
-    const { result } = renderHook(() => useGuestStore());
-    const mockGuest = { guest_id: 1, nickname: 'TestUser' };
-    
-    // First login
+  test('should update preferences correctly', () => {
     act(() => {
-      result.current.login(mockGuest);
+      guestStore.getState().setPreferences({ notifications: false });
     });
-    
-    // Then logout
-    act(() => {
-      result.current.logout();
+
+    const state = guestStore.getState();
+    expect(state.preferences).toEqual({
+      notifications: false,
+      sound: true,
     });
-    
-    expect(result.current.guest).toBeNull();
-    expect(result.current.isAuthenticated).toBe(false);
-    expect(mockLocalStorage.removeItem).toHaveBeenCalledWith('guest');
   });
 
-  test('should update nickname correctly', () => {
-    const { result } = renderHook(() => useGuestStore());
-    const mockGuest = { guest_id: 1, nickname: 'TestUser' };
-    
+  test('should reset guest data correctly', () => {
+    // First set some data
     act(() => {
-      result.current.login(mockGuest);
+      guestStore.getState().setNickname('TestUser');
+      guestStore.getState().setPreferences({ sound: false });
     });
-    
+
+    // Then reset
     act(() => {
-      result.current.updateNickname('NewNickname');
+      guestStore.getState().resetGuestData();
     });
-    
-    expect(result.current.guest.nickname).toBe('NewNickname');
-    expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
-      'guest', 
-      JSON.stringify({ ...mockGuest, nickname: 'NewNickname' })
-    );
+
+    const state = guestStore.getState();
+    expect(state.nickname).toBe('');
+    expect(state.lastLogin).toBeNull();
+    expect(state.preferences).toEqual({
+      notifications: true,
+      sound: true,
+    });
   });
 });
