@@ -34,12 +34,14 @@ const ChatWindow = ({ messages, sendMessage }) => {
       >
         {messages.length > 0 ? (
           messages.map((msg, i) => {
-            const isSystem = msg.type === 'system';
-            const isSelf = String(msg.guest_id) === String(user?.guest_id);
+            // 시스템 메시지 (참가자 입장/퇴장, 준비상태 등)
+            const isSystem = ['participant_joined', 'participant_left', 'ready_toggled'].includes(msg.type);
+            const isChat = msg.type === 'chat';
+            const isSelf = isChat && String(msg.guest_id) === String(user?.guest_id);
 
-            return (
-              <div key={i} className={`mb-3 ${isSystem ? 'text-center' : ''}`}>
-                {isSystem ? (
+            if (isSystem) {
+              return (
+                <div key={i} className="mb-3 text-center">
                   <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 border border-white/20">
                     <div className="flex items-center justify-center space-x-2 mb-1">
                       <span className="text-blue-300 font-semibold">
@@ -51,38 +53,38 @@ const ChatWindow = ({ messages, sendMessage }) => {
                     </div>
                     <div className="text-white/90 text-sm">{msg.message}</div>
                   </div>
-                ) : (
-                  <div
-                    className={`w-full flex mb-2 ${
-                      isSelf ? 'justify-end' : 'justify-start'
-                    }`}
-                  >
-                    <div
-                      className={`flex flex-col max-w-[80%] text-sm ${
-                        isSelf ? 'items-end' : 'items-start'
-                      }`}
-                    >
-                      <span
-                        className={`font-bold mb-1 text-xs ${
-                          isSelf ? 'text-orange-300' : 'text-blue-300'
-                        }`}
-                      >
-                        {msg.nickname || `게스트_${msg.guest_id}`}
-                      </span>
-                      <div
-                        className={`rounded-lg px-3 py-2 shadow-lg break-words ${
-                          isSelf
-                            ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white'
-                            : 'bg-white/90 text-gray-800'
-                        }`}
-                      >
-                        {msg.message || ''}
-                      </div>
+                </div>
+              );
+            } else if (isChat) {
+              return (
+                <div key={i} className={`w-full flex mb-2 ${isSelf ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`flex flex-col max-w-[80%] text-sm ${isSelf ? 'items-end' : 'items-start'}`}>
+                    <span className={`font-bold mb-1 text-xs ${isSelf ? 'text-orange-300' : 'text-blue-300'}`}>
+                      {msg.nickname || `게스트_${msg.guest_id}`}
+                    </span>
+                    <div className={`rounded-lg px-3 py-2 shadow-lg break-words ${
+                        isSelf
+                          ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white'
+                          : 'bg-white/90 text-gray-800'
+                      }`}>
+                      {msg.content || msg.message || ''}
                     </div>
+                    <span className="text-xs text-white/60 mt-1">
+                      {new Date(msg.timestamp).toLocaleTimeString()}
+                    </span>
                   </div>
-                )}
-              </div>
-            );
+                </div>
+              );
+            } else {
+              // 기타 메시지
+              return (
+                <div key={i} className="mb-3 text-center">
+                  <div className="bg-yellow-500/20 backdrop-blur-sm rounded-lg p-3 border border-yellow-500/30">
+                    <div className="text-yellow-300 text-sm">{JSON.stringify(msg)}</div>
+                  </div>
+                </div>
+              );
+            }
           })
         ) : (
           <div className="text-center text-white/60 mt-8">

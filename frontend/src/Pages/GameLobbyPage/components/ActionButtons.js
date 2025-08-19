@@ -3,116 +3,41 @@ import React from 'react';
 const ActionButtons = ({
   isOwner,
   participants,
-  handleClickExit,
-  handleClickStartBtn,
-  handleReady,
-  isReady,
-  isStartingGame = false,
+  currentUser,
+  onToggleReady,
+  onLeaveRoom,
+  onStartGame,
 }) => {
-  const allNonOwnerPlayersReady = participants
-    .filter(player => player && player.guest_id) // 유효한 플레이어만 필터링
-    .every(
-      (player) =>
-        player.is_creator ||
-        player.status === 'READY' ||
-        player.status === 'ready' ||
-        player.is_ready === true
-    );
+  // 현재 사용자의 준비 상태 확인
+  const currentUserInfo = participants.find(p => p.guest_id === currentUser?.guest_id);
+  const isReady = currentUserInfo?.is_ready || false;
+
+  // 모든 참가자가 준비되었는지 확인 (방장 제외)
+  const allPlayersReady = participants
+    .filter(p => !p.is_creator && p.guest_id !== currentUser?.guest_id)
+    .every(p => p.is_ready === true);
+  
+  const canStartGame = participants.length >= 2 && allPlayersReady;
 
   return (
     <div className="w-full bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20 shadow-lg">
-      <div className="flex justify-between items-center mb-4">
-        <button
-          onClick={handleClickExit}
-          className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold rounded-lg shadow-lg transition-all duration-200 transform hover:scale-105"
-        >
-          {isOwner ? '🗑️ 방 삭제' : '🚪 나가기'}
-        </button>
-
-        <div className="text-white/80 text-sm">
-          {isOwner ? '👑 방장' : '👤 참가자'}
-        </div>
-      </div>
-
-      {/* 디버깅 정보 */}
-      <div className="mb-4 p-3 bg-black/30 rounded-lg text-xs text-white/80 space-y-1">
-        <div>참가자 수: {participants.filter(player => player && player.guest_id).length}</div>
-        <div>모든 플레이어 준비됨: {allNonOwnerPlayersReady ? '✅' : '❌'}</div>
-        <div className="space-y-1">
-          {participants
-            .filter(player => player && player.guest_id)
-            .map((player, index) => (
-              <div key={player.guest_id || index} className="text-xs">
-                👤 {player.nickname || `게스트_${player.guest_id}`}: 방장=
-                {player.is_creator ? '✅' : '❌'}, status="{player.status}",
-                is_ready={player.is_ready ? '✅' : '❌'}
-              </div>
-            ))}
-        </div>
-      </div>
-
-      {isOwner ? (
-        <div className="text-center">
-          <div className="relative inline-block group">
-            <button
-              onClick={() => {
-                if (isStartingGame) {
-                  return;
-                }
-
-                const validParticipants = participants.filter(player => player && player.guest_id);
-                if (validParticipants.length >= 2 && allNonOwnerPlayersReady) {
-                  handleClickStartBtn();
-                } else if (validParticipants.length < 2) {
-                  alert('게임 시작을 위해 최소 2명의 플레이어가 필요합니다.');
-                } else {
-                  alert('모든 플레이어가 준비 상태여야 합니다.');
-                }
-              }}
-              className={`px-8 py-4 rounded-xl shadow-lg font-bold text-lg transition-all duration-200 transform ${
-                isStartingGame
-                  ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white cursor-wait'
-                  : participants.filter(player => player && player.guest_id).length >= 2 && allNonOwnerPlayersReady
-                    ? 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white hover:scale-105'
-                    : 'bg-gradient-to-r from-gray-400 to-gray-500 text-white cursor-not-allowed'
-              }`}
-              disabled={
-                participants.filter(player => player && player.guest_id).length < 2 ||
-                !allNonOwnerPlayersReady ||
-                isStartingGame
-              }
-            >
-              {isStartingGame ? (
-                <div className="flex items-center justify-center gap-2">
-                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
-                  <span>게임 시작 중...</span>
-                </div>
-              ) : (
-                <>🎮 게임 시작</>
-              )}
-            </button>
-
-            {!isStartingGame &&
-              (participants.filter(player => player && player.guest_id).length < 2 || !allNonOwnerPlayersReady) && (
-                <div className="absolute -top-16 left-1/2 transform -translate-x-1/2 bg-black/80 text-white text-sm px-4 py-2 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 shadow-md">
-                  {participants.filter(player => player && player.guest_id).length < 2
-                    ? '2인 이상일 때 게임을 시작할 수 있습니다'
-                    : '모든 플레이어가 준비 상태여야 합니다'}
-                </div>
-              )}
-
-            {isStartingGame && (
-              <div className="absolute -top-16 left-1/2 transform -translate-x-1/2 bg-blue-600/90 text-white text-sm px-4 py-2 rounded-lg whitespace-nowrap z-10 shadow-md">
-                모든 플레이어를 게임으로 이동 중...
-              </div>
-            )}
-          </div>
-        </div>
-      ) : (
-        <div className="text-center">
+      <div className="flex justify-center items-center gap-4">
+        {isOwner ? (
           <button
-            onClick={handleReady}
-            className={`px-8 py-4 rounded-xl shadow-lg font-bold text-lg transition-all duration-200 transform hover:scale-105 ${
+            onClick={onStartGame || (() => alert('게임 시작 기능은 준비 중입니다!'))}
+            className={`px-8 py-4 font-bold text-lg rounded-xl shadow-lg transition-all duration-200 transform hover:scale-105 ${
+              canStartGame
+                ? 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white'
+                : 'bg-gradient-to-r from-gray-400 to-gray-500 text-gray-300 cursor-not-allowed'
+            }`}
+            disabled={!canStartGame}
+          >
+            {canStartGame ? '🎮 게임 시작' : '⏳ 플레이어 대기중'}
+          </button>
+        ) : (
+          <button
+            onClick={onToggleReady}
+            className={`px-6 py-3 font-semibold rounded-lg shadow-lg transition-all duration-200 transform hover:scale-105 ${
               isReady
                 ? 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white'
                 : 'bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-white'
@@ -120,6 +45,22 @@ const ActionButtons = ({
           >
             {isReady ? '✅ 준비완료' : '⏳ 준비하기'}
           </button>
+        )}
+
+        <button
+          onClick={onLeaveRoom}
+          className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold rounded-lg shadow-lg transition-all duration-200 transform hover:scale-105"
+        >
+          {isOwner ? '🗑️ 방 삭제' : '🚪 나가기'}
+        </button>
+      </div>
+      
+      {/* 디버그 정보 */}
+      {isOwner && (
+        <div className="mt-4 p-3 bg-black/30 rounded-lg text-xs text-white/70">
+          <div>참가자: {participants.length}명</div>
+          <div>모든 플레이어 준비됨: {allPlayersReady ? '✅' : '❌'}</div>
+          <div>게임 시작 가능: {canStartGame ? '✅' : '❌'}</div>
         </div>
       )}
     </div>

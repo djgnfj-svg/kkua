@@ -23,14 +23,7 @@ services:
       redis:
         condition: service_started
     restart: unless-stopped
-    command: >
-      sh -c "
-      if [ \"$ENVIRONMENT\" = \"development\" ]; then
-        python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-      else  
-        python -m uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4
-      fi
-      "
+    command: python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
   frontend:
     build:
