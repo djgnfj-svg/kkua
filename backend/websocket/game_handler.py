@@ -19,6 +19,7 @@ from services.word_validator import get_word_validator
 from services.timer_service import get_timer_service
 from services.score_calculator import get_score_calculator
 from services.item_service import get_item_service
+from services.game_mode_service import get_game_mode_service
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +48,7 @@ class GameEventHandler:
         self.timer_service = get_timer_service()
         self.score_calculator = get_score_calculator()
         self.item_service = get_item_service()
+        self.game_mode_service = get_game_mode_service()
         
         # 게임 설정
         self.config = GameConfig()
@@ -563,6 +565,190 @@ class GameEventHandler:
             
         except Exception as e:
             logger.error(f"활성 효과 조회 처리 중 오류: {e}")
+            return []
+    
+    # === 게임 모드 관련 핸들러 ===
+    
+    async def handle_get_available_modes(self, user_id: int) -> List[Dict[str, Any]]:
+        """사용 가능한 게임 모드 조회"""
+        try:
+            modes = self.game_mode_service.get_available_modes()
+            
+            # 모드 목록 전송
+            await self.websocket_manager.send_to_user(user_id, {
+                "type": "available_modes",
+                "data": {
+                    "modes": modes,
+                    "count": len(modes)
+                }
+            })
+            
+            return modes
+            
+        except Exception as e:
+            logger.error(f"게임 모드 조회 중 오류: {e}")
+            return []
+    
+    async def handle_create_game_with_mode(self, room_id: str, creator_id: int, 
+                                         mode_type: str, custom_settings: Optional[Dict[str, Any]] = None) -> bool:
+        """게임 모드별 게임 생성"""
+        try:
+            # 모드 설정 검증
+            mode_config = self.game_mode_service.get_mode_config(mode_type)
+            if not mode_config:
+                await self.websocket_manager.send_to_user(creator_id, {
+                    "type": "game_creation_failed",
+                    "data": {"reason": f"존재하지 않는 게임 모드: {mode_type}"}
+                })
+                return False
+            
+            # 게임 설정 구성
+            game_settings = {"mode_type": mode_type}
+            if custom_settings:
+                game_settings.update(custom_settings)
+            
+            # 게임 생성
+            success = await self.game_engine.create_game(room_id, creator_id, game_settings)
+            
+            if success:
+                # 생성 성공 알림
+                await self.websocket_manager.send_to_user(creator_id, {
+                    "type": "game_created",
+                    "data": {
+                        "room_id": room_id,
+                        "mode_type": mode_type,
+                        "mode_config": mode_config.to_dict(),
+                        "message": f"{mode_config.mode_name} 게임이 생성되었습니다"
+                    }
+                })
+                
+                logger.info(f"모드별 게임 생성: room_id={room_id}, mode={mode_type}")
+            
+            return success
+            
+        except Exception as e:
+            logger.error(f"모드별 게임 생성 중 오류: {e}")
+            return False
+    
+    # === 관전자 관련 핸들러 ===
+    
+    async def handle_join_spectator(self, room_id: str, user_id: int, nickname: str, 
+                                   is_streaming: bool = False) -> bool:
+        """관전자로 참가"""
+        try:
+            # 게임 존재 확인
+            game_state = await self.game_engine.get_game_state(room_id)
+            if not game_state:
+                await self.websocket_manager.send_to_user(user_id, {
+                    "type": "spectator_join_failed",
+                    "data": {"reason": "존재하지 않는 게임입니다"}
+                })
+                return False
+            
+            # 관전 가능 여부 확인
+            mode_type = game_state.game_settings.get("mode_type", "classic")
+            mode_config = self.game_mode_service.get_mode_config(mode_type)
+            
+            if not mode_config or not self.game_mode_service.can_spectate(mode_config):
+                await self.websocket_manager.send_to_user(user_id, {
+                    "type": "spectator_join_failed",
+                    "data": {"reason": "관전이 허용되지 않는 모드입니다"}
+                })
+                return False
+            
+            # 라이브 스트리밍 권한 확인
+            if is_streaming and not self.game_mode_service.can_live_stream(mode_config):
+                is_streaming = False
+            
+            # 관전자 추가
+            success = await self.game_mode_service.add_spectator(room_id, user_id, nickname, is_streaming)
+            
+            if success:
+                # 관전자 추가 알림
+                await self.websocket_manager.broadcast_to_room(room_id, {
+                    "type": "spectator_joined",
+                    "data": {
+                        "user_id": user_id,
+                        "nickname": nickname,
+                        "is_streaming": is_streaming,
+                        "message": f"{nickname}님이 관전을 시작했습니다"
+                    }
+                })
+                
+                # 관전자에게 현재 게임 상태 전송
+                await self._broadcast_game_state(room_id, game_state)
+                
+                logger.info(f"관전자 참가: room_id={room_id}, user_id={user_id}, streaming={is_streaming}")
+            
+            return success
+            
+        except Exception as e:
+            logger.error(f"관전자 참가 처리 중 오류: {e}")
+            return False
+    
+    async def handle_leave_spectator(self, room_id: str, user_id: int) -> bool:
+        """관전 종료"""
+        try:
+            success = await self.game_mode_service.remove_spectator(room_id, user_id)
+            
+            if success:
+                # 관전 종료 알림
+                await self.websocket_manager.broadcast_to_room(room_id, {
+                    "type": "spectator_left", 
+                    "data": {
+                        "user_id": user_id,
+                        "message": "관전자가 나갔습니다"
+                    }
+                })
+                
+                logger.info(f"관전 종료: room_id={room_id}, user_id={user_id}")
+            
+            return success
+            
+        except Exception as e:
+            logger.error(f"관전 종료 처리 중 오류: {e}")
+            return False
+    
+    async def handle_get_spectators(self, room_id: str, user_id: int) -> List[Dict[str, Any]]:
+        """관전자 목록 조회"""
+        try:
+            spectators = await self.game_mode_service.get_spectators(room_id)
+            spectators_data = [spec.to_dict() for spec in spectators]
+            
+            # 관전자 목록 전송
+            await self.websocket_manager.send_to_user(user_id, {
+                "type": "spectators_list",
+                "data": {
+                    "spectators": spectators_data,
+                    "count": len(spectators_data)
+                }
+            })
+            
+            return spectators_data
+            
+        except Exception as e:
+            logger.error(f"관전자 목록 조회 중 오류: {e}")
+            return []
+    
+    async def handle_get_teams(self, room_id: str, user_id: int) -> List[Dict[str, Any]]:
+        """팀 정보 조회"""
+        try:
+            teams = await self.game_mode_service.get_teams(room_id)
+            teams_data = [team.to_dict() for team in teams]
+            
+            # 팀 정보 전송
+            await self.websocket_manager.send_to_user(user_id, {
+                "type": "teams_info",
+                "data": {
+                    "teams": teams_data,
+                    "count": len(teams_data)
+                }
+            })
+            
+            return teams_data
+            
+        except Exception as e:
+            logger.error(f"팀 정보 조회 중 오류: {e}")
             return []
     
     async def get_item_multipliers(self, room_id: str, user_id: int) -> float:

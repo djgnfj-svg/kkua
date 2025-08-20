@@ -61,9 +61,20 @@ class GameEngine:
         # 활성 게임 추적
         self.active_games: Dict[str, GameState] = {}
         self.game_timers: Dict[str, asyncio.Task] = {}
+        
+        # 게임 모드 서비스 지연 로딩 (순환 import 방지)
+        self._game_mode_service = None
+    
+    @property
+    def game_mode_service(self):
+        """게임 모드 서비스 지연 로딩"""
+        if self._game_mode_service is None:
+            from services.game_mode_service import get_game_mode_service
+            self._game_mode_service = get_game_mode_service()
+        return self._game_mode_service
     
     async def create_game(self, room_id: str, creator_id: int, game_settings: Optional[Dict[str, Any]] = None) -> bool:
-        """게임 생성"""
+        """게임 생성 (게임 모드 지원)"""
         try:
             # 기존 게임 확인
             existing_game = await self.redis_manager.get_game_state(room_id)
@@ -71,15 +82,34 @@ class GameEngine:
                 logger.warning(f"이미 존재하는 게임: room_id={room_id}")
                 return False
             
-            # 게임 설정 병합
+            # 게임 모드 설정 처리
+            mode_type = game_settings.get("mode_type", "classic") if game_settings else "classic"
+            mode_config = self.game_mode_service.get_mode_config(mode_type)
+            
+            if not mode_config:
+                logger.error(f"존재하지 않는 게임 모드: {mode_type}")
+                return False
+            
+            # 게임 설정 병합 (모드 설정 우선)
             merged_settings = {
-                "min_players": self.config.min_players,
-                "max_players": self.config.max_players,
-                "max_rounds": self.config.max_rounds,
-                "turn_timeout": self.config.turn_timeout_seconds
+                "min_players": mode_config.min_players,
+                "max_players": mode_config.max_players,
+                "turn_timeout": mode_config.rules.turn_time_limit,
+                "max_rounds": mode_config.rules.max_rounds,
+                "target_score": mode_config.rules.target_score,
+                "mode_type": mode_type,
+                "mode_config": mode_config.to_dict(),
+                "team_mode": mode_config.team_mode,
+                "spectator_mode": mode_config.spectator_mode,
+                "allow_items": mode_config.rules.allow_items
             }
+            
             if game_settings:
-                merged_settings.update(game_settings)
+                # 사용자 설정으로 일부 오버라이드 (제한적)
+                allowed_overrides = ["room_title", "password", "is_private"]
+                for key in allowed_overrides:
+                    if key in game_settings:
+                        merged_settings[key] = game_settings[key]
             
             # 새 게임 상태 생성
             game_state = GameState(
@@ -272,6 +302,18 @@ class GameEngine:
             # 모든 플레이어 준비 확인
             if not all(p.status == "ready" for p in game_state.players):
                 return False, "모든 플레이어가 준비되지 않았습니다"
+            
+            # 게임 모드 설정 확인
+            mode_type = game_state.game_settings.get("mode_type", "classic")
+            mode_config = self.game_mode_service.get_mode_config(mode_type)
+            
+            # 팀 구성 (팀전 모드인 경우)
+            teams = []
+            if mode_config and mode_config.team_mode.value != "no_teams":
+                teams = await self.game_mode_service.setup_teams(
+                    room_id, game_state.players, mode_config.team_mode
+                )
+                logger.info(f"팀 구성 완료: room_id={room_id}, teams={len(teams)}")
             
             # 게임 시작 처리
             game_state.status = GamePhase.STARTING.value
