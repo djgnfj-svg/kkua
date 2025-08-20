@@ -215,12 +215,6 @@ const GameRoomPage: React.FC = () => {
     }
   }, []);
 
-  // 채팅 메시지 이벤트
-  const handleChatMessage = useCallback((data: any) => {
-    console.log('💬 Chat message:', data);
-    showToast.info(`${data.nickname}: ${data.message}`);
-  }, []);
-
   useEffect(() => {
     if (!isConnected || !roomId) return;
 
