@@ -1,0 +1,36 @@
+# FastAPI 웹 프레임워크
+fastapi==0.104.1
+uvicorn==0.24.0
+
+# 데이터베이스
+sqlalchemy==2.0.23
+psycopg2-binary==2.9.9
+alembic==1.12.1
+
+# Redis
+redis==5.0.1
+aioredis==2.0.1
+
+# 인증 및 보안
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.6
+
+# 유틸리티
+pydantic==2.5.0
+python-dotenv==1.0.0
+
+# 테스팅
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+httpx==0.25.2
+
+# 로깅 및 모니터링
+structlog==23.2.0
+
+# 한국어 처리
+konlpy==0.6.0
+
+# WebSocket
+websockets==12.0
