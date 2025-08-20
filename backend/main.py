@@ -271,15 +271,9 @@ async def create_gameroom(request: CreateRoomRequest):
         
         temporary_rooms.append(new_room)
         
-        # Redis에 게임 상태 생성
-        logger.info(f"Redis 게임 상태 생성 시작: {room_id}")
-        try:
-            result = await redis_game_manager.add_player_to_game(room_id, 0, "방장")  # 임시 방장 플레이어
-            logger.info(f"Redis 게임 상태 생성 결과: {room_id} -> {result}")
-        except Exception as e:
-            logger.error(f"Redis 게임 상태 생성 실패: {room_id} -> {e}")
-            import traceback
-            logger.error(f"스택 트레이스: {traceback.format_exc()}")
+        # Redis에 빈 게임 상태 생성 (실제 플레이어는 WebSocket 입장 시 추가)
+        logger.info(f"Redis 게임 상태 준비: {room_id}")
+        # 첫 번째 플레이어가 WebSocket으로 입장할 때 방장으로 설정됨
         
         logger.info(f"게임룸 생성: {request.name} (ID: {room_id})")
         

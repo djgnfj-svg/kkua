@@ -321,7 +321,11 @@ const GameRoomPage: React.FC = () => {
   const handleReadyToggle = () => {
     if (!isConnected) return;
     
-    emit('toggle_ready', { room_id: roomId });
+    const currentPlayerReady = currentRoom?.players?.find(p => p.id === user.id)?.isReady;
+    emit('ready_game', { 
+      room_id: roomId,
+      ready: !currentPlayerReady
+    });
   };
 
   const handleStartGame = () => {

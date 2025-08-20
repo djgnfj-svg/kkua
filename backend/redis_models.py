@@ -38,6 +38,7 @@ class GamePlayer:
     max_combo: int = 0
     words_submitted: int = 0
     items_used: int = 0
+    is_host: bool = False
     items: List[str] = None
     last_word_time: Optional[str] = None
     joined_at: str = None
@@ -159,6 +160,18 @@ class GameState:
         if not self.players or self.current_turn >= len(self.players):
             return None
         return self.players[self.current_turn]
+
+    def get_host_player(self) -> Optional[GamePlayer]:
+        """방장 플레이어 반환"""
+        for player in self.players:
+            if player.is_host:
+                return player
+        return None
+
+    def is_player_host(self, user_id: int) -> bool:
+        """플레이어가 방장인지 확인"""
+        host = self.get_host_player()
+        return host is not None and host.user_id == user_id
 
     def next_turn(self):
         """다음 턴으로 이동"""
@@ -411,12 +424,14 @@ class RedisGameManager:
                     created_at=datetime.now(timezone.utc).isoformat()
                 )
             
-            # 플레이어 추가
+            # 플레이어 추가 (첫 번째 플레이어는 방장)
+            is_host = len(game_state.players) == 0  # 첫 번째 플레이어가 방장
             new_player = GamePlayer(
                 user_id=user_id,
                 nickname=nickname,
                 score=0,
                 status=PlayerStatus.WAITING.value,
+                is_host=is_host,
                 items=[]
             )
             

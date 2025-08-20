@@ -166,6 +166,14 @@ class GameEventHandler:
                 logger.error(f"게임 상태 없음: room_id={room_id}")
                 return False
             
+            # 방장 권한 확인
+            if not game_state.is_player_host(user_id):
+                await self.websocket_manager.send_to_user(user_id, {
+                    "type": "game_start_failed",
+                    "data": {"reason": "방장만 게임을 시작할 수 있습니다"}
+                })
+                return False
+            
             # 이미 시작된 게임인지 확인
             if game_state.status == "playing":
                 await self.websocket_manager.send_to_user(user_id, {
@@ -179,6 +187,17 @@ class GameEventHandler:
                 await self.websocket_manager.send_to_user(user_id, {
                     "type": "game_start_failed", 
                     "data": {"reason": "최소 1명 이상의 플레이어가 필요합니다"}
+                })
+                return False
+            
+            # 모든 플레이어 준비 완료 확인
+            from redis_models import PlayerStatus
+            not_ready_players = [p for p in game_state.players if p.status != PlayerStatus.READY.value]
+            if not_ready_players:
+                not_ready_names = [p.nickname for p in not_ready_players]
+                await self.websocket_manager.send_to_user(user_id, {
+                    "type": "game_start_failed",
+                    "data": {"reason": f"모든 플레이어가 준비 완료해야 합니다. 대기 중: {', '.join(not_ready_names)}"}
                 })
                 return False
             
