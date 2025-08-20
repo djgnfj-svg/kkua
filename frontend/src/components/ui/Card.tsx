@@ -3,6 +3,8 @@ import React from 'react';
 interface CardProps {
   children: React.ReactNode;
   className?: string;
+  variant?: 'default' | 'glass' | 'elevated' | 'gradient';
+  hover?: boolean;
 }
 
 interface CardHeaderProps {
@@ -24,9 +26,29 @@ const Card: React.FC<CardProps> & {
   Header: React.FC<CardHeaderProps>;
   Body: React.FC<CardBodyProps>;
   Footer: React.FC<CardFooterProps>;
-} = ({ children, className = '' }) => {
-  const baseClasses = 'bg-white rounded-lg shadow-md border border-gray-300';
-  const classes = [baseClasses, className].join(' ');
+} = ({ 
+  children, 
+  className = '', 
+  variant = 'default',
+  hover = false 
+}) => {
+  const baseClasses = 'rounded-2xl transition-all duration-300 ease-out';
+  
+  const variantClasses = {
+    default: 'bg-white shadow-lg border border-secondary-200/50 hover:shadow-xl',
+    glass: 'bg-white/80 backdrop-blur-md shadow-glass border border-white/30 hover:bg-white/90',
+    elevated: 'bg-white shadow-2xl border-0 hover:shadow-3xl transform hover:-translate-y-1',
+    gradient: 'bg-gradient-to-br from-white to-secondary-50 shadow-lg border border-secondary-200/30 hover:shadow-xl'
+  };
+  
+  const hoverClasses = hover ? 'hover:scale-[1.02] cursor-pointer' : '';
+  
+  const classes = [
+    baseClasses,
+    variantClasses[variant],
+    hoverClasses,
+    className
+  ].join(' ');
 
   return (
     <div className={classes}>
@@ -36,7 +58,7 @@ const Card: React.FC<CardProps> & {
 };
 
 const CardHeader: React.FC<CardHeaderProps> = ({ children, className = '' }) => {
-  const baseClasses = 'px-6 py-4 border-b border-gray-200';
+  const baseClasses = 'px-6 py-5 border-b border-secondary-200/60';
   const classes = [baseClasses, className].join(' ');
 
   return (
@@ -47,7 +69,7 @@ const CardHeader: React.FC<CardHeaderProps> = ({ children, className = '' }) => 
 };
 
 const CardBody: React.FC<CardBodyProps> = ({ children, className = '' }) => {
-  const baseClasses = 'px-6 py-4';
+  const baseClasses = 'px-6 py-5';
   const classes = [baseClasses, className].join(' ');
 
   return (
@@ -58,7 +80,7 @@ const CardBody: React.FC<CardBodyProps> = ({ children, className = '' }) => {
 };
 
 const CardFooter: React.FC<CardFooterProps> = ({ children, className = '' }) => {
-  const baseClasses = 'px-6 py-4 border-t border-gray-200 bg-gray-50';
+  const baseClasses = 'px-6 py-5 border-t border-secondary-200/60 bg-secondary-50/50 rounded-b-2xl';
   const classes = [baseClasses, className].join(' ');
 
   return (

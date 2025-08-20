@@ -56,16 +56,18 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
   };
 
   return (
-    <Card className="w-full max-w-md mx-auto">
+    <Card className="w-full max-w-lg mx-auto" variant="glass" hover>
       <Card.Header>
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">끄아 게임 시작</h2>
-          <p className="text-gray-600">닉네임을 입력하고 게임에 참가하세요</p>
+          <h2 className="text-3xl font-bold text-secondary-900 mb-3 font-korean">
+            게임 시작
+          </h2>
+          <p className="text-secondary-600 font-korean">닉네임을 입력하고 게임에 참가하세요</p>
         </div>
       </Card.Header>
 
       <Card.Body>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-6">
           <Input
             label="닉네임"
             type="text"
@@ -75,23 +77,45 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
             maxLength={12}
             disabled={isLoading}
             autoFocus
+            variant="glass"
+            size="lg"
+            icon={
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            }
           />
           
           <Button
             type="submit"
             variant="primary"
-            size="lg"
-            className="w-full"
+            size="xl"
+            className="w-full mt-8"
             loading={isLoading}
             disabled={!nickname.trim() || isLoading}
+            glow
           >
-            {isLoading ? '로그인 중...' : '게임 시작하기'}
+            {isLoading ? '로그인 중...' : '🎮 게임 시작하기'}
           </Button>
         </form>
 
-        <div className="mt-6 text-center text-sm text-gray-500">
-          <p>🎯 한국어 끝말잇기 멀티플레이어 게임</p>
-          <p className="mt-1">별도 회원가입 없이 바로 시작!</p>
+        <div className="mt-8 text-center">
+          <div className="inline-flex items-center justify-center space-x-6 text-sm text-secondary-500 bg-secondary-50/50 rounded-2xl px-6 py-4 backdrop-blur-sm">
+            <div className="flex items-center space-x-2">
+              <span className="text-lg">🎯</span>
+              <span className="font-korean">멀티플레이어</span>
+            </div>
+            <div className="w-px h-4 bg-secondary-300"></div>
+            <div className="flex items-center space-x-2">
+              <span className="text-lg">⚡</span>
+              <span className="font-korean">빠른 시작</span>
+            </div>
+            <div className="w-px h-4 bg-secondary-300"></div>
+            <div className="flex items-center space-x-2">
+              <span className="text-lg">🚀</span>
+              <span className="font-korean">회원가입 없음</span>
+            </div>
+          </div>
         </div>
       </Card.Body>
     </Card>
