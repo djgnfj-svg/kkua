@@ -29,6 +29,11 @@ const GameRoomPage: React.FC = () => {
     remainingTime: 30
   });
   const [currentWord, setCurrentWord] = useState('');
+  const [wordValidation, setWordValidation] = useState<{
+    isValid: boolean;
+    message: string;
+    isChecking: boolean;
+  }>({ isValid: true, message: '', isChecking: false });
 
   // 타이머 카운트다운
   useEffect(() => {
@@ -43,6 +48,78 @@ const GameRoomPage: React.FC = () => {
     
     return () => clearInterval(interval);
   }, [gameState.isPlaying, gameState.currentTurnUserId, user?.id]);
+
+  // 실시간 단어 검증
+  useEffect(() => {
+    if (!currentWord.trim() || !gameState.currentChar) {
+      setWordValidation({ isValid: true, message: '', isChecking: false });
+      return;
+    }
+
+    const timeoutId = setTimeout(async () => {
+      setWordValidation(prev => ({ ...prev, isChecking: true }));
+      
+      try {
+        // 첫 글자 검증
+        const firstChar = currentWord.charAt(0);
+        if (firstChar !== gameState.currentChar) {
+          setWordValidation({
+            isValid: false,
+            message: `"${gameState.currentChar}"로 시작해야 합니다`,
+            isChecking: false
+          });
+          return;
+        }
+
+        // 길이 검증
+        if (currentWord.length < 2) {
+          setWordValidation({
+            isValid: false,
+            message: '2글자 이상 입력해주세요',
+            isChecking: false
+          });
+          return;
+        }
+
+        // 한글 검증
+        const koreanRegex = /^[가-힣]+$/;
+        if (!koreanRegex.test(currentWord)) {
+          setWordValidation({
+            isValid: false,
+            message: '한글만 입력 가능합니다',
+            isChecking: false
+          });
+          return;
+        }
+
+        // 중복 검증
+        if (gameState.wordChain.includes(currentWord)) {
+          setWordValidation({
+            isValid: false,
+            message: '이미 사용된 단어입니다',
+            isChecking: false
+          });
+          return;
+        }
+
+        // 모든 검증 통과
+        setWordValidation({
+          isValid: true,
+          message: '✅ 유효한 단어입니다',
+          isChecking: false
+        });
+        
+      } catch (error) {
+        setWordValidation({
+          isValid: true,
+          message: '',
+          isChecking: false
+        });
+      }
+    }, 500); // 500ms 후 검증 시작
+
+    return () => clearTimeout(timeoutId);
+  }, [currentWord, gameState.currentChar, gameState.wordChain]);
 
   // WebSocket 연결
   const wsUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -571,13 +648,13 @@ const GameRoomPage: React.FC = () => {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         {isLoading ? (
           <Loading />
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
             {/* 게임 영역 */}
-            <div className="lg:col-span-2">
+            <div className="xl:col-span-2">
               <Card>
                 <Card.Header>
                   <div className="flex justify-between items-center">
@@ -585,8 +662,19 @@ const GameRoomPage: React.FC = () => {
                       {gameState.isPlaying ? '끝말잇기 게임' : '게임 대기'}
                     </h2>
                     {gameState.isPlaying && gameState.currentTurnUserId === String(user.id) && (
-                      <div className="text-sm font-medium text-blue-600">
-                        ⏰ {gameState.remainingTime?.toFixed(1)}초
+                      <div className="text-sm font-medium text-blue-600 flex items-center space-x-2">
+                        <span>⏰ {gameState.remainingTime?.toFixed(1)}초</span>
+                        <div className="w-12 sm:w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
+                          <div 
+                            className={`h-full transition-all duration-1000 ${
+                              (gameState.remainingTime || 0) > 15 ? 'bg-green-500' :
+                              (gameState.remainingTime || 0) > 5 ? 'bg-yellow-500' : 'bg-red-500'
+                            }`}
+                            style={{ 
+                              width: `${Math.max(0, Math.min(100, ((gameState.remainingTime || 0) / 30) * 100))}%` 
+                            }}
+                          />
+                        </div>
                       </div>
                     )}
                   </div>
@@ -597,11 +685,18 @@ const GameRoomPage: React.FC = () => {
                       {/* 단어 체인 */}
                       <div className="bg-gray-50 rounded-lg p-4">
                         <h4 className="font-medium text-gray-900 mb-2">단어 체인</h4>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-2 max-h-32 sm:max-h-40 overflow-y-auto">
                           {gameState.wordChain.map((word, index) => (
                             <span 
-                              key={index}
-                              className="px-3 py-1 bg-blue-100 text-blue-800 rounded-lg text-sm"
+                              key={`${word}-${index}`}
+                              className={`px-2 sm:px-3 py-1 rounded-lg text-sm transition-all duration-500 transform ${
+                                index === gameState.wordChain.length - 1 
+                                  ? 'bg-green-100 text-green-800 animate-pulse scale-105' 
+                                  : 'bg-blue-100 text-blue-800'
+                              }`}
+                              style={{
+                                animationDelay: `${index * 100}ms`
+                              }}
                             >
                               {word}
                             </span>
@@ -617,25 +712,60 @@ const GameRoomPage: React.FC = () => {
                       {/* 단어 입력 */}
                       {gameState.currentTurnUserId === String(user.id) ? (
                         <div className="bg-blue-50 rounded-lg p-4">
-                          <h4 className="font-medium text-blue-900 mb-2">
-                            내 차례입니다! ({gameState.remainingTime?.toFixed(1)}초 남음)
-                          </h4>
-                          <div className="flex space-x-2">
-                            <input
-                              type="text"
-                              value={currentWord}
-                              onChange={(e) => setCurrentWord(e.target.value)}
-                              onKeyPress={(e) => e.key === 'Enter' && handleSubmitWord()}
-                              placeholder={gameState.currentChar ? `${gameState.currentChar}로 시작하는 단어...` : '단어를 입력하세요...'}
-                              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              disabled={!isConnected}
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2 space-y-1 sm:space-y-0">
+                            <h4 className="font-medium text-blue-900">
+                              내 차례입니다!
+                            </h4>
+                            <div className="flex items-center space-x-2 text-sm">
+                              <span className="font-medium text-blue-900">{gameState.remainingTime?.toFixed(1)}초</span>
+                            </div>
+                          </div>
+                          <div className="w-full h-3 bg-blue-200 rounded-full overflow-hidden mb-3">
+                            <div 
+                              className={`h-full transition-all duration-1000 ${
+                                (gameState.remainingTime || 0) > 15 ? 'bg-green-500' :
+                                (gameState.remainingTime || 0) > 5 ? 'bg-yellow-500' : 'bg-red-500'
+                              }`}
+                              style={{ 
+                                width: `${Math.max(0, Math.min(100, ((gameState.remainingTime || 0) / 30) * 100))}%` 
+                              }}
                             />
-                            <Button 
-                              onClick={handleSubmitWord}
-                              disabled={!isConnected || !currentWord.trim()}
-                            >
-                              제출
-                            </Button>
+                          </div>
+                          <div className="space-y-2">
+                            <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+                              <input
+                                type="text"
+                                value={currentWord}
+                                onChange={(e) => setCurrentWord(e.target.value)}
+                                onKeyPress={(e) => e.key === 'Enter' && handleSubmitWord()}
+                                placeholder={gameState.currentChar ? `${gameState.currentChar}로 시작하는 단어...` : '단어를 입력하세요...'}
+                                className={`flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors text-base ${
+                                  wordValidation.isChecking ? 'border-gray-300 focus:ring-gray-400' :
+                                  !wordValidation.isValid && currentWord.trim() ? 'border-red-300 focus:ring-red-500 bg-red-50' :
+                                  wordValidation.isValid && currentWord.trim() && wordValidation.message ? 'border-green-300 focus:ring-green-500 bg-green-50' :
+                                  'border-gray-300 focus:ring-blue-500'
+                                }`}
+                                disabled={!isConnected}
+                              />
+                              <Button 
+                                onClick={handleSubmitWord}
+                                disabled={!isConnected || !currentWord.trim() || !wordValidation.isValid}
+                                variant={wordValidation.isValid && currentWord.trim() ? 'primary' : 'secondary'}
+                                className="w-full sm:w-auto"
+                              >
+                                제출
+                              </Button>
+                            </div>
+                            {/* 실시간 검증 피드백 */}
+                            {currentWord.trim() && (
+                              <div className={`text-sm px-2 py-1 rounded transition-colors ${
+                                wordValidation.isChecking ? 'text-gray-600 bg-gray-100' :
+                                !wordValidation.isValid ? 'text-red-600 bg-red-100' :
+                                wordValidation.message ? 'text-green-600 bg-green-100' : ''
+                              }`}>
+                                {wordValidation.isChecking ? '🔍 검증 중...' : wordValidation.message}
+                              </div>
+                            )}
                           </div>
                         </div>
                       ) : (

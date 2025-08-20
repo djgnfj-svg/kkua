@@ -15,6 +15,13 @@ const GameRoomList: React.FC<GameRoomListProps> = ({ onJoinRoom, onCreateRoom })
   const { rooms, setRooms, isLoading, setLoading, setError } = useGameStore();
   const { user } = useUserStore();
   const [refreshing, setRefreshing] = useState(false);
+  
+  // 필터링 상태
+  const [filters, setFilters] = useState({
+    search: '',
+    status: 'all' as 'all' | 'waiting' | 'playing',
+    showFull: true
+  });
 
   const fetchRooms = async (showLoading = true) => {
     try {
@@ -86,6 +93,22 @@ const GameRoomList: React.FC<GameRoomListProps> = ({ onJoinRoom, onCreateRoom })
     }
   };
 
+  // 필터링된 방 목록
+  const filteredRooms = rooms.filter(room => {
+    // 검색어 필터
+    const searchMatch = !filters.search || 
+      room.name.toLowerCase().includes(filters.search.toLowerCase()) ||
+      room.hostNickname?.toLowerCase().includes(filters.search.toLowerCase());
+    
+    // 상태 필터
+    const statusMatch = filters.status === 'all' || room.status === filters.status;
+    
+    // 가득찬 방 필터
+    const fullMatch = filters.showFull || room.currentPlayers < room.maxPlayers;
+    
+    return searchMatch && statusMatch && fullMatch;
+  });
+
   if (isLoading && rooms.length === 0) {
     return (
       <Card>
@@ -98,29 +121,83 @@ const GameRoomList: React.FC<GameRoomListProps> = ({ onJoinRoom, onCreateRoom })
 
   return (
     <Card>
-      <Card.Header className="flex justify-between items-center">
-        <div>
-          <h2 className="text-xl font-semibold">게임 방 목록</h2>
-          <p className="text-gray-600 text-sm mt-1">
-            {user?.nickname}님, 게임 방을 선택하거나 새로 만드세요
-          </p>
+      <Card.Header>
+        <div className="flex justify-between items-center mb-4">
+          <div>
+            <h2 className="text-xl font-semibold">게임 방 목록</h2>
+            <p className="text-gray-600 text-sm mt-1">
+              {user?.nickname}님, 게임 방을 선택하거나 새로 만드세요
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              onClick={() => fetchRooms()}
+              disabled={refreshing}
+              variant="secondary"
+              size="sm"
+            >
+              {refreshing ? '새로고침 중...' : '🔄 새로고침'}
+            </Button>
+            <Button
+              onClick={onCreateRoom}
+              variant="primary"
+              size="sm"
+            >
+              ➕ 방 만들기
+            </Button>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <Button
-            onClick={() => fetchRooms()}
-            disabled={refreshing}
-            variant="secondary"
-            size="sm"
-          >
-            {refreshing ? '새로고침 중...' : '🔄 새로고침'}
-          </Button>
-          <Button
-            onClick={onCreateRoom}
-            variant="primary"
-            size="sm"
-          >
-            ➕ 방 만들기
-          </Button>
+        
+        {/* 필터링 UI */}
+        <div className="space-y-3 pt-4 border-t">
+          <div className="flex flex-col sm:flex-row gap-3">
+            {/* 검색 */}
+            <div className="flex-1">
+              <input
+                type="text"
+                placeholder="방 이름 또는 호스트 검색..."
+                value={filters.search}
+                onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              />
+            </div>
+            
+            <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+              {/* 상태 필터 */}
+              <select
+                value={filters.status}
+                onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value as any }))}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              >
+                <option value="all">모든 방</option>
+                <option value="waiting">대기중만</option>
+                <option value="playing">게임중만</option>
+              </select>
+              
+              {/* 가득찬 방 표시 */}
+              <label className="flex items-center space-x-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={filters.showFull}
+                  onChange={(e) => setFilters(prev => ({ ...prev, showFull: e.target.checked }))}
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <span>가득찬 방 표시</span>
+              </label>
+            </div>
+          </div>
+          
+          <div className="flex justify-between items-center text-sm text-gray-600">
+            <span>총 {filteredRooms.length}개의 방 (전체 {rooms.length}개)</span>
+            {filters.search || filters.status !== 'all' || !filters.showFull ? (
+              <button
+                onClick={() => setFilters({ search: '', status: 'all', showFull: true })}
+                className="text-blue-600 hover:text-blue-800 underline"
+              >
+                필터 초기화
+              </button>
+            ) : null}
+          </div>
         </div>
       </Card.Header>
 
@@ -138,9 +215,25 @@ const GameRoomList: React.FC<GameRoomListProps> = ({ onJoinRoom, onCreateRoom })
               첫 방 만들기
             </Button>
           </div>
+        ) : filteredRooms.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="text-6xl mb-4">🔍</div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              검색 결과가 없습니다
+            </h3>
+            <p className="text-gray-600 mb-4">
+              다른 검색 조건을 시도해보세요
+            </p>
+            <button
+              onClick={() => setFilters({ search: '', status: 'all', showFull: true })}
+              className="text-blue-600 hover:text-blue-800 underline"
+            >
+              필터 초기화
+            </button>
+          </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {rooms.map((room) => (
+            {filteredRooms.map((room) => (
               <div
                 key={room.id}
                 className="border rounded-lg p-4 hover:shadow-md transition-shadow"
