@@ -124,27 +124,33 @@ async def api_status():
     """API 상태 정보"""
     return {
         "api_version": "2.0.0",
-        "phase": "Phase 1 - 백엔드 핵심 인프라",
+        "phase": "Phase 2 - WebSocket 인프라 완료",
         "implemented_features": [
             "데이터베이스 스키마",
-            "SQLAlchemy 모델",
+            "SQLAlchemy 모델", 
             "Redis 데이터 구조",
-            "기본 데이터 초기화"
+            "기본 데이터 초기화",
+            "JWT 토큰 인증",
+            "WebSocket 연결 관리자",
+            "메시지 라우터",
+            "게임 이벤트 핸들러",
+            "WebSocket 엔드포인트"
         ],
         "next_features": [
-            "WebSocket 인프라",
-            "게임 엔진",
+            "게임 엔진 완성",
             "단어 검증 서비스",
-            "아이템 시스템"
+            "아이템 시스템 완성",
+            "REST API 엔드포인트"
         ]
     }
 
 
-# Phase 2에서 추가될 라우터들
-# from routers import websocket_router, auth_router, game_router
-# app.include_router(websocket_router.router, prefix="/ws", tags=["websocket"])
-# app.include_router(auth_router.router, prefix="/api/auth", tags=["auth"])
-# app.include_router(game_router.router, prefix="/api/game", tags=["game"])
+# Phase 2 라우터 추가
+from websocket.websocket_endpoint import get_websocket_router
+
+# WebSocket 라우터 등록
+websocket_router = get_websocket_router()
+app.include_router(websocket_router, tags=["websocket"])
 
 if __name__ == "__main__":
     import uvicorn
