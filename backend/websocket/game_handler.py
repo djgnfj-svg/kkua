@@ -250,10 +250,10 @@ class GameEventHandler:
                 return False
             
             # 최소 플레이어 수 확인
-            if len(game_state.players) < 1:  # 테스트를 위해 1명으로 설정
+            if len(game_state.players) < GameConfig.MIN_PLAYERS:
                 await self.websocket_manager.send_to_user(user_id, {
                     "type": "game_start_failed", 
-                    "data": {"reason": "최소 1명 이상의 플레이어가 필요합니다"}
+                    "data": {"reason": f"최소 {GameConfig.MIN_PLAYERS}명 이상의 플레이어가 필요합니다 (현재: {len(game_state.players)}명)"}
                 })
                 return False
             

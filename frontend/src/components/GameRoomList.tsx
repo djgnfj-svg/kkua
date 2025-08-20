@@ -44,7 +44,7 @@ const GameRoomList: React.FC<GameRoomListProps> = ({ onJoinRoom, onCreateRoom })
 
   const handleJoinRoom = async (room: GameRoom) => {
     if (room.currentPlayers >= room.maxPlayers) {
-      showToast.warning('방이 가득 찼습니다');
+      showToast.warning(`방이 가득 찼습니다 (${room.currentPlayers}/${room.maxPlayers}명)`);
       return;
     }
 

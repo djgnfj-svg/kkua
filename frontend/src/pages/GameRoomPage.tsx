@@ -378,6 +378,13 @@ const GameRoomPage: React.FC = () => {
     showToast.info(data.message || `게임 시작까지 ${data.countdown}초...`);
   }, []);
 
+  // 게임 시작 실패 핸들러
+  const handleGameStartFailed = useCallback((data: any) => {
+    console.log('❌ Game start failed:', data);
+    
+    showToast.error(data.reason || '게임 시작에 실패했습니다');
+  }, []);
+
   // 라운드 시작 카운트다운 핸들러
   const handleRoundStartingCountdown = useCallback((data: any) => {
     console.log('🔄 Round starting countdown:', data);
@@ -654,6 +661,7 @@ const GameRoomPage: React.FC = () => {
     on('next_round_starting', handleNextRoundStarting);
     on('game_completed', handleGameCompleted);
     on('game_starting_countdown', handleGameStartingCountdown);
+    on('game_start_failed', handleGameStartFailed);
     on('round_starting_countdown', handleRoundStartingCountdown);
     on('round_transition', handleRoundTransition);
     on('error', handleError);
@@ -697,6 +705,7 @@ const GameRoomPage: React.FC = () => {
       off('next_round_starting', handleNextRoundStarting);
       off('game_completed', handleGameCompleted);
       off('game_starting_countdown', handleGameStartingCountdown);
+      off('game_start_failed', handleGameStartFailed);
       off('round_starting_countdown', handleRoundStartingCountdown);
       off('round_transition', handleRoundTransition);
       off('error', handleError);
@@ -1029,7 +1038,10 @@ const GameRoomPage: React.FC = () => {
                   ) : (
                     <div className="text-center py-8">
                       <p className="text-gray-600 mb-4">
-                        모든 플레이어가 준비되면 게임을 시작할 수 있습니다
+                        {(currentRoom?.players?.length || 0) < 2 
+                          ? `게임 시작을 위해 최소 2명의 플레이어가 필요합니다 (현재: ${currentRoom?.players?.length || 0}명)`
+                          : '모든 플레이어가 준비되면 게임을 시작할 수 있습니다'
+                        }
                       </p>
                       <div className="space-x-2">
                         <Button 
@@ -1042,7 +1054,11 @@ const GameRoomPage: React.FC = () => {
                         {currentRoom?.players?.find(p => p.id === user.id)?.isHost && (
                           <Button 
                             onClick={handleStartGame}
-                            disabled={!isConnected || !currentRoom?.players?.every(p => p.isReady)}
+                            disabled={
+                              !isConnected || 
+                              !currentRoom?.players?.every(p => p.isReady) ||
+                              (currentRoom?.players?.length || 0) < 2
+                            }
                           >
                             게임 시작
                           </Button>

@@ -301,8 +301,8 @@ class GameState:
             if existing_player.user_id == player.user_id:
                 return False
         
-        # 최대 인원 확인 (기본 4명)
-        max_players = self.game_settings.get("max_players", 4)
+        # 최대 인원 확인 (기본 8명)
+        max_players = self.game_settings.get("max_players", 8)
         if len(self.players) >= max_players:
             return False
             
@@ -544,7 +544,7 @@ class RedisGameManager:
                     status=GameStatus.WAITING.value,
                     players=[],
                     word_chain=WordChainState(),
-                    game_settings={"max_players": 4},  # 기본값
+                    game_settings={"max_players": 8},  # GameConfig.MAX_PLAYERS와 일치
                     created_at=datetime.now(timezone.utc).isoformat()
                 )
             
