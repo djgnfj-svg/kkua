@@ -238,7 +238,7 @@ class GameState:
     
     def is_final_game_finished(self) -> bool:
         """모든 라운드가 완료되었는지 확인"""
-        return self.current_round > self.max_rounds
+        return self.current_round >= self.max_rounds
     
     def reset_players_for_next_game(self):
         """게임 완료 후 플레이어들을 준비 해제 상태로 만들기"""
