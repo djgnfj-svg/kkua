@@ -5,10 +5,13 @@ Redis 데이터 구조 및 모델 정의
 
 import json
 import redis
+import logging
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timezone, timedelta
 from dataclasses import dataclass, asdict
 from enum import Enum
+
+logger = logging.getLogger(__name__)
 
 
 class GameStatus(Enum):
@@ -187,9 +190,8 @@ class GameState:
             # 다음 턴으로 이동
             self.current_turn = (self.current_turn + 1) % len(self.players)
             
-            # 모든 플레이어가 한 번씩 턴을 가지면 라운드 증가
-            if self.current_turn == 0:
-                self.current_round += 1
+            # 라운드 관리는 게임 핸들러에서 별도로 처리
+            # (자동 라운드 증가 제거)
             
             # 턴 시간 업데이트 (5초씩 감소)
             self.update_turn_time()
@@ -204,8 +206,12 @@ class GameState:
     
     def update_turn_time(self):
         """턴 시간 업데이트 (5초씩 감소, 최소 0.1초)"""
+        old_time = self.turn_time_limit_ms / 1000.0
         new_time = self.initial_turn_time_ms - (self.total_turns * self.turn_time_reduction_ms)
         self.turn_time_limit_ms = max(self.min_turn_time_ms, new_time)
+        new_time_sec = self.turn_time_limit_ms / 1000.0
+        
+        logger.debug(f"턴 시간 업데이트: R{self.current_round}T{self.total_turns} {old_time}초 → {new_time_sec}초")
     
     def is_time_up(self) -> bool:
         """시간이 최소값에 도달했는지 확인"""
@@ -213,6 +219,10 @@ class GameState:
     
     def complete_round(self):
         """라운드 완료 처리"""
+        # 이전 라운드 정보 로그
+        prev_round = self.current_round
+        prev_time = self.turn_time_limit_ms / 1000.0
+        
         # 다음 라운드로 이동
         self.current_round += 1
         self.current_turn = 0
@@ -223,6 +233,8 @@ class GameState:
         
         # 단어 체인 초기화
         self.word_chain = WordChainState()
+        
+        logger.info(f"라운드 완료: R{prev_round}({prev_time}초) → R{self.current_round}({self.turn_time_limit_ms/1000.0}초)")
     
     def is_final_game_finished(self) -> bool:
         """모든 라운드가 완료되었는지 확인"""
@@ -440,9 +452,10 @@ class RedisGameManager:
             # 타이머는 만료 시간보다 약간 더 길게 TTL 설정
             ttl = max(timer.remaining_ms // 1000 + 10, 60)
             self.redis.setex(key, ttl, data)
+            logger.info(f"타이머 Redis 저장: room_id={room_id}, ttl={ttl}초, expires_at={timer.expires_at}")
             return True
         except Exception as e:
-            print(f"타이머 저장 실패: {e}")
+            logger.error(f"타이머 저장 실패: {e}")
             return False
 
     async def get_timer(self, room_id: str) -> Optional[GameTimer]:
@@ -451,10 +464,14 @@ class RedisGameManager:
             key = self._get_timer_key(room_id)
             data = self.redis.get(key)
             if data:
-                return GameTimer.from_dict(json.loads(data))
-            return None
+                timer = GameTimer.from_dict(json.loads(data))
+                logger.info(f"타이머 Redis 조회 성공: room_id={room_id}, expires_at={timer.expires_at}")
+                return timer
+            else:
+                logger.info(f"타이머 Redis 조회 실패: room_id={room_id}, 데이터 없음")
+                return None
         except Exception as e:
-            print(f"타이머 조회 실패: {e}")
+            logger.error(f"타이머 조회 실패: {e}")
             return None
 
     async def cache_word_validation(self, word: str, is_valid: bool, word_info: Dict[str, Any] = None):

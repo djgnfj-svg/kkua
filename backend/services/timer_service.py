@@ -437,6 +437,10 @@ class TimerService:
         
         logger.info(f"룸 타이머 정리 완료: room_id={room_id}, count={len(timers_to_remove)}")
     
+    async def cancel_room_timers(self, room_id: str):
+        """룸의 모든 타이머 취소 (cleanup_room_timers 별칭)"""
+        await self.cleanup_room_timers(room_id)
+    
     async def cleanup_user_timers(self, room_id: str, user_id: int):
         """사용자의 모든 타이머 정리"""
         timers_to_remove = []
