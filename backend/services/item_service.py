@@ -481,15 +481,9 @@ class ItemService:
                 message="플레이어를 찾을 수 없습니다"
             )
         
-        if player.is_alive:
-            return ItemUseResult(
-                success=False,
-                message="이미 살아있는 상태입니다"
-            )
-        
-        # 부활
-        player.is_alive = True
-        player.failed_attempts = 0
+        # 부활 아이템은 탈락 시스템이 없어져서 사용할 수 없음
+        # 점수 보너스로 대체
+        player.score += 50
         await game_engine._update_game_state(room_id, game_state)
         
         return ItemUseResult(

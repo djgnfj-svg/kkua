@@ -587,9 +587,7 @@ class GameEngine:
             current_player.words_submitted += 1
             current_player.score += 10  # 기본 점수
             
-            # 플레이어 시간 감소 (매 턴마다 2초씩 감소)
-            new_time = current_player.reduce_time()
-            logger.info(f"플레이어 {current_player.nickname}의 남은 시간: {current_player.get_remaining_seconds()}초")
+            # 턴 시간 시스템으로 변경됨 - 개별 플레이어 시간 관리 제거
             
             # 다음 턴으로 이동
             game_state.next_turn()

@@ -553,14 +553,15 @@ class GameModeService:
                 winner = max(game_state.players.values(), key=lambda p: p.score)
                 return True, "라운드 완료", {"winner": winner.user_id, "score": winner.score}
         
-        # 서바이벌 모드: 생존자 1명
+        # 서바이벌 모드는 탈락 시스템 제거로 비활성화
         if rules.elimination_mode:
-            alive_players = [p for p in game_state.players.values() if p.is_alive]
-            if len(alive_players) <= 1:
-                winner = alive_players[0] if alive_players else None
-                return True, "서바이벌 승리", {
-                    "winner": winner.user_id if winner else None,
-                    "score": winner.score if winner else 0
+            # 점수 기반 승부로 변경
+            players = list(game_state.players.values())
+            if players:
+                winner = max(players, key=lambda p: p.score)
+                return True, "점수 승리", {
+                    "winner": winner.user_id,
+                    "score": winner.score
                 }
         
         return False, "", None

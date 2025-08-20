@@ -11,7 +11,7 @@ from sqlalchemy import select
 from database import get_db
 from models.item_models import Item
 from models.user_models import UserItem
-from redis_models import RedisGameManager
+from redis_models import RedisGameManager, GameState
 from database import get_redis
 from websocket.connection_manager import WebSocketManager
 from services.game_engine import get_game_engine
@@ -274,26 +274,10 @@ class GameEventHandler:
             # 게임 상태 저장
             await self.redis_manager.save_game_state(game_state)
             
-            # 게임 시작 브로드캐스트
-            current_player = game_state.get_current_player()
-            await self.websocket_manager.broadcast_to_room(room_id, {
-                "type": "game_started",
-                "data": {
-                    "room_id": room_id,
-                    "started_at": game_state.started_at,
-                    "current_turn_user_id": current_player.user_id if current_player else None,
-                    "current_turn_nickname": current_player.nickname if current_player else None,
-                    "current_turn_remaining_time": current_player.get_remaining_seconds() if current_player else 30,
-                    "players": [{"user_id": p.user_id, "nickname": p.nickname, "score": p.score, "remaining_time": p.get_remaining_seconds()} for p in game_state.players],
-                    "message": "게임이 시작되었습니다! 첫 번째 단어를 입력하세요.",
-                }
-            })
+            # 게임 시작 카운트다운 시작
+            await self._start_game_countdown(room_id, game_state)
             
-            # 첫 번째 턴 타이머 시작
-            if current_player:
-                await self._start_turn_timer(room_id, current_player.user_id)
-            
-            logger.info(f"게임 시작 성공: room_id={room_id}, current_player={current_player.nickname if current_player else None}")
+            logger.info(f"게임 시작 카운트다운: room_id={room_id}")
             return True
             
         except Exception as e:
@@ -339,7 +323,7 @@ class GameEventHandler:
                         "status": "accepted",
                         "next_char": updated_game_state.word_chain.current_char if updated_game_state else word[-1],
                         "current_turn_user_id": next_player.user_id if next_player else None,
-                        "current_turn_remaining_time": next_player.get_remaining_seconds() if next_player else 30,
+                        "current_turn_time_limit": updated_game_state.get_current_turn_time_seconds() if updated_game_state else 30,
                         "word_info": word_info.to_dict() if word_info else None,
                         "score_breakdown": score_breakdown.to_dict() if score_breakdown else None,
                         "response_time": response_time,
@@ -529,7 +513,6 @@ class GameEventHandler:
                             "nickname": player.nickname,
                             "score": player.score,
                             "is_ready": player.is_ready,
-                            "is_alive": player.is_alive,
                             "words_submitted": player.words_submitted,
                             "timeouts": player.timeouts,
                             "failed_attempts": player.failed_attempts,
@@ -659,7 +642,7 @@ class GameEventHandler:
                 "total_words": game_state.word_chain.total_words if game_state.word_chain else 0,
                 "current_combo": game_state.word_chain.combo_count if game_state.word_chain else 0,
                 "players_count": len(game_state.players),
-                "active_players": len([p for p in game_state.players.values() if p.is_alive]),
+                "active_players": len(game_state.players),
                 "phase": game_state.phase
             }
             
@@ -984,9 +967,7 @@ class GameEventHandler:
             current_player.words_submitted += 1
             current_player.score += 10  # 기본 점수
             
-            # 플레이어 시간 감소 (매 턴마다 2초씩 감소)
-            new_time = current_player.reduce_time()
-            logger.info(f"플레이어 {current_player.nickname}의 남은 시간: {current_player.get_remaining_seconds()}초")
+            # 턴 시간 시스템으로 변경됨 - 이 부분은 더 이상 필요 없음
             
             # 다음 턴으로 이동
             game_state.next_turn()
@@ -1010,7 +991,7 @@ class GameEventHandler:
                     "next_char": game_state.word_chain.current_char,
                     "current_turn_user_id": next_player.user_id if next_player else None,
                     "current_turn_nickname": next_player.nickname if next_player else None,
-                    "current_turn_remaining_time": next_player.get_remaining_seconds() if next_player else 30,
+                    "current_turn_time_limit": game_state.get_current_turn_time_seconds(),
                     "word_chain": game_state.word_chain.words[-5:] if len(game_state.word_chain.words) > 0 else [],
                     "scores": {p.user_id: p.score for p in game_state.players},
                 }
@@ -1028,12 +1009,12 @@ class GameEventHandler:
             return False
     
     async def _start_turn_timer(self, room_id: str, user_id: int):
-        """턴 타이머 시작 (각 플레이어의 개별 시간 사용)"""
+        """턴 타이머 시작 (전체 게임 턴 시간 시스템 사용)"""
         try:
             # 기존 타이머 취소
             await self._cancel_turn_timer(room_id)
             
-            # 게임 상태에서 현재 플레이어의 시간 가져오기
+            # 게임 상태에서 현재 턴의 시간 가져오기
             game_state = await self.redis_manager.get_game_state(room_id)
             if not game_state:
                 logger.error(f"게임 상태 없음: {room_id}")
@@ -1049,23 +1030,23 @@ class GameEventHandler:
                 logger.error(f"플레이어 없음: user_id={user_id}")
                 return
             
-            # 플레이어의 개별 시간 사용
-            player_time_ms = current_player.remaining_time_ms
-            player_time_seconds = player_time_ms / 1000.0
+            # 현재 턴의 시간 제한 사용 (턴마다 5초씩 감소)
+            turn_time_ms = game_state.get_current_turn_time_ms()
+            turn_time_seconds = game_state.get_current_turn_time_seconds()
             
-            logger.info(f"턴 타이머 시작: user_id={user_id}, time={player_time_seconds}초")
+            logger.info(f"턴 타이머 시작: user_id={user_id}, turn={game_state.total_turns}, time={turn_time_seconds}초")
             
             # 새 타이머 생성
-            timer_task = asyncio.create_task(self._turn_timer_task(room_id, user_id, player_time_seconds))
+            timer_task = asyncio.create_task(self._turn_timer_task(room_id, user_id, turn_time_seconds))
             
             # Redis에 타이머 정보 저장
             from redis_models import GameTimer
-            timer_expires = datetime.now(timezone.utc) + timedelta(seconds=player_time_seconds)
+            timer_expires = datetime.now(timezone.utc) + timedelta(seconds=turn_time_seconds)
             timer = GameTimer(
                 expires_at=timer_expires.isoformat(),
                 current_player_id=user_id,
-                remaining_ms=player_time_ms,
-                turn_duration_ms=player_time_ms
+                remaining_ms=turn_time_ms,
+                turn_duration_ms=turn_time_ms
             )
             
             await self.redis_manager.save_timer(room_id, timer)
@@ -1076,8 +1057,8 @@ class GameEventHandler:
                 "data": {
                     "room_id": room_id,
                     "user_id": user_id,
-                    "time_limit": player_time_seconds,
-                    "remaining_time": player_time_seconds,
+                    "time_limit": turn_time_seconds,
+                    "remaining_time": turn_time_seconds,
                     "expires_at": timer_expires.isoformat()
                 }
             })
@@ -1115,73 +1096,23 @@ class GameEventHandler:
             if not current_player or current_player.user_id != user_id:
                 return  # 이미 다른 플레이어로 넘어간 상태
             
-            # 타임아웃된 플레이어의 시간 확인
-            remaining_time = current_player.get_remaining_seconds()
-            logger.info(f"타임아웃 전 시간: {current_player.nickname}의 남은 시간: {remaining_time}초")
+            # 현재 턴 시간 확인 (새로운 시스템)
+            current_turn_time = game_state.get_current_turn_time_seconds()
+            logger.info(f"타임아웃 처리: {current_player.nickname}, 현재 턴 시간: {current_turn_time}초")
             
-            # 시간이 최소값에 도달했으면 플레이어 탈락
-            if remaining_time <= 0.1:
-                # 플레이어 탈락 처리
-                current_player.is_alive = False
-                logger.info(f"플레이어 탈락: {current_player.nickname} (시간 소진)")
-                
-                # 남은 활성 플레이어 확인
-                alive_players = [p for p in game_state.players if p.is_alive]
-                
-                if len(alive_players) <= 1:
-                    # 게임 종료
-                    winner = alive_players[0] if alive_players else None
-                    game_state.status = "finished"
-                    game_state.ended_at = datetime.now().isoformat()
-                    await self.redis_manager.save_game_state(game_state)
-                    
-                    # 게임 종료 브로드캐스트
-                    await self.websocket_manager.broadcast_to_room(room_id, {
-                        "type": "game_ended",
-                        "data": {
-                            "room_id": room_id,
-                            "reason": "time_elimination",
-                            "eliminated_player": current_player.nickname,
-                            "winner": winner.nickname if winner else None,
-                            "message": f"{current_player.nickname}님이 시간 소진으로 탈락했습니다. " + 
-                                     (f"{winner.nickname}님이 승리했습니다!" if winner else "게임이 종료되었습니다.")
-                        }
-                    })
-                    
-                    # 타이머 정리
-                    await self.timer_service.cancel_room_timers(room_id)
-                    logger.info(f"게임 종료: 시간 소진으로 {current_player.nickname} 탈락")
-                    return
-                else:
-                    # 탈락 알림 후 다음 플레이어로 진행
-                    game_state.next_turn()
-                    next_player = game_state.get_current_player()
-                    await self.redis_manager.save_game_state(game_state)
-                    
-                    await self.websocket_manager.broadcast_to_room(room_id, {
-                        "type": "player_eliminated",
-                        "data": {
-                            "room_id": room_id,
-                            "eliminated_player": current_player.nickname,
-                            "current_turn_user_id": next_player.user_id if next_player else None,
-                            "current_turn_nickname": next_player.nickname if next_player else None,
-                            "current_turn_remaining_time": next_player.get_remaining_seconds() if next_player else 30,
-                            "message": f"{current_player.nickname}님이 시간 소진으로 탈락했습니다. 다음 플레이어로 진행합니다."
-                        }
-                    })
-                    
-                    # 다음 플레이어 타이머 시작
-                    if next_player:
-                        await self._start_turn_timer(room_id, next_player.user_id)
-                    return
+            # 시간이 최소값에 도달하면 라운드 종료
+            if game_state.is_time_up():
+                await self._handle_round_completion(room_id, game_state)
+                return
             
-            # 시간이 남아있으면 시간 감소 후 다음 턴
-            current_player.reduce_time()
+            # 시간이 남아있으면 다음 턴으로 이동 (턴 시간은 자동 5초 감소)
             game_state.next_turn()
             await self.redis_manager.save_game_state(game_state)
             
             # 타임아웃 브로드캐스트
             next_player = game_state.get_current_player()
+            next_turn_time = game_state.get_current_turn_time_seconds()
+            
             await self.websocket_manager.broadcast_to_room(room_id, {
                 "type": "turn_timeout",
                 "data": {
@@ -1190,9 +1121,8 @@ class GameEventHandler:
                     "timeout_nickname": current_player.nickname,
                     "current_turn_user_id": next_player.user_id if next_player else None,
                     "current_turn_nickname": next_player.nickname if next_player else None,
-                    "current_turn_remaining_time": next_player.get_remaining_seconds() if next_player else 30,
-                    "timeout_player_remaining_time": current_player.get_remaining_seconds(),
-                    "message": f"{current_player.nickname}님의 시간이 초과되어 다음 플레이어로 넘어갑니다. (남은 시간: {current_player.get_remaining_seconds()}초)"
+                    "current_turn_time_limit": next_turn_time,
+                    "message": f"⚠️ {current_player.nickname}님의 시간이 초과되었습니다"
                 }
             })
             
@@ -1202,6 +1132,139 @@ class GameEventHandler:
             
         except Exception as e:
             logger.error(f"턴 타임아웃 처리 중 오류: {e}")
+    
+    async def _handle_round_completion(self, room_id: str, game_state: GameState):
+        """라운드 완료 처리"""
+        try:
+            logger.info(f"라운드 완료 처리: room_id={room_id}, round={game_state.current_round}")
+            
+            # 라운드 순위 계산
+            round_rankings = sorted(game_state.players, key=lambda p: p.score, reverse=True)
+            
+            # 라운드 완료 브로드캐스트
+            await self.websocket_manager.broadcast_to_room(room_id, {
+                "type": "round_completed",
+                "data": {
+                    "room_id": room_id,
+                    "completed_round": game_state.current_round,
+                    "rankings": [
+                        {
+                            "rank": i + 1,
+                            "user_id": player.user_id,
+                            "nickname": player.nickname,
+                            "score": player.score
+                        }
+                        for i, player in enumerate(round_rankings)
+                    ],
+                    "message": f"라운드 {game_state.current_round} 완료!"
+                }
+            })
+            
+            # 모든 라운드 완료 확인
+            if game_state.is_final_game_finished():
+                await self._handle_game_completion(room_id, game_state)
+            else:
+                # 다음 라운드 준비
+                game_state.complete_round()
+                await self.redis_manager.save_game_state(game_state)
+                
+                # 다음 라운드 시작 알림
+                await self.websocket_manager.broadcast_to_room(room_id, {
+                    "type": "next_round_starting",
+                    "data": {
+                        "room_id": room_id,
+                        "round": game_state.current_round,
+                        "max_rounds": game_state.max_rounds,
+                        "message": f"라운드 {game_state.current_round} 시작!"
+                    }
+                })
+                
+                # 첫 번째 플레이어부터 새 라운드 시작
+                first_player = game_state.get_current_player()
+                if first_player:
+                    await self._start_turn_timer(room_id, first_player.user_id)
+                
+        except Exception as e:
+            logger.error(f"라운드 완료 처리 중 오류: {e}")
+    
+    async def _handle_game_completion(self, room_id: str, game_state: GameState):
+        """게임 완료 처리"""
+        try:
+            logger.info(f"게임 완료 처리: room_id={room_id}")
+            
+            # 최종 순위 계산
+            final_rankings = game_state.get_final_rankings()
+            
+            # 게임 완료 상태로 변경
+            game_state.status = "finished"
+            game_state.ended_at = datetime.now(timezone.utc).isoformat()
+            
+            # 플레이어들을 준비 해제 상태로 변경
+            game_state.reset_players_for_next_game()
+            
+            await self.redis_manager.save_game_state(game_state)
+            
+            # 게임 완료 브로드캐스트
+            await self.websocket_manager.broadcast_to_room(room_id, {
+                "type": "game_completed",
+                "data": {
+                    "room_id": room_id,
+                    "final_rankings": final_rankings,
+                    "winner": final_rankings[0] if final_rankings else None,
+                    "total_rounds": game_state.max_rounds,
+                    "message": f"🏆 게임 완료! {final_rankings[0]['nickname']}님이 우승했습니다!" if final_rankings else "게임 완료!"
+                }
+            })
+            
+            # 게임 상태를 waiting으로 변경 (새 게임 준비)
+            game_state.status = "waiting"
+            await self.redis_manager.save_game_state(game_state)
+            
+            logger.info(f"게임 완료: {final_rankings[0]['nickname']}님 우승" if final_rankings else "게임 완료")
+            
+        except Exception as e:
+            logger.error(f"게임 완료 처리 중 오류: {e}")
+    
+    async def _start_game_countdown(self, room_id: str, game_state: GameState):
+        """게임 시작 카운트다운 (3초)"""
+        try:
+            logger.info(f"게임 시작 카운트다운: room_id={room_id}")
+            
+            # 3초 카운트다운
+            for countdown in [3, 2, 1]:
+                await self.websocket_manager.broadcast_to_room(room_id, {
+                    "type": "game_starting_countdown",
+                    "data": {
+                        "room_id": room_id,
+                        "countdown": countdown,
+                        "message": f"게임 시작까지 {countdown}초..."
+                    }
+                })
+                await asyncio.sleep(1)
+            
+            # 카운트다운 완료 후 게임 실제 시작
+            current_player = game_state.get_current_player()
+            await self.websocket_manager.broadcast_to_room(room_id, {
+                "type": "game_started",
+                "data": {
+                    "room_id": room_id,
+                    "started_at": game_state.started_at,
+                    "current_round": game_state.current_round,
+                    "max_rounds": game_state.max_rounds,
+                    "current_turn_user_id": current_player.user_id if current_player else None,
+                    "current_turn_nickname": current_player.nickname if current_player else None,
+                    "current_turn_time_limit": game_state.get_current_turn_time_seconds(),
+                    "players": [{"user_id": p.user_id, "nickname": p.nickname, "score": p.score} for p in game_state.players],
+                    "message": "🎮 게임 시작! 첫 번째 단어를 입력하세요.",
+                }
+            })
+            
+            # 첫 번째 턴 타이머 시작
+            if current_player:
+                await self._start_turn_timer(room_id, current_player.user_id)
+                
+        except Exception as e:
+            logger.error(f"게임 시작 카운트다운 중 오류: {e}")
     
     async def _cancel_turn_timer(self, room_id: str):
         """턴 타이머 취소"""
@@ -1376,7 +1439,7 @@ class GameEventHandler:
                         "left_nickname": nickname,
                         "current_turn_user_id": next_player.user_id if next_player else None,
                         "current_turn_nickname": next_player.nickname if next_player else None,
-                        "current_turn_remaining_time": next_player.get_remaining_seconds() if next_player else 30,
+                        "current_turn_time_limit": game_state.get_current_turn_time_seconds(),
                         "message": f"{nickname}님이 자신의 턴에 나갔습니다. 다음 플레이어로 넘어갑니다."
                     }
                 }, exclude_user=user_id)

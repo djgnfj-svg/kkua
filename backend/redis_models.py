@@ -42,8 +42,6 @@ class GamePlayer:
     items: List[str] = None
     last_word_time: Optional[str] = None
     joined_at: str = None
-    remaining_time_ms: int = 30000  # 개별 플레이어 시간 (30초부터 시작)
-    min_time_ms: int = 100  # 최소 시간 (0.1초)
     
     def __post_init__(self):
         if self.items is None:
@@ -58,14 +56,6 @@ class GamePlayer:
     def from_dict(cls, data: Dict[str, Any]) -> 'GamePlayer':
         return cls(**data)
     
-    def reduce_time(self) -> int:
-        """단어 제출 후 시간 감소 (매번 2초씩 감소, 최소 0.1초)"""
-        self.remaining_time_ms = max(self.min_time_ms, self.remaining_time_ms - 2000)
-        return self.remaining_time_ms
-    
-    def get_remaining_seconds(self) -> float:
-        """남은 시간을 초 단위로 반환"""
-        return self.remaining_time_ms / 1000.0
 
 
 @dataclass
@@ -147,8 +137,12 @@ class GameState:
     players: List[GamePlayer] = None
     current_round: int = 1
     current_turn: int = 0
-    max_rounds: int = 10
-    turn_time_limit_ms: int = 30000
+    max_rounds: int = 5
+    turn_time_limit_ms: int = 30000  # 현재 턴의 시간 제한
+    initial_turn_time_ms: int = 30000  # 첫 턴 초기 시간
+    turn_time_reduction_ms: int = 5000  # 매 턴마다 감소하는 시간
+    min_turn_time_ms: int = 100  # 최소 턴 시간 (0.1초)
+    total_turns: int = 0  # 전체 진행된 턴 수
     word_chain: WordChainState = None
     timer: Optional[GameTimer] = None
     game_settings: Dict[str, Any] = None
@@ -187,11 +181,76 @@ class GameState:
     def next_turn(self):
         """다음 턴으로 이동"""
         if self.players:
+            # 턴 수 증가
+            self.total_turns += 1
+            
+            # 다음 턴으로 이동
             self.current_turn = (self.current_turn + 1) % len(self.players)
             
             # 모든 플레이어가 한 번씩 턴을 가지면 라운드 증가
             if self.current_turn == 0:
                 self.current_round += 1
+            
+            # 턴 시간 업데이트 (5초씩 감소)
+            self.update_turn_time()
+    
+    def get_current_turn_time_ms(self) -> int:
+        """현재 턴의 시간 제한 반환 (밀리초)"""
+        return self.turn_time_limit_ms
+    
+    def get_current_turn_time_seconds(self) -> float:
+        """현재 턴의 시간 제한 반환 (초)"""
+        return self.turn_time_limit_ms / 1000.0
+    
+    def update_turn_time(self):
+        """턴 시간 업데이트 (5초씩 감소, 최소 0.1초)"""
+        new_time = self.initial_turn_time_ms - (self.total_turns * self.turn_time_reduction_ms)
+        self.turn_time_limit_ms = max(self.min_turn_time_ms, new_time)
+    
+    def is_time_up(self) -> bool:
+        """시간이 최소값에 도달했는지 확인"""
+        return self.turn_time_limit_ms <= self.min_turn_time_ms
+    
+    def complete_round(self):
+        """라운드 완료 처리"""
+        # 다음 라운드로 이동
+        self.current_round += 1
+        self.current_turn = 0
+        self.total_turns = 0
+        
+        # 턴 시간 초기화 (새 라운드는 다시 30초부터 시작)
+        self.turn_time_limit_ms = self.initial_turn_time_ms
+        
+        # 단어 체인 초기화
+        self.word_chain = WordChainState()
+    
+    def is_final_game_finished(self) -> bool:
+        """모든 라운드가 완료되었는지 확인"""
+        return self.current_round > self.max_rounds
+    
+    def reset_players_for_next_game(self):
+        """게임 완료 후 플레이어들을 준비 해제 상태로 만들기"""
+        for player in self.players:
+            player.status = PlayerStatus.WAITING.value
+            # 점수는 유지하되 게임 통계는 초기화
+            player.words_submitted = 0
+            player.current_combo = 0
+    
+    def get_final_rankings(self) -> List[Dict[str, Any]]:
+        """최종 순위 반환"""
+        sorted_players = sorted(self.players, key=lambda p: p.score, reverse=True)
+        rankings = []
+        for i, player in enumerate(sorted_players):
+            rankings.append({
+                "rank": i + 1,
+                "user_id": player.user_id,
+                "nickname": player.nickname,
+                "score": player.score,
+                "words_submitted": player.words_submitted,
+                "max_combo": player.max_combo,
+                "items_used": player.items_used
+            })
+        return rankings
 
     def add_player(self, player: GamePlayer) -> bool:
         """플레이어 추가"""
@@ -222,9 +281,8 @@ class GameState:
         return False
 
     def is_game_finished(self) -> bool:
-        """게임 종료 조건 확인"""
-        return (self.current_round > self.max_rounds or 
-                len(self.players) <= 1 or
+        """게임 종료 조건 확인 (점수제)"""
+        return (self.current_round > self.max_rounds or
                 self.status == GameStatus.FINISHED.value)
 
     def get_winner(self) -> Optional[GamePlayer]:
@@ -243,6 +301,10 @@ class GameState:
             "current_turn": self.current_turn,
             "max_rounds": self.max_rounds,
             "turn_time_limit_ms": self.turn_time_limit_ms,
+            "initial_turn_time_ms": self.initial_turn_time_ms,
+            "turn_time_reduction_ms": self.turn_time_reduction_ms,
+            "min_turn_time_ms": self.min_turn_time_ms,
+            "total_turns": self.total_turns,
             "word_chain": self.word_chain.to_dict(),
             "timer": self.timer.to_dict() if self.timer else None,
             "game_settings": self.game_settings,
@@ -267,6 +329,10 @@ class GameState:
             current_turn=data.get("current_turn", 0),
             max_rounds=data.get("max_rounds", 10),
             turn_time_limit_ms=data.get("turn_time_limit_ms", 30000),
+            initial_turn_time_ms=data.get("initial_turn_time_ms", 30000),
+            turn_time_reduction_ms=data.get("turn_time_reduction_ms", 5000),
+            min_turn_time_ms=data.get("min_turn_time_ms", 100),
+            total_turns=data.get("total_turns", 0),
             word_chain=word_chain,
             timer=timer,
             game_settings=data.get("game_settings", {}),
