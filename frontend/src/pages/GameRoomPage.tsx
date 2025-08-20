@@ -69,18 +69,9 @@ const GameRoomPage: React.FC = () => {
   // WebSocket 이벤트 리스너 설정 - useCallback으로 안정화
   const handleRoomJoined = useCallback((data: any) => {
     console.log('🎮 Room joined:', data);
-    if (data.room) {
-      setCurrentRoom(data.room);
-      showToast.success(`${data.room.name}에 입장했습니다! 🎮`);
-    } else if (roomId) {
-      // Update current room with new info
-      updateRoom(roomId, {
-        players: data.users || [],
-        currentPlayers: data.user_count || currentRoomRef.current?.currentPlayers || 1
-      });
-      showToast.success(`방에 입장했습니다! 🎮`);
-    }
-  }, [roomId, setCurrentRoom, updateRoom]);
+    showToast.success(data.message || '방에 입장했습니다! 🎮');
+    // game_state_update 이벤트로 플레이어 목록이 업데이트될 예정
+  }, []);
 
   // 플레이어 입장/퇴장 이벤트
   const handlePlayerJoined = useCallback((data: any) => {

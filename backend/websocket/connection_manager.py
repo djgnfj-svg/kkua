@@ -251,15 +251,35 @@ class WebSocketManager:
             
             logger.info(f"룸 나가기: user_id={user_id}, room_id={room_id}")
             
-            # 룸 나가기 알림
-            await self.broadcast_to_room(room_id, {
-                "type": "user_left_room",
-                "data": {
-                    "user_id": user_id,
-                    "nickname": connection.nickname if connection else "알 수 없음",
-                    "room_id": room_id
-                }
-            })
+            # 업데이트된 게임 상태 브로드캐스트 (나가는 사용자 제외)
+            from redis_models import RedisGameManager
+            updated_game_state = await self.redis_manager.get_game_state(room_id)
+            if updated_game_state:
+                # 플레이어 목록을 프론트엔드 형식으로 변환
+                players_list = []
+                for player in updated_game_state.players:
+                    players_list.append({
+                        "id": str(player.user_id),
+                        "user_id": player.user_id,
+                        "nickname": player.nickname,
+                        "score": player.score,
+                        "isReady": player.status == "ready",
+                        "isHost": player.is_host,
+                        "words_submitted": player.words_submitted,
+                        "max_combo": player.max_combo
+                    })
+                
+                await self.broadcast_to_room(room_id, {
+                    "type": "game_state_update",
+                    "data": {
+                        "room_id": room_id,
+                        "status": updated_game_state.status,
+                        "players": players_list,
+                        "current_turn": updated_game_state.current_turn,
+                        "current_round": updated_game_state.current_round,
+                        "player_left_id": user_id  # 나간 플레이어 ID 표시
+                    }
+                }, exclude_user=user_id)
             
             return True
             

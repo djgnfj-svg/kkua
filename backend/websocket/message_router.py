@@ -177,14 +177,25 @@ class MessageRouter:
         success = await self.websocket_manager.join_room(connection.user_id, room_id)
         
         if success:
-            # 룸 정보 전송
-            room_users = self.websocket_manager.get_room_users(room_id)
+            # 게임 핸들러를 통해 현재 게임 상태 브로드캐스트
+            from websocket.game_handler import get_game_handler
+            game_handler = get_game_handler(self.websocket_manager)
+            
+            # Redis에서 현재 게임 상태 가져와서 브로드캐스트
+            from redis_models import RedisGameManager
+            from database import get_redis
+            redis_manager = RedisGameManager(get_redis())
+            game_state = await redis_manager.get_game_state(room_id)
+            
+            if game_state:
+                await game_handler._broadcast_redis_game_state(room_id, game_state)
+            
+            # 입장 성공 알림
             await connection.send_json({
                 "type": "room_joined",
                 "data": {
                     "room_id": room_id,
-                    "users": room_users,
-                    "user_count": len(room_users)
+                    "message": "방에 입장했습니다"
                 },
                 "request_id": message.request_id
             })

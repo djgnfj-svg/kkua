@@ -117,28 +117,20 @@ class GameEventHandler:
                         leaving_player = player
                         break
             
-            # Redis를 통한 게임 나가기
-            success = await self.redis_manager.remove_player_from_game(room_id, user_id)
-            
-            if success:
-                # 나가기 성공 알림
+            # 나가기 알림 (연결이 끊어지기 전에 다른 사용자들에게만 전송)
+            if leaving_player:
                 await self.websocket_manager.broadcast_to_room(room_id, {
                     "type": "player_left",
                     "data": {
                         "user_id": user_id,
-                        "nickname": leaving_player.nickname if leaving_player else "Unknown",
-                        "message": f"{leaving_player.nickname if leaving_player else 'Unknown'}님이 퇴장했습니다"
+                        "nickname": leaving_player.nickname,
+                        "message": f"{leaving_player.nickname}님이 퇴장했습니다"
                     }
-                })
+                }, exclude_user=user_id)  # 나가는 사용자는 제외
                 
-                # 업데이트된 게임 상태 브로드캐스트
-                updated_game_state = await self.redis_manager.get_game_state(room_id)
-                if updated_game_state:
-                    await self._broadcast_redis_game_state(room_id, updated_game_state)
-                
-                logger.info(f"게임 나가기 완료: room_id={room_id}, user_id={user_id}, nickname={leaving_player.nickname if leaving_player else 'Unknown'}")
+                logger.info(f"게임 나가기 알림 완료: room_id={room_id}, user_id={user_id}, nickname={leaving_player.nickname}")
             
-            return success
+            return True
             
         except Exception as e:
             logger.error(f"게임 나가기 처리 중 오류: {e}")
