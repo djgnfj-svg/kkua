@@ -35,13 +35,13 @@ const GameRoomPage: React.FC = () => {
     isChecking: boolean;
   }>({ isValid: true, message: '', isChecking: false });
 
-  // 타이머 카운트다운
+  // 타이머 카운트다운 (서버 동기화)
   useEffect(() => {
     if (!gameState.isPlaying || gameState.currentTurnUserId !== user?.id) return;
     
     const interval = setInterval(() => {
       setGameState(prev => {
-        const newTime = Math.max(0, (prev.remainingTime || 30) - 1);
+        const newTime = Math.max(0.1, (prev.remainingTime || 30) - 1);
         return { ...prev, remainingTime: newTime };
       });
     }, 1000);
@@ -302,23 +302,72 @@ const GameRoomPage: React.FC = () => {
   // 타이머 관련 핸들러들
   const handleTurnTimerStarted = useCallback((data: any) => {
     console.log('⏰ Turn timer started:', data);
-    if (data.remaining_time) {
-      setGameState(prev => ({
-        ...prev,
-        remainingTime: data.remaining_time
-      }));
-    }
+    
+    // 서버에서 전송된 정확한 시간으로 동기화
+    const serverTime = data.remaining_time || data.time_limit || 30;
+    
+    setGameState(prev => ({
+      ...prev,
+      remainingTime: serverTime,
+      turnTimeLimit: serverTime
+    }));
+    
+    console.log(`타이머 동기화: ${serverTime}초`);
   }, []);
 
   const handleTurnTimeout = useCallback((data: any) => {
     console.log('⏰ Turn timeout:', data);
-    showToast.warning('시간 초과! 다음 플레이어에게 넘어갑니다');
+    showToast.warning(`${data.timeout_nickname}님의 시간이 초과되었습니다`);
+    
+    // 타임아웃된 플레이어의 남은 시간 정보도 표시
+    if (data.timeout_player_remaining_time !== undefined) {
+      showToast.info(`${data.timeout_nickname}님의 남은 시간: ${data.timeout_player_remaining_time}초`);
+    }
+    
     // 턴 타임아웃 시 다음 플레이어로 이동
     if (data.current_turn_user_id) {
       setGameState(prev => ({
         ...prev,
         currentTurnUserId: String(data.current_turn_user_id),
         remainingTime: data.current_turn_remaining_time || 30 // 다음 플레이어의 개별 시간
+      }));
+    }
+  }, []);
+
+  // 게임 종료 핸들러 추가
+  const handleGameEnded = useCallback((data: any) => {
+    console.log('🏁 Game ended:', data);
+    
+    setGameState(prev => ({ 
+      ...prev, 
+      isPlaying: false 
+    }));
+    
+    if (data.reason === 'time_elimination') {
+      showToast.error(`${data.eliminated_player}님이 시간 소진으로 탈락했습니다!`);
+      if (data.winner) {
+        showToast.success(`🏆 ${data.winner}님이 승리했습니다!`);
+      }
+    }
+    
+    // 5초 후 로비로 이동
+    setTimeout(() => {
+      navigate('/lobby');
+    }, 5000);
+  }, [navigate]);
+
+  // 플레이어 탈락 핸들러 추가
+  const handlePlayerEliminated = useCallback((data: any) => {
+    console.log('💀 Player eliminated:', data);
+    
+    showToast.error(`${data.eliminated_player}님이 시간 소진으로 탈락했습니다!`);
+    
+    // 다음 플레이어로 턴 이동
+    if (data.current_turn_user_id) {
+      setGameState(prev => ({
+        ...prev,
+        currentTurnUserId: String(data.current_turn_user_id),
+        remainingTime: data.current_turn_remaining_time || 30
       }));
     }
   }, []);
@@ -442,6 +491,8 @@ const GameRoomPage: React.FC = () => {
     on('player_left_game', handlePlayerLeftGame);
     on('player_left_room', handlePlayerLeftRoom);
     on('room_disbanded', handleRoomDisbanded);
+    on('game_ended', handleGameEnded);
+    on('player_eliminated', handlePlayerEliminated);
     on('error', handleError);
     on('success', handleSuccess);
     on('pong', (data: any) => console.log('🏓 Pong received:', data));
@@ -478,11 +529,13 @@ const GameRoomPage: React.FC = () => {
       off('player_left_game', handlePlayerLeftGame);
       off('player_left_room', handlePlayerLeftRoom);
       off('room_disbanded', handleRoomDisbanded);
+      off('game_ended', handleGameEnded);
+      off('player_eliminated', handlePlayerEliminated);
       off('error', handleError);
       off('success', handleSuccess);
       off('pong');
     };
-  }, [isConnected, roomId, user?.id, emit, on, off, handleRoomJoined, handlePlayerJoined, handlePlayerLeft, handleChatMessage, handleGameStarted, handleWordSubmitted, handleWordSubmissionFailed, handleTurnTimerStarted, handleTurnTimeout, handlePlayerReady, handleGameStateUpdate, handleHostLeftGame, handleHostChanged, handleOpponentLeftVictory, handlePlayerLeftDuringTurn, handlePlayerLeftGame, handlePlayerLeftRoom, handleRoomDisbanded, handleError, handleSuccess]);
+  }, [isConnected, roomId, user?.id, emit, on, off, handleRoomJoined, handlePlayerJoined, handlePlayerLeft, handleChatMessage, handleGameStarted, handleWordSubmitted, handleWordSubmissionFailed, handleTurnTimerStarted, handleTurnTimeout, handlePlayerReady, handleGameStateUpdate, handleHostLeftGame, handleHostChanged, handleOpponentLeftVictory, handlePlayerLeftDuringTurn, handlePlayerLeftGame, handlePlayerLeftRoom, handleRoomDisbanded, handleGameEnded, handlePlayerEliminated, handleError, handleSuccess]);
 
   useEffect(() => {
     if (!roomId) {
