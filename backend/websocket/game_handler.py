@@ -108,8 +108,17 @@ class GameEventHandler:
             # 사용자 타이머 정리
             await self.timer_service.cleanup_user_timers(room_id, user_id)
             
-            # 게임 엔진을 통한 게임 나가기
-            success, message = await self.game_engine.leave_game(room_id, user_id)
+            # 게임 상태 가져오기 (나가기 전에 플레이어 정보 확인)
+            game_state = await self.redis_manager.get_game_state(room_id)
+            leaving_player = None
+            if game_state:
+                for player in game_state.players:
+                    if player.user_id == user_id:
+                        leaving_player = player
+                        break
+            
+            # Redis를 통한 게임 나가기
+            success = await self.redis_manager.remove_player_from_game(room_id, user_id)
             
             if success:
                 # 나가기 성공 알림
@@ -117,16 +126,17 @@ class GameEventHandler:
                     "type": "player_left",
                     "data": {
                         "user_id": user_id,
-                        "message": message
+                        "nickname": leaving_player.nickname if leaving_player else "Unknown",
+                        "message": f"{leaving_player.nickname if leaving_player else 'Unknown'}님이 퇴장했습니다"
                     }
                 })
                 
-                # 게임 상태 브로드캐스트
-                game_state = await self.game_engine.get_game_state(room_id)
-                if game_state:
-                    await self._broadcast_game_state(room_id, game_state)
+                # 업데이트된 게임 상태 브로드캐스트
+                updated_game_state = await self.redis_manager.get_game_state(room_id)
+                if updated_game_state:
+                    await self._broadcast_redis_game_state(room_id, updated_game_state)
                 
-                logger.info(f"게임 나가기 완료: room_id={room_id}, user_id={user_id}")
+                logger.info(f"게임 나가기 완료: room_id={room_id}, user_id={user_id}, nickname={leaving_player.nickname if leaving_player else 'Unknown'}")
             
             return success
             

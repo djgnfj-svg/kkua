@@ -85,32 +85,61 @@ const GameRoomPage: React.FC = () => {
   // 플레이어 입장/퇴장 이벤트
   const handlePlayerJoined = useCallback((data: any) => {
     console.log('👤 Player joined:', data);
+    console.log('현재 플레이어 목록:', currentRoomRef.current?.players);
+    
     showToast.info(`${data.nickname}님이 입장했습니다 ${data.is_host ? '(방장)' : ''}`);
     
-    // Update player list
+    // 중복 체크 - 이미 있는 플레이어인지 확인
     if (roomId && currentRoomRef.current) {
-      updateRoom(roomId, {
-        currentPlayers: currentRoomRef.current.currentPlayers + 1,
-        players: [...(currentRoomRef.current.players || []), {
-          id: String(data.user_id),
-          nickname: data.nickname,
-          isHost: data.is_host || false,
-          isReady: false
-        }]
-      });
+      const existingPlayer = currentRoomRef.current.players?.find(p => 
+        p.id === String(data.user_id) || p.id === data.user_id
+      );
+      
+      if (!existingPlayer) {
+        // 새로운 플레이어만 추가
+        updateRoom(roomId, {
+          currentPlayers: currentRoomRef.current.currentPlayers + 1,
+          players: [...(currentRoomRef.current.players || []), {
+            id: String(data.user_id),
+            nickname: data.nickname,
+            isHost: data.is_host || false,
+            isReady: false
+          }]
+        });
+        console.log(`새 플레이어 추가됨: ${data.nickname} (ID: ${data.user_id})`);
+      } else {
+        console.log(`플레이어 이미 존재: ${data.nickname} (ID: ${data.user_id})`);
+        // 이미 존재하는 플레이어는 정보만 업데이트
+        updateRoom(roomId, {
+          players: (currentRoomRef.current.players || []).map(p => 
+            p.id === String(data.user_id) || p.id === data.user_id
+              ? { ...p, isHost: data.is_host || false, nickname: data.nickname }
+              : p
+          )
+        });
+      }
     }
   }, [roomId, updateRoom]);
 
   const handlePlayerLeft = useCallback((data: any) => {
     console.log('👋 Player left:', data);
-    showToast.info(`플레이어가 퇴장했습니다`);
     
-    // Update player list
-    if (roomId && currentRoomRef.current) {
+    // 퇴장하는 플레이어 정보 찾기
+    const leftPlayer = currentRoomRef.current?.players?.find(p => 
+      p.id === String(data.user_id) || p.id === data.user_id
+    );
+    
+    showToast.info(`${leftPlayer?.nickname || 'Unknown'}님이 퇴장했습니다`);
+    
+    // Update player list - 해당 플레이어 제거
+    if (roomId && currentRoomRef.current && leftPlayer) {
       updateRoom(roomId, {
         currentPlayers: Math.max(1, currentRoomRef.current.currentPlayers - 1),
-        players: (currentRoomRef.current.players || []).filter(p => p.id !== data.user_id)
+        players: (currentRoomRef.current.players || []).filter(p => 
+          p.id !== String(data.user_id) && p.id !== data.user_id
+        )
       });
+      console.log(`플레이어 제거됨: ${leftPlayer.nickname} (ID: ${data.user_id})`);
     }
   }, [roomId, updateRoom]);
 
