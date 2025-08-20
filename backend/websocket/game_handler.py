@@ -18,6 +18,7 @@ from services.game_engine import get_game_engine
 from services.word_validator import get_word_validator
 from services.timer_service import get_timer_service
 from services.score_calculator import get_score_calculator
+from services.item_service import get_item_service
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +46,7 @@ class GameEventHandler:
         self.word_validator = get_word_validator()
         self.timer_service = get_timer_service()
         self.score_calculator = get_score_calculator()
+        self.item_service = get_item_service()
         
         # 게임 설정
         self.config = GameConfig()
@@ -263,70 +265,57 @@ class GameEventHandler:
     async def handle_use_item(self, room_id: str, user_id: int, item_id: int, target_user_id: Optional[int] = None) -> bool:
         """아이템 사용 처리"""
         try:
-            db = next(get_db())
-            # 사용자 아이템 확인
-            result = db.execute(
-                select(UserItem, Item)
-                .join(Item, UserItem.item_id == Item.item_id)
-                .where(UserItem.user_id == user_id, UserItem.item_id == item_id, UserItem.quantity > 0)
-            )
-            user_item_data = result.first()
-                
-            if not user_item_data:
-                await self.websocket_manager.send_to_user(user_id, {
-                    "type": "item_use_failed",
-                    "data": {"reason": "아이템을 보유하고 있지 않습니다"}
-                })
-                return False
-            
-            user_item, item = user_item_data
-            
             # 게임 상태 확인
-            game_state = await self.redis_manager.get_game_state(room_id)
-            if not game_state or game_state.phase != GamePhase.PLAYING:
+            game_state = await self.game_engine.get_game_state(room_id)
+            if not game_state or game_state.phase not in ["playing", "ready"]:
                 await self.websocket_manager.send_to_user(user_id, {
                     "type": "item_use_failed",
                     "data": {"reason": "게임 중에만 아이템을 사용할 수 있습니다"}
                 })
                 return False
             
-            # 쿨다운 확인
-            if await self._is_item_on_cooldown(user_id, item_id):
-                await self.websocket_manager.send_to_user(user_id, {
-                    "type": "item_use_failed",
-                    "data": {"reason": "아이템이 쿨다운 중입니다"}
-                })
-                return False
+            # 아이템 서비스를 통한 아이템 사용
+            use_result = await self.item_service.use_item(room_id, user_id, item_id, target_user_id)
             
-            # 아이템 효과 실행
-            success = await self._execute_item_effect(room_id, user_id, item, target_user_id)
-            
-            if success:
-                # 아이템 소모
-                user_item.quantity -= 1
-                db.commit()
-                
-                # 쿨다운 설정
-                await self._set_item_cooldown(user_id, item_id, item.cooldown_seconds)
-                
-                # 아이템 사용 알림
+            if use_result.success:
+                # 아이템 사용 성공 알림
                 await self.websocket_manager.broadcast_to_room(room_id, {
                     "type": "item_used",
                     "data": {
                         "user_id": user_id,
                         "item_id": item_id,
-                        "item_name": item.name,
                         "target_user_id": target_user_id,
-                        "effect_description": item.description
+                        "effect": use_result.effect.to_dict() if use_result.effect else None,
+                        "message": use_result.message,
+                        "cooldown_until": use_result.cooldown_until.isoformat() if use_result.cooldown_until else None
                     }
                 })
                 
-                logger.info(f"아이템 사용 완료: user_id={user_id}, item_id={item_id}")
+                # 게임 상태 업데이트 브로드캐스트
+                updated_game_state = await self.game_engine.get_game_state(room_id)
+                if updated_game_state:
+                    await self._broadcast_game_state(room_id, updated_game_state)
+                
+                logger.info(f"아이템 사용 성공: user_id={user_id}, item_id={item_id}, effect={use_result.effect.effect_type if use_result.effect else None}")
+            else:
+                # 아이템 사용 실패 알림
+                await self.websocket_manager.send_to_user(user_id, {
+                    "type": "item_use_failed",
+                    "data": {
+                        "reason": use_result.message,
+                        "item_id": item_id
+                    }
+                })
+                logger.warning(f"아이템 사용 실패: user_id={user_id}, item_id={item_id}, reason={use_result.message}")
             
-            return success
+            return use_result.success
                 
         except Exception as e:
             logger.error(f"아이템 사용 처리 중 오류: {e}")
+            await self.websocket_manager.send_to_user(user_id, {
+                "type": "item_use_failed",
+                "data": {"reason": "아이템 사용 중 오류가 발생했습니다"}
+            })
             return False
     
     async def _on_turn_timeout(self, room_id: str, user_id: int):
@@ -452,17 +441,47 @@ class GameEventHandler:
             success, message, final_results = await self.game_engine.end_game(room_id, reason)
             
             if success:
-                # 게임 종료 알림
+                # 플레이어들에게 아이템 드롭
+                item_drops = {}
+                if final_results and "players" in final_results:
+                    for player_result in final_results["players"]:
+                        user_id = player_result.get("user_id")
+                        if user_id:
+                            # 게임 성과 기반 아이템 드롭
+                            performance = {
+                                "score": player_result.get("score", 0),
+                                "rank": player_result.get("rank", len(final_results["players"])),
+                                "max_combo": player_result.get("max_combo", 0),
+                                "accuracy": player_result.get("accuracy", 0.0),
+                                "words_submitted": player_result.get("words_submitted", 0)
+                            }
+                            
+                            dropped_item = await self.item_service.drop_random_item(user_id, performance)
+                            if dropped_item:
+                                item_drops[user_id] = dropped_item.to_dict()
+                
+                # 게임 종료 알림 (아이템 드롭 정보 포함)
                 await self.websocket_manager.broadcast_to_room(room_id, {
                     "type": "game_ended",
                     "data": {
                         "reason": reason,
                         "message": message,
-                        "final_results": final_results
+                        "final_results": final_results,
+                        "item_drops": item_drops
                     }
                 })
                 
-                logger.info(f"게임 종료 완료: room_id={room_id}, reason={reason}")
+                # 개별 아이템 드롭 알림
+                for user_id, item_info in item_drops.items():
+                    await self.websocket_manager.send_to_user(user_id, {
+                        "type": "item_dropped",
+                        "data": {
+                            "item": item_info,
+                            "message": f"새로운 아이템을 획득했습니다: {item_info['name']}"
+                        }
+                    })
+                
+                logger.info(f"게임 종료 완료: room_id={room_id}, reason={reason}, drops={len(item_drops)}")
             
             return success
             
@@ -502,26 +521,66 @@ class GameEventHandler:
             logger.error(f"게임 통계 요청 처리 중 오류: {e}")
             return {}
     
-    async def _execute_item_effect(self, room_id: str, user_id: int, item: Item, target_user_id: Optional[int]) -> bool:
-        """아이템 효과 실행"""
+    async def handle_get_inventory(self, user_id: int) -> List[Dict[str, Any]]:
+        """인벤토리 조회 처리"""
         try:
-            # 아이템별 효과 처리 (임시 구현)
-            logger.info(f"아이템 효과 실행: item_id={item.item_id}, name={item.name}")
-            return True
+            inventory = await self.item_service.get_user_inventory(user_id)
+            
+            # 인벤토리 전송
+            await self.websocket_manager.send_to_user(user_id, {
+                "type": "inventory_update",
+                "data": {
+                    "inventory": inventory,
+                    "total_items": len(inventory),
+                    "message": "인벤토리 조회 완료"
+                }
+            })
+            
+            logger.info(f"인벤토리 조회: user_id={user_id}, items={len(inventory)}")
+            return inventory
             
         except Exception as e:
-            logger.error(f"아이템 효과 실행 중 오류: {e}")
-            return False
+            logger.error(f"인벤토리 조회 처리 중 오류: {e}")
+            return []
     
-    async def _is_item_on_cooldown(self, user_id: int, item_id: int) -> bool:
-        """아이템 쿨다운 확인"""
-        # Redis에서 쿨다운 확인 (임시 구현)
-        return False
+    async def handle_get_active_effects(self, room_id: str, user_id: int) -> List[Dict[str, Any]]:
+        """활성 효과 조회 처리"""
+        try:
+            active_effects = await self.item_service.get_active_effects(room_id, user_id)
+            
+            effects_data = [effect.to_dict() for effect in active_effects]
+            
+            # 활성 효과 전송
+            await self.websocket_manager.send_to_user(user_id, {
+                "type": "active_effects",
+                "data": {
+                    "effects": effects_data,
+                    "count": len(effects_data)
+                }
+            })
+            
+            return effects_data
+            
+        except Exception as e:
+            logger.error(f"활성 효과 조회 처리 중 오류: {e}")
+            return []
     
-    async def _set_item_cooldown(self, user_id: int, item_id: int, cooldown_seconds: int):
-        """아이템 쿨다운 설정"""
-        # Redis에 쿨다운 설정 (임시 구현)
-        pass
+    async def get_item_multipliers(self, room_id: str, user_id: int) -> float:
+        """사용자의 활성 아이템 점수 배수 조회"""
+        try:
+            active_effects = await self.item_service.get_active_effects(room_id, user_id)
+            total_multiplier = 1.0
+            
+            for effect in active_effects:
+                if effect.effect.effect_type == "score_multiply":
+                    multiplier = effect.effect.value.get("multiplier", 1.0)
+                    total_multiplier *= multiplier
+            
+            return min(total_multiplier, 5.0)  # 최대 5배 제한
+            
+        except Exception as e:
+            logger.error(f"아이템 배수 조회 중 오류: {e}")
+            return 1.0
 
 
 # 전역 게임 핸들러 인스턴스

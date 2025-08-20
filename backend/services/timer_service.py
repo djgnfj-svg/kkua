@@ -261,6 +261,44 @@ class TimerService:
         logger.info(f"턴 타이머 생성: {timer_id}, duration={duration}s")
         return timer_id
     
+    async def extend_timer(self, room_id: str, user_id: int, extra_seconds: int) -> bool:
+        """타이머 시간 연장"""
+        timer_id = f"turn_{room_id}_{user_id}"
+        timer = self.active_timers.get(timer_id)
+        
+        if not timer or timer.status != TimerStatus.RUNNING:
+            return False
+        
+        try:
+            # 남은 시간 연장
+            timer.remaining_seconds += extra_seconds
+            
+            logger.info(f"타이머 연장: {timer_id}, +{extra_seconds}초, 총 {timer.remaining_seconds}초")
+            return True
+            
+        except Exception as e:
+            logger.error(f"타이머 연장 중 오류: {e}")
+            return False
+    
+    async def reduce_timer(self, room_id: str, user_id: int, reduce_seconds: int) -> bool:
+        """타이머 시간 단축"""
+        timer_id = f"turn_{room_id}_{user_id}"
+        timer = self.active_timers.get(timer_id)
+        
+        if not timer or timer.status != TimerStatus.RUNNING:
+            return False
+        
+        try:
+            # 시간 단축 (최소 1초는 유지)
+            timer.remaining_seconds = max(1, timer.remaining_seconds - reduce_seconds)
+            
+            logger.info(f"타이머 단축: {timer_id}, -{reduce_seconds}초, 남은 시간 {timer.remaining_seconds}초")
+            return True
+            
+        except Exception as e:
+            logger.error(f"타이머 단축 중 오류: {e}")
+            return False
+    
     async def create_game_timer(self, room_id: str, duration_seconds: Optional[int] = None, 
                                callback: Optional[Callable] = None) -> str:
         """게임 타이머 생성"""
