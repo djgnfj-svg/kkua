@@ -177,7 +177,7 @@ class GameModeService:
             max_players=6,
             rules=GameRules(
                 turn_time_limit=15,
-                max_rounds=20,
+                max_rounds=5,
                 time_pressure_mode=True
             ),
             difficulty_level=2

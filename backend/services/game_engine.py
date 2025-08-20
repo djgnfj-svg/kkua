@@ -44,7 +44,7 @@ class GameConfig:
     """게임 설정"""
     min_players: int = 2
     max_players: int = 4
-    max_rounds: int = 10
+    max_rounds: int = 5
     turn_timeout_seconds: int = 30
     min_word_length: int = 2
     max_word_length: int = 10

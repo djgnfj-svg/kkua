@@ -369,7 +369,7 @@ class GameState:
             players=players,
             current_round=data.get("current_round", 1),
             current_turn=data.get("current_turn", 0),
-            max_rounds=data.get("max_rounds", 10),
+            max_rounds=data.get("max_rounds", 5),
             turn_time_limit_ms=data.get("turn_time_limit_ms", 30000),
             initial_turn_time_ms=data.get("initial_turn_time_ms", 30000),
             turn_time_reduction_ms=data.get("turn_time_reduction_ms", 5000),
