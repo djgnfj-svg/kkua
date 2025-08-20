@@ -158,43 +158,60 @@ class GameEventHandler:
     async def handle_start_game(self, room_id: str, user_id: int) -> bool:
         """게임 시작 처리"""
         try:
-            # 게임 엔진을 통한 게임 시작
-            success, message = await self.game_engine.start_game(room_id, user_id)
+            logger.info(f"게임 시작 처리: room_id={room_id}, user_id={user_id}")
             
-            if success:
-                # 게임 시작 알림
-                game_state = await self.game_engine.get_game_state(room_id)
-                await self.websocket_manager.broadcast_to_room(room_id, {
-                    "type": "game_started",
-                    "data": {
-                        "room_id": room_id,
-                        "started_at": game_state.started_at.isoformat() if game_state.started_at else None,
-                        "current_turn": game_state.current_turn,
-                        "message": message
-                    }
-                })
-                
-                # 첫 번째 턴 타이머 시작
-                if game_state.current_turn:
-                    await self.timer_service.create_turn_timer(
-                        room_id=room_id,
-                        user_id=game_state.current_turn,
-                        callback=self._on_turn_timeout
-                    )
-                
-                # 게임 상태 브로드캐스트
-                await self._broadcast_game_state(room_id, game_state)
-                
-                logger.info(f"게임 시작 완료: room_id={room_id}, message={message}")
-            else:
-                # 시작 실패 알림
+            # 게임 상태 조회
+            game_state = await self.redis_manager.get_game_state(room_id)
+            if not game_state:
+                logger.error(f"게임 상태 없음: room_id={room_id}")
+                return False
+            
+            # 이미 시작된 게임인지 확인
+            if game_state.status == "playing":
                 await self.websocket_manager.send_to_user(user_id, {
                     "type": "game_start_failed",
-                    "data": {"reason": message}
+                    "data": {"reason": "게임이 이미 시작되었습니다"}
                 })
-                logger.warning(f"게임 시작 실패: room_id={room_id}, reason={message}")
+                return False
             
-            return success
+            # 최소 플레이어 수 확인
+            if len(game_state.players) < 1:  # 테스트를 위해 1명으로 설정
+                await self.websocket_manager.send_to_user(user_id, {
+                    "type": "game_start_failed", 
+                    "data": {"reason": "최소 1명 이상의 플레이어가 필요합니다"}
+                })
+                return False
+            
+            # 게임 상태를 플레이 중으로 변경
+            from redis_models import GameStatus
+            game_state.status = GameStatus.PLAYING.value
+            game_state.started_at = datetime.now(timezone.utc).isoformat()
+            game_state.current_turn = 0  # 첫 번째 플레이어부터 시작
+            
+            # 게임 상태 저장
+            await self.redis_manager.save_game_state(game_state)
+            
+            # 게임 시작 브로드캐스트
+            current_player = game_state.get_current_player()
+            await self.websocket_manager.broadcast_to_room(room_id, {
+                "type": "game_started",
+                "data": {
+                    "room_id": room_id,
+                    "started_at": game_state.started_at,
+                    "current_turn_user_id": current_player.user_id if current_player else None,
+                    "current_turn_nickname": current_player.nickname if current_player else None,
+                    "players": [{"user_id": p.user_id, "nickname": p.nickname, "score": p.score} for p in game_state.players],
+                    "message": "게임이 시작되었습니다! 첫 번째 단어를 입력하세요.",
+                    "turn_time_limit": 30  # 30초 제한
+                }
+            })
+            
+            # 첫 번째 턴 타이머 시작
+            if current_player:
+                await self._start_turn_timer(room_id, current_player.user_id)
+            
+            logger.info(f"게임 시작 성공: room_id={room_id}, current_player={current_player.nickname if current_player else None}")
+            return True
             
         except Exception as e:
             logger.error(f"게임 시작 처리 중 오류: {e}")
@@ -767,6 +784,205 @@ class GameEventHandler:
         except Exception as e:
             logger.error(f"아이템 배수 조회 중 오류: {e}")
             return 1.0
+    
+    async def handle_word_submission(self, room_id: str, user_id: int, word: str) -> bool:
+        """단어 제출 처리"""
+        try:
+            logger.info(f"단어 제출 처리 시작: room_id={room_id}, user_id={user_id}, word={word}")
+            
+            # 게임 상태 조회
+            game_state = await self.redis_manager.get_game_state(room_id)
+            if not game_state:
+                await self.websocket_manager.send_to_user(user_id, {
+                    "type": "word_submission_failed",
+                    "data": {"reason": "게임 상태를 찾을 수 없습니다"}
+                })
+                return False
+            
+            # 게임이 진행 중인지 확인
+            if game_state.status != "playing":
+                await self.websocket_manager.send_to_user(user_id, {
+                    "type": "word_submission_failed", 
+                    "data": {"reason": "게임이 진행 중이 아닙니다"}
+                })
+                return False
+            
+            # 현재 턴 플레이어인지 확인
+            current_player = game_state.get_current_player()
+            if not current_player or current_player.user_id != user_id:
+                await self.websocket_manager.send_to_user(user_id, {
+                    "type": "word_submission_failed",
+                    "data": {"reason": "당신의 턴이 아닙니다"}
+                })
+                return False
+            
+            # 단어 길이 검증
+            if len(word) < 2:
+                await self.websocket_manager.send_to_user(user_id, {
+                    "type": "word_submission_failed",
+                    "data": {"reason": "단어는 최소 2글자 이상이어야 합니다"}
+                })
+                return False
+            
+            # 끝말잇기 규칙 검증
+            if not game_state.word_chain.is_valid_chain(word):
+                await self.websocket_manager.send_to_user(user_id, {
+                    "type": "word_submission_failed",
+                    "data": {"reason": f"'{game_state.word_chain.current_char}'(으)로 시작하는 단어를 입력하세요"}
+                })
+                return False
+            
+            # 중복 단어 검증
+            if game_state.word_chain.is_word_used(word):
+                await self.websocket_manager.send_to_user(user_id, {
+                    "type": "word_submission_failed",
+                    "data": {"reason": "이미 사용된 단어입니다"}
+                })
+                return False
+            
+            # 단어 추가
+            game_state.word_chain.add_word(word)
+            current_player.words_submitted += 1
+            current_player.score += 10  # 기본 점수
+            
+            # 다음 턴으로 이동
+            game_state.next_turn()
+            
+            # 게임 상태 저장
+            await self.redis_manager.save_game_state(game_state)
+            
+            # 다음 플레이어 타이머 시작
+            next_player = game_state.get_current_player()
+            if next_player:
+                await self._start_turn_timer(room_id, next_player.user_id)
+
+            # 단어 제출 성공 브로드캐스트
+            await self.websocket_manager.broadcast_to_room(room_id, {
+                "type": "word_submitted",
+                "data": {
+                    "user_id": user_id,
+                    "nickname": current_player.nickname,
+                    "word": word,
+                    "status": "accepted",
+                    "next_char": game_state.word_chain.current_char,
+                    "current_turn_user_id": next_player.user_id if next_player else None,
+                    "current_turn_nickname": next_player.nickname if next_player else None,
+                    "word_chain": game_state.word_chain.words[-5:] if len(game_state.word_chain.words) > 0 else [],
+                    "scores": {p.user_id: p.score for p in game_state.players},
+                    "turn_time_limit": 30  # 30초 제한
+                }
+            })
+            
+            logger.info(f"단어 제출 성공: {word} -> 다음 글자: {game_state.word_chain.current_char}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"단어 제출 처리 중 오류: {e}")
+            await self.websocket_manager.send_to_user(user_id, {
+                "type": "word_submission_failed",
+                "data": {"reason": "단어 처리 중 오류가 발생했습니다"}
+            })
+            return False
+    
+    async def _start_turn_timer(self, room_id: str, user_id: int):
+        """턴 타이머 시작"""
+        try:
+            # 기존 타이머 취소
+            await self._cancel_turn_timer(room_id)
+            
+            # 새 타이머 생성
+            timer_task = asyncio.create_task(self._turn_timer_task(room_id, user_id))
+            
+            # Redis에 타이머 정보 저장
+            from redis_models import GameTimer
+            timer_expires = datetime.now(timezone.utc) + timedelta(seconds=30)
+            timer = GameTimer(
+                expires_at=timer_expires.isoformat(),
+                current_player_id=user_id,
+                remaining_ms=30000,
+                turn_duration_ms=30000
+            )
+            
+            await self.redis_manager.save_timer(room_id, timer)
+            
+            # 타이머 시작 브로드캐스트
+            await self.websocket_manager.broadcast_to_room(room_id, {
+                "type": "turn_timer_started",
+                "data": {
+                    "room_id": room_id,
+                    "user_id": user_id,
+                    "time_limit": 30,
+                    "expires_at": timer_expires.isoformat()
+                }
+            })
+            
+            logger.info(f"턴 타이머 시작: room_id={room_id}, user_id={user_id}, 30초")
+            
+        except Exception as e:
+            logger.error(f"턴 타이머 시작 중 오류: {e}")
+    
+    async def _turn_timer_task(self, room_id: str, user_id: int):
+        """턴 타이머 태스크"""
+        try:
+            # 30초 대기
+            await asyncio.sleep(30)
+            
+            # 타임아웃 처리
+            await self._handle_turn_timeout(room_id, user_id)
+            
+        except asyncio.CancelledError:
+            logger.info(f"턴 타이머 취소됨: room_id={room_id}, user_id={user_id}")
+        except Exception as e:
+            logger.error(f"턴 타이머 태스크 오류: {e}")
+    
+    async def _handle_turn_timeout(self, room_id: str, user_id: int):
+        """턴 타임아웃 처리"""
+        try:
+            logger.info(f"턴 타임아웃 처리: room_id={room_id}, user_id={user_id}")
+            
+            # 게임 상태 확인
+            game_state = await self.redis_manager.get_game_state(room_id)
+            if not game_state or game_state.status != "playing":
+                return
+            
+            current_player = game_state.get_current_player()
+            if not current_player or current_player.user_id != user_id:
+                return  # 이미 다른 플레이어로 넘어간 상태
+            
+            # 다음 턴으로 강제 이동
+            game_state.next_turn()
+            await self.redis_manager.save_game_state(game_state)
+            
+            # 타임아웃 브로드캐스트
+            next_player = game_state.get_current_player()
+            await self.websocket_manager.broadcast_to_room(room_id, {
+                "type": "turn_timeout",
+                "data": {
+                    "room_id": room_id,
+                    "timeout_user_id": user_id,
+                    "timeout_nickname": current_player.nickname,
+                    "current_turn_user_id": next_player.user_id if next_player else None,
+                    "current_turn_nickname": next_player.nickname if next_player else None,
+                    "message": f"{current_player.nickname}님의 시간이 초과되어 다음 플레이어로 넘어갑니다."
+                }
+            })
+            
+            # 다음 플레이어 타이머 시작
+            if next_player:
+                await self._start_turn_timer(room_id, next_player.user_id)
+            
+        except Exception as e:
+            logger.error(f"턴 타임아웃 처리 중 오류: {e}")
+    
+    async def _cancel_turn_timer(self, room_id: str):
+        """턴 타이머 취소"""
+        try:
+            # Redis에서 타이머 삭제
+            timer_key = f"timer:{room_id}"
+            self.redis_manager.redis.delete(timer_key)
+            
+        except Exception as e:
+            logger.error(f"턴 타이머 취소 중 오류: {e}")
 
 
 # 전역 게임 핸들러 인스턴스

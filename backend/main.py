@@ -64,11 +64,14 @@ app = FastAPI(
 
 # CORS 설정
 cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
+# credentials=True일 때는 wildcard "*" 사용 불가 (CORS 정책)
+# 개발 모드에서도 구체적인 도메인만 사용
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -149,6 +152,13 @@ async def api_status():
 from auth import AuthService
 from pydantic import BaseModel
 from fastapi import HTTPException
+
+# Redis 관련 import (일찍 import 필요)
+from redis_models import RedisGameManager
+from database import get_redis
+
+# Redis 게임 매니저 인스턴스 (전역 변수로 선언)
+redis_game_manager = RedisGameManager(get_redis())
 
 # Request/Response 모델
 class GuestLoginRequest(BaseModel):
@@ -260,6 +270,16 @@ async def create_gameroom(request: CreateRoomRequest):
         }
         
         temporary_rooms.append(new_room)
+        
+        # Redis에 게임 상태 생성
+        logger.info(f"Redis 게임 상태 생성 시작: {room_id}")
+        try:
+            result = await redis_game_manager.add_player_to_game(room_id, 0, "방장")  # 임시 방장 플레이어
+            logger.info(f"Redis 게임 상태 생성 결과: {room_id} -> {result}")
+        except Exception as e:
+            logger.error(f"Redis 게임 상태 생성 실패: {room_id} -> {e}")
+            import traceback
+            logger.error(f"스택 트레이스: {traceback.format_exc()}")
         
         logger.info(f"게임룸 생성: {request.name} (ID: {room_id})")
         

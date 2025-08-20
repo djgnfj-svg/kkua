@@ -394,3 +394,59 @@ class RedisGameManager:
         except Exception as e:
             print(f"활성 게임 조회 실패: {e}")
             return []
+    
+    async def add_player_to_game(self, room_id: str, user_id: int, nickname: str) -> bool:
+        """게임에 플레이어 추가"""
+        try:
+            # 게임 상태 가져오기 또는 생성
+            game_state = await self.get_game_state(room_id)
+            if not game_state:
+                # 새 게임 상태 생성
+                game_state = GameState(
+                    room_id=room_id,
+                    status=GameStatus.WAITING.value,
+                    players=[],
+                    word_chain=WordChainState(),
+                    game_settings={"max_players": 4},  # 기본값
+                    created_at=datetime.now(timezone.utc).isoformat()
+                )
+            
+            # 플레이어 추가
+            new_player = GamePlayer(
+                user_id=user_id,
+                nickname=nickname,
+                score=0,
+                status=PlayerStatus.WAITING.value,
+                items=[]
+            )
+            
+            if game_state.add_player(new_player):
+                return await self.save_game_state(game_state)
+            return False
+            
+        except Exception as e:
+            print(f"플레이어 게임 추가 실패: {e}")
+            return False
+    
+    async def remove_player_from_game(self, room_id: str, user_id: int) -> bool:
+        """게임에서 플레이어 제거"""
+        try:
+            game_state = await self.get_game_state(room_id)
+            if not game_state:
+                return False
+            
+            if game_state.remove_player(user_id):
+                # 플레이어가 모두 없으면 게임 삭제
+                if not game_state.players:
+                    return await self.delete_game_state(room_id)
+                else:
+                    return await self.save_game_state(game_state)
+            return False
+            
+        except Exception as e:
+            print(f"플레이어 게임 제거 실패: {e}")
+            return False
+    
+    async def update_game_state(self, game_state: GameState) -> bool:
+        """게임 상태 업데이트 (save_game_state의 별칭)"""
+        return await self.save_game_state(game_state)

@@ -43,12 +43,17 @@ class WebSocketProtocol:
         # Phase 3에서 더 세밀한 통합 예정
         pass
     
-    async def handle_websocket_connection(self, websocket: WebSocket, room_id: str = None):
+    async def handle_websocket_connection(self, websocket: WebSocket, room_id: str = None, token: str = None):
         """WebSocket 연결 처리"""
         connection = None
         try:
             # 연결 및 인증
             headers = dict(websocket.headers)
+            
+            # 쿼리 파라미터에서 토큰을 가져와서 헤더에 추가
+            if token:
+                headers['authorization'] = f'Bearer {token}'
+            
             connection = await self.websocket_manager.connect(websocket, headers)
             
             if not connection:
@@ -144,6 +149,7 @@ websocket_protocol = WebSocketProtocol()
 @websocket_router.websocket("/ws")
 async def websocket_endpoint(
     websocket: WebSocket,
+    token: str = None,
     websocket_manager: WebSocketManager = Depends(get_websocket_manager)
 ):
     """기본 WebSocket 엔드포인트"""
@@ -151,13 +157,14 @@ async def websocket_endpoint(
     if websocket_protocol.websocket_manager is None:
         websocket_protocol.initialize(websocket_manager)
     
-    await websocket_protocol.handle_websocket_connection(websocket)
+    await websocket_protocol.handle_websocket_connection(websocket, token=token)
 
 
 @websocket_router.websocket("/ws/rooms/{room_id}")
 async def websocket_room_endpoint(
     websocket: WebSocket,
     room_id: str,
+    token: str = None,
     websocket_manager: WebSocketManager = Depends(get_websocket_manager)
 ):
     """룸별 WebSocket 엔드포인트"""
@@ -165,7 +172,7 @@ async def websocket_room_endpoint(
     if websocket_protocol.websocket_manager is None:
         websocket_protocol.initialize(websocket_manager)
     
-    await websocket_protocol.handle_websocket_connection(websocket, room_id)
+    await websocket_protocol.handle_websocket_connection(websocket, room_id, token)
 
 
 @websocket_router.get("/ws/stats")

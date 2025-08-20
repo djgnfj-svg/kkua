@@ -237,19 +237,17 @@ class MessageRouter:
             await self._send_error(connection, "단어가 필요합니다", message.request_id)
             return False
         
-        # 게임 핸들러로 위임 (Phase 3에서 구현)
-        logger.info(f"단어 제출 요청: user_id={connection.user_id}, word={word}, room_id={connection.room_id}")
+        # 게임 핸들러로 위임
+        from websocket.game_handler import get_game_handler
+        game_handler = get_game_handler(self.websocket_manager)
         
-        # 임시 응답 (Phase 3에서 실제 게임 로직 구현)
-        await self.websocket_manager.broadcast_to_room(connection.room_id, {
-            "type": "word_submitted",
-            "data": {
-                "user_id": connection.user_id,
-                "nickname": connection.nickname,
-                "word": word,
-                "status": "pending_validation"
-            }
-        })
+        success = await game_handler.handle_word_submission(
+            connection.room_id, 
+            connection.user_id, 
+            word
+        )
+        
+        logger.info(f"단어 제출 결과: user_id={connection.user_id}, word={word}, success={success}")
         
         return True
     
@@ -312,14 +310,19 @@ class MessageRouter:
         
         logger.info(f"게임 시작 요청: user_id={connection.user_id}, room_id={connection.room_id}")
         
-        # 게임 핸들러로 위임 (Phase 3에서 구현)
-        await self.websocket_manager.broadcast_to_room(connection.room_id, {
-            "type": "game_start_requested",
-            "data": {
-                "requested_by": connection.user_id,
-                "nickname": connection.nickname
-            }
-        })
+        # 게임 핸들러로 위임
+        from websocket.game_handler import get_game_handler
+        game_handler = get_game_handler(self.websocket_manager)
+        
+        success = await game_handler.handle_start_game(
+            connection.room_id,
+            connection.user_id
+        )
+        
+        if not success:
+            await self._send_error(connection, "게임을 시작할 수 없습니다", message.request_id)
+        
+        logger.info(f"게임 시작 결과: user_id={connection.user_id}, success={success}")
         
         return True
     
