@@ -85,16 +85,16 @@ const GameRoomPage: React.FC = () => {
   // 플레이어 입장/퇴장 이벤트
   const handlePlayerJoined = useCallback((data: any) => {
     console.log('👤 Player joined:', data);
-    showToast.info(`새로운 플레이어가 입장했습니다`);
+    showToast.info(`${data.nickname}님이 입장했습니다 ${data.is_host ? '(방장)' : ''}`);
     
     // Update player list
     if (roomId && currentRoomRef.current) {
       updateRoom(roomId, {
         currentPlayers: currentRoomRef.current.currentPlayers + 1,
         players: [...(currentRoomRef.current.players || []), {
-          id: data.user_id,
+          id: String(data.user_id),
           nickname: data.nickname,
-          isHost: false,
+          isHost: data.is_host || false,
           isReady: false
         }]
       });
@@ -126,7 +126,7 @@ const GameRoomPage: React.FC = () => {
     setGameState(prev => ({ 
       ...prev, 
       isPlaying: true,
-      currentTurnUserId: data.current_turn_user_id,
+      currentTurnUserId: String(data.current_turn_user_id), // 문자열로 변환
       currentChar: data.next_char || '',
       scores: data.scores || {}
     }));

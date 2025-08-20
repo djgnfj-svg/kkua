@@ -426,6 +426,8 @@ class RedisGameManager:
             
             # 플레이어 추가 (첫 번째 플레이어는 방장)
             is_host = len(game_state.players) == 0  # 첫 번째 플레이어가 방장
+            print(f"DEBUG: 플레이어 추가 - user_id={user_id}, nickname={nickname}, 현재 플레이어 수={len(game_state.players)}, is_host={is_host}")
+            
             new_player = GamePlayer(
                 user_id=user_id,
                 nickname=nickname,
