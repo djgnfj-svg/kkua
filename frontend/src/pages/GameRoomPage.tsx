@@ -244,17 +244,20 @@ const GameRoomPage: React.FC = () => {
     
     console.log('🎮 Is my turn?', isMyTurn, 'Comparison:', currentTurnUserIdStr, '===', String(user?.id));
     
-    setGameState(prev => ({ 
-      ...prev, 
+    // 새 게임 시작 시 상태 완전 초기화
+    setGameState({
       isPlaying: true,
-      currentTurnUserId: currentTurnUserIdStr, // 문자열로 변환
+      currentTurnUserId: currentTurnUserIdStr,
       currentChar: data.next_char || '',
       remainingTime: data.current_turn_time_limit || 30,
       turnTimeLimit: data.current_turn_time_limit || 30,
       currentRound: data.current_round || 1,
       maxRounds: data.max_rounds || 5,
-      scores: data.scores || {}
-    }));
+      scores: data.scores || {},
+      wordChain: [], // 새 게임이므로 단어 체인 초기화
+      showFinalRankings: false, // 이전 게임 결과창 숨김
+      finalRankings: [] // 이전 게임 순위 데이터 초기화
+    });
     showToast.success(`게임이 시작되었습니다! ${data.current_turn_nickname}님의 차례입니다 🎮`);
   }, [user?.id]);
 
@@ -272,7 +275,10 @@ const GameRoomPage: React.FC = () => {
         scores: { ...(prev.scores || {}), ...data.scores }
       }));
       
-      showToast.success(`${data.nickname}님: "${data.word}" ✅`);
+      // 점수 계산 표시 (글자 수 × 10)
+      const wordLength = data.word.length;
+      const wordScore = wordLength * 10;
+      showToast.success(`${data.nickname}님: "${data.word}" (+${wordScore}점, ${wordLength}글자) ✅`);
       
       // 다음 플레이어 알림
       const nextPlayer = currentRoomRef.current?.players?.find(p => String(p.id) === String(data.current_turn_user_id));
@@ -359,6 +365,7 @@ const GameRoomPage: React.FC = () => {
   const handleGameCompleted = useCallback((data: any) => {
     console.log('🎉 Game completed:', data);
     
+    // 게임 완료 상태로 설정 (순위 표시)
     setGameState(prev => ({ 
       ...prev, 
       isPlaying: false,
@@ -375,12 +382,20 @@ const GameRoomPage: React.FC = () => {
       showToast.info('게임이 완료되었습니다! 최종 순위를 확인하세요.');
     }
     
-    // 10초 후 순위 창 자동 닫기
+    // 10초 후 순위 창 자동 닫기 및 게임 상태 완전 초기화
     setTimeout(() => {
       setGameState(prev => ({ 
-        ...prev, 
+        isPlaying: false,
+        wordChain: [],
+        scores: {},
+        turnTimeLimit: 30,
+        remainingTime: 30,
+        currentRound: 1,
+        maxRounds: 5,
         showFinalRankings: false,
-        finalRankings: []
+        finalRankings: [],
+        currentTurnUserId: undefined,
+        currentChar: undefined
       }));
     }, 10000);
   }, []);

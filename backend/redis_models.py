@@ -141,7 +141,7 @@ class GameState:
     turn_time_limit_ms: int = 30000  # 현재 턴의 시간 제한
     initial_turn_time_ms: int = 30000  # 첫 턴 초기 시간
     turn_time_reduction_ms: int = 5000  # 매 턴마다 감소하는 시간
-    min_turn_time_ms: int = 100  # 최소 턴 시간 (0.1초)
+    min_turn_time_ms: int = 100  # 최소 턴 시간 (0.1초) - 원래대로
     total_turns: int = 0  # 전체 진행된 턴 수
     word_chain: WordChainState = None
     timer: Optional[GameTimer] = None
@@ -232,9 +232,39 @@ class GameState:
         """게임 완료 후 플레이어들을 준비 해제 상태로 만들기"""
         for player in self.players:
             player.status = PlayerStatus.WAITING.value
-            # 점수는 유지하되 게임 통계는 초기화
+            # 점수와 게임 통계 모두 초기화
+            player.score = 0
             player.words_submitted = 0
             player.current_combo = 0
+            player.max_combo = 0
+            player.items_used = 0
+            player.timeouts = 0
+            player.failed_attempts = 0
+    
+    def reset_game_state_for_new_game(self):
+        """새 게임을 위한 완전한 게임 상태 초기화"""
+        # 게임 진행 상태 초기화
+        self.current_round = 1
+        self.current_turn = 0
+        self.total_turns = 0
+        
+        # 시간 시스템 초기화
+        self.turn_time_limit_ms = self.initial_turn_time_ms
+        
+        # 단어 체인 초기화
+        self.word_chain = WordChainState()
+        
+        # 타이머 초기화
+        self.timer = None
+        
+        # 게임 상태 초기화
+        self.status = GameStatus.WAITING.value
+        self.started_at = None
+        self.ended_at = None
+        self.phase = "waiting"
+        
+        # 플레이어들 초기화
+        self.reset_players_for_next_game()
     
     def get_final_rankings(self) -> List[Dict[str, Any]]:
         """최종 순위 반환"""

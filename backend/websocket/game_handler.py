@@ -965,7 +965,13 @@ class GameEventHandler:
             # 단어 추가
             game_state.word_chain.add_word(word)
             current_player.words_submitted += 1
-            current_player.score += 10  # 기본 점수
+            
+            # 글자 수 기반 점수 계산 (기본 글자당 10점)
+            word_length = len(word)
+            word_score = word_length * 10
+            current_player.score += word_score
+            
+            logger.info(f"점수 추가: {word} ({word_length}글자) = {word_score}점")
             
             # 턴 시간 시스템으로 변경됨 - 이 부분은 더 이상 필요 없음
             
@@ -1192,17 +1198,8 @@ class GameEventHandler:
         try:
             logger.info(f"게임 완료 처리: room_id={room_id}")
             
-            # 최종 순위 계산
+            # 최종 순위 계산 (초기화하기 전에)
             final_rankings = game_state.get_final_rankings()
-            
-            # 게임 완료 상태로 변경
-            game_state.status = "finished"
-            game_state.ended_at = datetime.now(timezone.utc).isoformat()
-            
-            # 플레이어들을 준비 해제 상태로 변경
-            game_state.reset_players_for_next_game()
-            
-            await self.redis_manager.save_game_state(game_state)
             
             # 게임 완료 브로드캐스트
             await self.websocket_manager.broadcast_to_room(room_id, {
@@ -1216,11 +1213,14 @@ class GameEventHandler:
                 }
             })
             
-            # 게임 상태를 waiting으로 변경 (새 게임 준비)
-            game_state.status = "waiting"
+            # 완전한 게임 상태 초기화 (새 게임 준비)
+            game_state.reset_game_state_for_new_game()
             await self.redis_manager.save_game_state(game_state)
             
-            logger.info(f"게임 완료: {final_rankings[0]['nickname']}님 우승" if final_rankings else "게임 완료")
+            # 타이머 정리
+            await self.timer_service.cancel_room_timers(room_id)
+            
+            logger.info(f"게임 완료 및 초기화 완료: {final_rankings[0]['nickname']}님 우승" if final_rankings else "게임 완료 및 초기화 완료")
             
         except Exception as e:
             logger.error(f"게임 완료 처리 중 오류: {e}")

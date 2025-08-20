@@ -585,7 +585,13 @@ class GameEngine:
             
             # 플레이어 점수 및 통계 업데이트
             current_player.words_submitted += 1
-            current_player.score += 10  # 기본 점수
+            
+            # 글자 수 기반 점수 계산 (기본 글자당 10점)
+            word_length = len(word)
+            word_score = word_length * 10
+            current_player.score += word_score
+            
+            logger.info(f"점수 추가: {word} ({word_length}글자) = {word_score}점")
             
             # 턴 시간 시스템으로 변경됨 - 개별 플레이어 시간 관리 제거
             
