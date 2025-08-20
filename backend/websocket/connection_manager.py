@@ -118,8 +118,20 @@ class WebSocketManager:
             # WebSocket 연결 수락
             await websocket.accept()
             
-            # 기존 연결이 있다면 종료
+            # 기존 연결이 있다면 종료 (중복 연결 방지)
             if user_id in self.active_connections:
+                existing_connection = self.active_connections[user_id]
+                logger.info(f"중복 연결 감지: user_id={user_id}, nickname={nickname}. 기존 연결 종료 중...")
+                
+                # 기존 연결에 알림 전송
+                await existing_connection.send_json({
+                    "type": "connection_replaced",
+                    "data": {
+                        "reason": "다른 탭/창에서 새로운 연결이 생성되었습니다",
+                        "message": "현재 연결이 종료됩니다"
+                    }
+                })
+                
                 await self._remove_connection(user_id, "새로운 연결로 교체")
             
             # 새 연결 생성

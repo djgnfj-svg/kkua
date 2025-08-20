@@ -9,13 +9,18 @@ import { useNativeWebSocket } from '../hooks/useNativeWebSocket';
 import GameReport from '../components/GameReport';
 import ItemPanel from '../components/ItemPanel';
 import ChatPanel from '../components/ChatPanel';
+import DuplicateConnectionModal from '../components/DuplicateConnectionModal';
+import { getTabCommunicationManager } from '../utils/tabCommunication';
 
 const GameRoomPage: React.FC = () => {
   const { roomId } = useParams<{ roomId: string }>();
   const navigate = useNavigate();
   const { user } = useUserStore();
   const { currentRoom, setCurrentRoom, updateRoom, isLoading, setLoading } = useGameStore();
+  const tabCommManager = getTabCommunicationManager();
   const [roomNotFound, setRoomNotFound] = useState(false);
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [duplicateMessage, setDuplicateMessage] = useState('');
   const [gameState, setGameState] = useState<{
     isPlaying: boolean;
     isRoundTransition?: boolean; // 라운드 전환 중 상태 추가
@@ -385,6 +390,18 @@ const GameRoomPage: React.FC = () => {
     showToast.error(data.reason || '게임 시작에 실패했습니다');
   }, []);
 
+  // 연결 교체 핸들러 (중복 연결 감지)
+  const handleConnectionReplaced = useCallback((data: any) => {
+    console.log('🔄 Connection replaced:', data);
+    
+    showToast.warning('다른 탭에서 접속하여 현재 연결이 종료됩니다');
+    
+    // 3초 후 로비로 이동
+    setTimeout(() => {
+      navigate('/lobby');
+    }, 3000);
+  }, [navigate]);
+
   // 라운드 시작 카운트다운 핸들러
   const handleRoundStartingCountdown = useCallback((data: any) => {
     console.log('🔄 Round starting countdown:', data);
@@ -662,6 +679,7 @@ const GameRoomPage: React.FC = () => {
     on('game_completed', handleGameCompleted);
     on('game_starting_countdown', handleGameStartingCountdown);
     on('game_start_failed', handleGameStartFailed);
+    on('connection_replaced', handleConnectionReplaced);
     on('round_starting_countdown', handleRoundStartingCountdown);
     on('round_transition', handleRoundTransition);
     on('error', handleError);
@@ -678,6 +696,14 @@ const GameRoomPage: React.FC = () => {
           nickname: user?.nickname
         }
       }, true);
+
+      // 탭 통신 설정
+      if (user?.id) {
+        tabCommManager.setCurrentUser(Number(user.id));
+        if (roomId) {
+          tabCommManager.notifyRoomJoined(roomId);
+        }
+      }
     }
 
     return () => {
@@ -706,13 +732,54 @@ const GameRoomPage: React.FC = () => {
       off('game_completed', handleGameCompleted);
       off('game_starting_countdown', handleGameStartingCountdown);
       off('game_start_failed', handleGameStartFailed);
+      off('connection_replaced', handleConnectionReplaced);
       off('round_starting_countdown', handleRoundStartingCountdown);
       off('round_transition', handleRoundTransition);
       off('error', handleError);
       off('success', handleSuccess);
       off('pong');
     };
-  }, [isConnected, roomId, user?.id, emit, on, off, handleRoomJoined, handlePlayerJoined, handlePlayerLeft, handleChatMessage, handleGameStarted, handleWordSubmitted, handleWordSubmissionFailed, handleTurnTimerStarted, handleTurnTimeout, handlePlayerReady, handleGameStateUpdate, handleHostLeftGame, handleHostChanged, handleOpponentLeftVictory, handlePlayerLeftDuringTurn, handlePlayerLeftGame, handlePlayerLeftRoom, handleRoomDisbanded, handleGameEnded, handleRoundCompleted, handleNextRoundStarting, handleGameCompleted, handleGameStartingCountdown, handleRoundStartingCountdown, handleRoundTransition, handleError, handleSuccess]);
+  }, [isConnected, roomId, user?.id, emit, on, off, handleRoomJoined, handlePlayerJoined, handlePlayerLeft, handleChatMessage, handleGameStarted, handleWordSubmitted, handleWordSubmissionFailed, handleTurnTimerStarted, handleTurnTimeout, handlePlayerReady, handleGameStateUpdate, handleHostLeftGame, handleHostChanged, handleOpponentLeftVictory, handlePlayerLeftDuringTurn, handlePlayerLeftGame, handlePlayerLeftRoom, handleRoomDisbanded, handleGameEnded, handleRoundCompleted, handleNextRoundStarting, handleGameCompleted, handleGameStartingCountdown, handleGameStartFailed, handleConnectionReplaced, handleRoundStartingCountdown, handleRoundTransition, handleError, handleSuccess]);
+
+  // 탭 간 통신 이벤트 처리
+  useEffect(() => {
+    // 다른 탭에서 같은 사용자가 방에 참가했을 때
+    const handleOtherTabRoomJoined = (message: any) => {
+      if (message.data.userId === Number(user?.id) && message.data.roomId === roomId) {
+        setDuplicateMessage('다른 탭에서 이미 이 방에 참가했습니다.');
+        setShowDuplicateModal(true);
+      }
+    };
+
+    // 다른 탭에서 연결이 설정되었을 때
+    const handleOtherTabConnection = (message: any) => {
+      if (message.data.userId === Number(user?.id)) {
+        console.log('🔄 다른 탭에서 연결 감지됨');
+      }
+    };
+
+    tabCommManager.onMessage('ROOM_JOINED', handleOtherTabRoomJoined);
+    tabCommManager.onMessage('CONNECTION_ESTABLISHED', handleOtherTabConnection);
+
+    return () => {
+      tabCommManager.offMessage('ROOM_JOINED', handleOtherTabRoomJoined);
+      tabCommManager.offMessage('CONNECTION_ESTABLISHED', handleOtherTabConnection);
+    };
+  }, [user?.id, roomId, navigate, tabCommManager]);
+
+  // 중복 연결 모달 핸들러
+  const handleDuplicateConnectionContinue = () => {
+    setShowDuplicateModal(false);
+    // 현재 탭에서 계속 - 기존 연결 강제 종료
+    emit('force_takeover_connection', { room_id: roomId });
+    showToast.info('기존 연결을 종료하고 현재 탭에서 계속합니다');
+  };
+
+  const handleDuplicateConnectionCancel = () => {
+    setShowDuplicateModal(false);
+    // 로비로 이동
+    navigate('/lobby');
+  };
 
   useEffect(() => {
     if (!roomId) {
@@ -1193,6 +1260,14 @@ const GameRoomPage: React.FC = () => {
           }}
         />
       )}
+
+      {/* 중복 연결 모달 */}
+      <DuplicateConnectionModal
+        isOpen={showDuplicateModal}
+        message={duplicateMessage}
+        onContinue={handleDuplicateConnectionContinue}
+        onCancel={handleDuplicateConnectionCancel}
+      />
     </div>
   );
 };
