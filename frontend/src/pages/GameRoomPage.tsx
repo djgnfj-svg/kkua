@@ -6,6 +6,7 @@ import { useGameStore } from '../stores/useGameStore';
 import { showToast } from '../components/Toast';
 // import { apiEndpoints } from '../utils/api';
 import { useNativeWebSocket } from '../hooks/useNativeWebSocket';
+import { useNavigationProtection } from '../hooks/useNavigationProtection';
 import GameReport from '../components/GameReport';
 import ItemPanel from '../components/ItemPanel';
 import ChatPanel from '../components/ChatPanel';
@@ -398,7 +399,7 @@ const GameRoomPage: React.FC = () => {
     
     // 3초 후 로비로 이동
     setTimeout(() => {
-      navigate('/lobby');
+      navigateSafely('/lobby');
     }, 3000);
   }, [navigate]);
 
@@ -549,7 +550,7 @@ const GameRoomPage: React.FC = () => {
     
     // 5초 후 로비로 이동
     setTimeout(() => {
-      navigate('/lobby');
+      navigateSafely('/lobby');
     }, 5000);
   }, [navigate]);
 
@@ -585,7 +586,7 @@ const GameRoomPage: React.FC = () => {
     
     // 5초 후 로비로 이동
     setTimeout(() => {
-      navigate('/lobby');
+      navigateSafely('/lobby');
     }, 5000);
     
     showToast.info('5초 후 로비로 이동합니다...');
@@ -648,7 +649,7 @@ const GameRoomPage: React.FC = () => {
     showToast.error(data.message);
     
     // 로비로 이동
-    navigate('/lobby');
+    navigateSafely('/lobby');
   }, [navigate]);
 
   useEffect(() => {
@@ -741,6 +742,46 @@ const GameRoomPage: React.FC = () => {
     };
   }, [isConnected, roomId, user?.id, emit, on, off, handleRoomJoined, handlePlayerJoined, handlePlayerLeft, handleChatMessage, handleGameStarted, handleWordSubmitted, handleWordSubmissionFailed, handleTurnTimerStarted, handleTurnTimeout, handlePlayerReady, handleGameStateUpdate, handleHostLeftGame, handleHostChanged, handleOpponentLeftVictory, handlePlayerLeftDuringTurn, handlePlayerLeftGame, handlePlayerLeftRoom, handleRoomDisbanded, handleGameEnded, handleRoundCompleted, handleNextRoundStarting, handleGameCompleted, handleGameStartingCountdown, handleGameStartFailed, handleConnectionReplaced, handleRoundStartingCountdown, handleRoundTransition, handleError, handleSuccess]);
 
+  // 브라우저 내비게이션 보호 (뒤로가기, 새로고침, 탭 닫기 방지)
+  const shouldProtectNavigation = () => {
+    // 게임이 진행 중이거나 플레이어가 방에 있을 때 보호
+    return gameState.isPlaying || 
+           (currentRoom && currentRoom.players && currentRoom.players.length > 0 && isConnected);
+  };
+
+  const getNavigationMessage = () => {
+    const isHost = currentRoom?.players?.find(p => String(p.id) === String(user?.id))?.isHost;
+    
+    if (gameState.isPlaying && isHost) {
+      return '⚠️ 방장이 게임 중에 나가면 모든 플레이어의 게임이 종료됩니다. 정말 나가시겠습니까?';
+    } else if (gameState.isPlaying) {
+      return '⚠️ 게임이 진행 중입니다. 나가면 패배 처리됩니다. 정말 나가시겠습니까?';
+    } else if (isHost) {
+      return '⚠️ 방장이 나가면 다른 플레이어에게 방장이 넘어갑니다. 정말 나가시겠습니까?';
+    } else {
+      return '게임 방에서 나가시겠습니까? 다른 플레이어들이 기다리고 있을 수 있습니다.';
+    }
+  };
+
+  const { navigateSafely } = useNavigationProtection({
+    when: Boolean(shouldProtectNavigation()),
+    message: getNavigationMessage(),
+    onNavigationBlocked: () => {
+      // 뒤로가기 시도 시 추가 피드백
+      showToast.warning('게임 중에는 뒤로가기를 할 수 없습니다. 방 나가기 버튼을 이용해주세요.');
+    },
+    onBeforeUnload: () => {
+      // 페이지 언로드 전 서버에 알림 (선택적)
+      if (roomId && isConnected) {
+        try {
+          emit('leave_room', { room_id: roomId });
+        } catch (error) {
+          console.log('페이지 언로드 시 방 나가기 실패:', error);
+        }
+      }
+    }
+  });
+
   // 탭 간 통신 이벤트 처리
   useEffect(() => {
     // 다른 탭에서 같은 사용자가 방에 참가했을 때
@@ -778,12 +819,12 @@ const GameRoomPage: React.FC = () => {
   const handleDuplicateConnectionCancel = () => {
     setShowDuplicateModal(false);
     // 로비로 이동
-    navigate('/lobby');
+    navigateSafely('/lobby');
   };
 
   useEffect(() => {
     if (!roomId) {
-      navigate('/lobby');
+      navigateSafely('/lobby');
       return;
     }
 
@@ -853,11 +894,11 @@ const GameRoomPage: React.FC = () => {
       if (roomId && isConnected) {
         emit('leave_room', { room_id: roomId });
       }
-      navigate('/lobby');
+      navigateSafely('/lobby');
       showToast.info('방에서 나갔습니다');
     } catch (error) {
       console.error('방 나가기 실패:', error);
-      navigate('/lobby'); // 에러가 있어도 로비로 이동
+      navigateSafely('/lobby'); // 에러가 있어도 로비로 이동
     }
   };
 
@@ -904,7 +945,7 @@ const GameRoomPage: React.FC = () => {
               <p className="text-gray-600 mb-4">
                 요청하신 방이 존재하지 않거나 이미 종료되었습니다.
               </p>
-              <Button onClick={() => navigate('/lobby')}>
+              <Button onClick={() => navigateSafely('/lobby')}>
                 로비로 돌아가기
               </Button>
             </div>
@@ -1256,7 +1297,7 @@ const GameRoomPage: React.FC = () => {
           }}
           onBackToLobby={() => {
             setGameState(prev => ({ ...prev, showFinalRankings: false }));
-            navigate('/lobby');
+            navigateSafely('/lobby');
           }}
         />
       )}
