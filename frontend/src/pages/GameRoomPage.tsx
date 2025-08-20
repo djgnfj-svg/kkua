@@ -15,6 +15,7 @@ const GameRoomPage: React.FC = () => {
   const [roomNotFound, setRoomNotFound] = useState(false);
   const [gameState, setGameState] = useState<{
     isPlaying: boolean;
+    isRoundTransition?: boolean; // 라운드 전환 중 상태 추가
     currentTurnUserId?: string;
     currentChar?: string;
     wordChain: string[];
@@ -35,6 +36,7 @@ const GameRoomPage: React.FC = () => {
     }>;
   }>({
     isPlaying: false,
+    isRoundTransition: false,
     wordChain: [],
     scores: {},
     turnTimeLimit: 30,
@@ -247,6 +249,7 @@ const GameRoomPage: React.FC = () => {
     // 새 게임 시작 시 상태 완전 초기화
     setGameState({
       isPlaying: true,
+      isRoundTransition: false, // 라운드 전환 상태 초기화
       currentTurnUserId: currentTurnUserIdStr,
       currentChar: data.next_char || '',
       remainingTime: data.current_turn_time_limit || 30,
@@ -331,6 +334,26 @@ const GameRoomPage: React.FC = () => {
     showToast.info(data.message || `게임 시작까지 ${data.countdown}초...`);
   }, []);
 
+  // 라운드 시작 카운트다운 핸들러
+  const handleRoundStartingCountdown = useCallback((data: any) => {
+    console.log('🔄 Round starting countdown:', data);
+    
+    showToast.info(data.message || `라운드 ${data.round} 시작까지 ${data.countdown}초...`);
+  }, []);
+
+  // 라운드 전환 핸들러
+  const handleRoundTransition = useCallback((data: any) => {
+    console.log('⏳ Round transition:', data);
+    
+    showToast.info(data.message || `잠시 후 라운드 ${data.next_round} 시작...`);
+    
+    // 라운드 전환 상태 확실히 설정
+    setGameState(prev => ({
+      ...prev,
+      isRoundTransition: true
+    }));
+  }, []);
+
   // 라운드 완료 핸들러
   const handleRoundCompleted = useCallback((data: any) => {
     console.log('🏁 Round completed:', data);
@@ -350,15 +373,24 @@ const GameRoomPage: React.FC = () => {
     
     showToast.info(data.message || `라운드 ${data.round} 시작!`);
     
-    // 게임 상태 업데이트
+    // 게임 상태 업데이트 - 턴 정보 포함
     setGameState(prev => ({
       ...prev,
       currentRound: data.round,
       isPlaying: true,
+      isRoundTransition: false,  // 라운드 전환 완료
+      currentTurnUserId: data.current_turn_user_id ? String(data.current_turn_user_id) : prev.currentTurnUserId,
+      currentChar: data.next_char || '',
+      remainingTime: data.current_turn_time_limit || 30,
+      turnTimeLimit: data.current_turn_time_limit || 30,
       wordChain: [], // 새 라운드이므로 단어 체인 초기화
-      currentWord: '',
-      currentChar: ''
+      scores: { ...(prev.scores || {}), ...(data.scores || {}) }
     }));
+    
+    // 다음 턴 플레이어 알림
+    if (data.current_turn_nickname) {
+      showToast.success(`${data.current_turn_nickname}님의 차례입니다! 🎮`);
+    }
   }, []);
 
   // 게임 완료 핸들러
@@ -421,13 +453,12 @@ const GameRoomPage: React.FC = () => {
     console.log('⏰ Turn timeout:', data);
     showToast.warning(data.message || `${data.timeout_nickname}님의 시간이 초과되었습니다`);
     
-    // 다음 플레이어로 턴 이동 및 새로운 턴 시간 업데이트
-    if (data.current_turn_user_id) {
+    // 시간 초과는 라운드 완료를 의미함 (현재 게임 규칙)
+    // round_completed 이벤트에서 라운드 완료 처리가 될 예정
+    if (data.round_completed) {
       setGameState(prev => ({
         ...prev,
-        currentTurnUserId: String(data.current_turn_user_id),
-        remainingTime: data.current_turn_time_limit || 25, // 새로운 턴의 시간 제한
-        turnTimeLimit: data.current_turn_time_limit || 25
+        isRoundTransition: true  // 라운드 전환 중 상태로 변경 (isPlaying은 유지)
       }));
     }
   }, []);
@@ -579,6 +610,8 @@ const GameRoomPage: React.FC = () => {
     on('next_round_starting', handleNextRoundStarting);
     on('game_completed', handleGameCompleted);
     on('game_starting_countdown', handleGameStartingCountdown);
+    on('round_starting_countdown', handleRoundStartingCountdown);
+    on('round_transition', handleRoundTransition);
     on('error', handleError);
     on('success', handleSuccess);
     on('pong', (data: any) => console.log('🏓 Pong received:', data));
@@ -620,11 +653,13 @@ const GameRoomPage: React.FC = () => {
       off('next_round_starting', handleNextRoundStarting);
       off('game_completed', handleGameCompleted);
       off('game_starting_countdown', handleGameStartingCountdown);
+      off('round_starting_countdown', handleRoundStartingCountdown);
+      off('round_transition', handleRoundTransition);
       off('error', handleError);
       off('success', handleSuccess);
       off('pong');
     };
-  }, [isConnected, roomId, user?.id, emit, on, off, handleRoomJoined, handlePlayerJoined, handlePlayerLeft, handleChatMessage, handleGameStarted, handleWordSubmitted, handleWordSubmissionFailed, handleTurnTimerStarted, handleTurnTimeout, handlePlayerReady, handleGameStateUpdate, handleHostLeftGame, handleHostChanged, handleOpponentLeftVictory, handlePlayerLeftDuringTurn, handlePlayerLeftGame, handlePlayerLeftRoom, handleRoomDisbanded, handleGameEnded, handleRoundCompleted, handleNextRoundStarting, handleGameCompleted, handleGameStartingCountdown, handleError, handleSuccess]);
+  }, [isConnected, roomId, user?.id, emit, on, off, handleRoomJoined, handlePlayerJoined, handlePlayerLeft, handleChatMessage, handleGameStarted, handleWordSubmitted, handleWordSubmissionFailed, handleTurnTimerStarted, handleTurnTimeout, handlePlayerReady, handleGameStateUpdate, handleHostLeftGame, handleHostChanged, handleOpponentLeftVictory, handlePlayerLeftDuringTurn, handlePlayerLeftGame, handlePlayerLeftRoom, handleRoomDisbanded, handleGameEnded, handleRoundCompleted, handleNextRoundStarting, handleGameCompleted, handleGameStartingCountdown, handleRoundStartingCountdown, handleRoundTransition, handleError, handleSuccess]);
 
   useEffect(() => {
     if (!roomId) {
@@ -857,7 +892,13 @@ const GameRoomPage: React.FC = () => {
                       </div>
 
                       {/* 단어 입력 */}
-                      {gameState.currentTurnUserId === String(user.id) ? (
+                      {gameState.isRoundTransition ? (
+                        <div className="bg-yellow-50 rounded-lg p-4 text-center">
+                          <p className="text-yellow-800 font-medium">
+                            🔄 라운드 전환 중입니다...
+                          </p>
+                        </div>
+                      ) : gameState.currentTurnUserId === String(user.id) ? (
                         <div className="bg-blue-50 rounded-lg p-4">
                           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2 space-y-1 sm:space-y-0">
                             <h4 className="font-medium text-blue-900">
