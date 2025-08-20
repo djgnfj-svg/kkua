@@ -25,7 +25,7 @@ const Card: React.FC<CardProps> & {
   Body: React.FC<CardBodyProps>;
   Footer: React.FC<CardFooterProps>;
 } = ({ children, className = '' }) => {
-  const baseClasses = 'bg-white rounded-lg shadow-sm border border-gray-200';
+  const baseClasses = 'bg-white rounded-lg shadow-md border border-gray-300';
   const classes = [baseClasses, className].join(' ');
 
   return (
