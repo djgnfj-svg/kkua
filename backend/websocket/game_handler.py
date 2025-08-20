@@ -59,33 +59,42 @@ class GameEventHandler:
     async def handle_join_game(self, room_id: str, user_id: int, nickname: str) -> bool:
         """게임 참가 처리"""
         try:
-            # 게임 엔진을 통한 게임 참가
-            success, message = await self.game_engine.join_game(room_id, user_id, nickname)
+            # Redis를 통한 게임 참가
+            success = await self.redis_manager.add_player_to_game(room_id, user_id, nickname)
             
             if success:
+                # 게임 상태 가져오기
+                game_state = await self.redis_manager.get_game_state(room_id)
+                
+                # 현재 플레이어 찾기
+                current_player = None
+                for player in game_state.players:
+                    if player.user_id == user_id:
+                        current_player = player
+                        break
+                
                 # 참가 성공 알림
                 await self.websocket_manager.broadcast_to_room(room_id, {
                     "type": "player_joined",
                     "data": {
                         "user_id": user_id,
                         "nickname": nickname,
-                        "message": message
+                        "is_host": current_player.is_host if current_player else False,
+                        "message": f"{nickname}님이 입장했습니다"
                     }
                 })
                 
-                # 게임 상태 브로드캐스트
-                game_state = await self.game_engine.get_game_state(room_id)
-                if game_state:
-                    await self._broadcast_game_state(room_id, game_state)
+                # 전체 게임 상태 브로드캐스트
+                await self._broadcast_redis_game_state(room_id, game_state)
                 
-                logger.info(f"게임 참가 완료: room_id={room_id}, user_id={user_id}")
+                logger.info(f"게임 참가 완료: room_id={room_id}, user_id={user_id}, is_host={current_player.is_host if current_player else False}")
             else:
                 # 참가 실패 알림
                 await self.websocket_manager.send_to_user(user_id, {
                     "type": "join_game_failed",
-                    "data": {"reason": message}
+                    "data": {"reason": "이미 게임에 참가했습니다"}
                 })
-                logger.warning(f"게임 참가 실패: room_id={room_id}, user_id={user_id}, reason={message}")
+                logger.warning(f"게임 참가 실패: room_id={room_id}, user_id={user_id}, reason=이미 게임에 참가했습니다")
             
             return success
                 
@@ -155,6 +164,51 @@ class GameEventHandler:
             logger.error(f"게임 준비 처리 중 오류: {e}")
             return False
     
+    async def handle_player_ready(self, room_id: str, user_id: int, ready_status: bool) -> bool:
+        """플레이어 준비 상태 변경 처리"""
+        try:
+            # 게임 상태 가져오기
+            game_state = await self.redis_manager.get_game_state(room_id)
+            if not game_state:
+                logger.error(f"게임 상태 없음: room_id={room_id}")
+                return False
+            
+            # 플레이어 찾기 및 상태 업데이트
+            player_found = False
+            from redis_models import PlayerStatus
+            
+            for player in game_state.players:
+                if player.user_id == user_id:
+                    player.status = PlayerStatus.READY.value if ready_status else PlayerStatus.WAITING.value
+                    player_found = True
+                    break
+            
+            if not player_found:
+                logger.error(f"플레이어를 찾을 수 없음: user_id={user_id}, room_id={room_id}")
+                return False
+            
+            # 게임 상태 저장
+            await self.redis_manager.save_game_state(game_state)
+            
+            # 준비 상태 변경 알림
+            await self.websocket_manager.broadcast_to_room(room_id, {
+                "type": "player_ready_status",
+                "data": {
+                    "user_id": user_id,
+                    "ready": ready_status
+                }
+            })
+            
+            # 전체 게임 상태 브로드캐스트
+            await self._broadcast_redis_game_state(room_id, game_state)
+            
+            logger.info(f"플레이어 준비 상태 변경 완료: room_id={room_id}, user_id={user_id}, ready={ready_status}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"플레이어 준비 처리 중 오류: {e}")
+            return False
+
     async def handle_start_game(self, room_id: str, user_id: int) -> bool:
         """게임 시작 처리"""
         try:
@@ -389,8 +443,52 @@ class GameEventHandler:
         except Exception as e:
             logger.error(f"턴 타임아웃 처리 중 오류: {e}")
     
+    async def _broadcast_redis_game_state(self, room_id: str, game_state=None):
+        """Redis 게임 상태 브로드캐스트"""
+        try:
+            if not game_state:
+                game_state = await self.redis_manager.get_game_state(room_id)
+            
+            if not game_state:
+                return
+            
+            # 플레이어 리스트를 프론트엔드 형식으로 변환
+            players_list = []
+            for player in game_state.players:
+                players_list.append({
+                    "id": str(player.user_id),
+                    "user_id": player.user_id,
+                    "nickname": player.nickname,
+                    "score": player.score,
+                    "isReady": player.status == "ready",
+                    "isHost": player.is_host,
+                    "words_submitted": player.words_submitted,
+                    "max_combo": player.max_combo
+                })
+            
+            await self.websocket_manager.broadcast_to_room(room_id, {
+                "type": "game_state_update",
+                "data": {
+                    "room_id": room_id,
+                    "status": game_state.status,
+                    "players": players_list,
+                    "current_turn": game_state.current_turn,
+                    "current_round": game_state.current_round,
+                    "word_chain": {
+                        "words": game_state.word_chain.words,
+                        "last_word": game_state.word_chain.last_word,
+                        "current_char": game_state.word_chain.current_char
+                    },
+                    "started_at": game_state.started_at,
+                    "ended_at": game_state.ended_at
+                }
+            })
+            
+        except Exception as e:
+            logger.error(f"Redis 게임 상태 브로드캐스트 중 오류: {e}")
+    
     async def _broadcast_game_state(self, room_id: str, game_state=None):
-        """게임 상태 브로드캐스트"""
+        """게임 엔진 상태 브로드캐스트 (기존 메서드 - 호환성 유지)"""
         try:
             if not game_state:
                 game_state = await self.game_engine.get_game_state(room_id)

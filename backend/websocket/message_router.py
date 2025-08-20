@@ -289,18 +289,19 @@ class MessageRouter:
         
         ready_status = message.data.get("ready", True)
         
-        logger.info(f"게임 준비 상태 변경: user_id={connection.user_id}, ready={ready_status}")
+        # 게임 핸들러로 위임
+        from websocket.game_handler import get_game_handler
+        game_handler = get_game_handler(self.websocket_manager)
         
-        await self.websocket_manager.broadcast_to_room(connection.room_id, {
-            "type": "player_ready_status",
-            "data": {
-                "user_id": connection.user_id,
-                "nickname": connection.nickname,
-                "ready": ready_status
-            }
-        })
+        success = await game_handler.handle_player_ready(
+            connection.room_id,
+            connection.user_id,
+            ready_status
+        )
         
-        return True
+        logger.info(f"게임 준비 상태 변경: user_id={connection.user_id}, ready={ready_status}, success={success}")
+        
+        return success
     
     async def _handle_start_game(self, connection: WebSocketConnection, message: BaseMessage) -> bool:
         """게임 시작 처리"""

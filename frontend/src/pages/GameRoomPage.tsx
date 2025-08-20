@@ -212,6 +212,19 @@ const GameRoomPage: React.FC = () => {
     }
   }, []);
 
+  // game_state_update 핸들러 추가
+  const handleGameStateUpdate = useCallback((data: any) => {
+    console.log('🔄 Game state update:', data);
+    if (roomId && data.players) {
+      // 플레이어 목록 업데이트
+      updateRoom(roomId, {
+        players: data.players,
+        currentPlayers: data.players.length,
+        status: data.status
+      });
+    }
+  }, [roomId, updateRoom]);
+
   useEffect(() => {
     if (!isConnected || !roomId) return;
 
@@ -226,6 +239,7 @@ const GameRoomPage: React.FC = () => {
     on('turn_timer_started', handleTurnTimerStarted);
     on('turn_timeout', handleTurnTimeout);
     on('player_ready_status', handlePlayerReady);
+    on('game_state_update', handleGameStateUpdate);
     on('error', handleError);
     on('success', handleSuccess);
     on('pong', (data: any) => console.log('🏓 Pong received:', data));
@@ -254,11 +268,12 @@ const GameRoomPage: React.FC = () => {
       off('turn_timer_started', handleTurnTimerStarted);
       off('turn_timeout', handleTurnTimeout);
       off('player_ready_status', handlePlayerReady);
+      off('game_state_update', handleGameStateUpdate);
       off('error', handleError);
       off('success', handleSuccess);
       off('pong');
     };
-  }, [isConnected, roomId, user?.id, emit, on, off, handleRoomJoined, handlePlayerJoined, handlePlayerLeft, handleChatMessage, handleGameStarted, handleWordSubmitted, handleWordSubmissionFailed, handleTurnTimerStarted, handleTurnTimeout, handlePlayerReady, handleError, handleSuccess]);
+  }, [isConnected, roomId, user?.id, emit, on, off, handleRoomJoined, handlePlayerJoined, handlePlayerLeft, handleChatMessage, handleGameStarted, handleWordSubmitted, handleWordSubmissionFailed, handleTurnTimerStarted, handleTurnTimeout, handlePlayerReady, handleGameStateUpdate, handleError, handleSuccess]);
 
   useEffect(() => {
     if (!roomId) {
