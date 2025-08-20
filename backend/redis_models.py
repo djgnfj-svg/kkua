@@ -42,6 +42,8 @@ class GamePlayer:
     items: List[str] = None
     last_word_time: Optional[str] = None
     joined_at: str = None
+    remaining_time_ms: int = 30000  # 개별 플레이어 시간 (30초부터 시작)
+    min_time_ms: int = 100  # 최소 시간 (0.1초)
     
     def __post_init__(self):
         if self.items is None:
@@ -55,6 +57,15 @@ class GamePlayer:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'GamePlayer':
         return cls(**data)
+    
+    def reduce_time(self) -> int:
+        """단어 제출 후 시간 감소 (매번 2초씩 감소, 최소 0.1초)"""
+        self.remaining_time_ms = max(self.min_time_ms, self.remaining_time_ms - 2000)
+        return self.remaining_time_ms
+    
+    def get_remaining_seconds(self) -> float:
+        """남은 시간을 초 단위로 반환"""
+        return self.remaining_time_ms / 1000.0
 
 
 @dataclass

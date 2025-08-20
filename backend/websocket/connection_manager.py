@@ -231,8 +231,19 @@ class WebSocketManager:
         """룸 나가기 (내부 메서드)"""
         try:
             connection = self.active_connections.get(user_id)
+            nickname = connection.nickname if connection else "Unknown"
             
-            # 룸 정보 제거
+            # 고도화된 방 나가기 처리
+            from websocket.game_handler import get_game_handler
+            game_handler = get_game_handler(self)
+            
+            should_continue, reason = await game_handler.handle_advanced_leave_room(room_id, user_id, nickname)
+            
+            if not should_continue:
+                logger.info(f"방 나가기 처리 중단: {reason}")
+                return False
+            
+            # 기본 연결 정리
             if user_id in self.user_rooms and self.user_rooms[user_id] == room_id:
                 del self.user_rooms[user_id]
             

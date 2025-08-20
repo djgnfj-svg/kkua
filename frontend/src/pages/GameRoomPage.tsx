@@ -143,15 +143,24 @@ const GameRoomPage: React.FC = () => {
   // 게임 관련 이벤트들
   const handleGameStarted = useCallback((data: any) => {
     console.log('🎮 Game started:', data);
+    console.log('🎮 Current turn user ID:', data.current_turn_user_id, 'Type:', typeof data.current_turn_user_id);
+    console.log('🎮 My user ID:', user?.id, 'Type:', typeof user?.id);
+    
+    const currentTurnUserIdStr = String(data.current_turn_user_id);
+    const isMyTurn = currentTurnUserIdStr === String(user?.id);
+    
+    console.log('🎮 Is my turn?', isMyTurn, 'Comparison:', currentTurnUserIdStr, '===', String(user?.id));
+    
     setGameState(prev => ({ 
       ...prev, 
       isPlaying: true,
-      currentTurnUserId: String(data.current_turn_user_id), // 문자열로 변환
+      currentTurnUserId: currentTurnUserIdStr, // 문자열로 변환
       currentChar: data.next_char || '',
+      remainingTime: data.current_turn_remaining_time || 30,
       scores: data.scores || {}
     }));
     showToast.success(`게임이 시작되었습니다! ${data.current_turn_nickname}님의 차례입니다 🎮`);
-  }, []);
+  }, [user?.id]);
 
   const handleWordSubmitted = useCallback((data: any) => {
     console.log('📝 Word submitted:', data);
@@ -160,8 +169,9 @@ const GameRoomPage: React.FC = () => {
       // 성공한 단어 제출
       setGameState(prev => ({
         ...prev,
-        currentTurnUserId: data.current_turn_user_id,
+        currentTurnUserId: String(data.current_turn_user_id),
         currentChar: data.next_char || '',
+        remainingTime: data.current_turn_remaining_time || prev.remainingTime,
         wordChain: [...(prev.wordChain || []), data.word],
         scores: { ...(prev.scores || {}), ...data.scores }
       }));
@@ -169,9 +179,10 @@ const GameRoomPage: React.FC = () => {
       showToast.success(`${data.nickname}님: "${data.word}" ✅`);
       
       // 다음 플레이어 알림
-      const nextPlayer = currentRoomRef.current?.players?.find(p => p.id === data.current_turn_user_id);
+      const nextPlayer = currentRoomRef.current?.players?.find(p => String(p.id) === String(data.current_turn_user_id));
       if (nextPlayer) {
-        showToast.info(`다음 차례: ${nextPlayer.nickname}님 (${data.next_char}로 시작)`);
+        const remainingTime = data.current_turn_remaining_time || 30;
+        showToast.info(`다음 차례: ${nextPlayer.nickname}님 (${data.next_char}로 시작, ${remainingTime}초)`);
       }
     } else if (data.status === 'pending_validation') {
       showToast.info(`${data.nickname}님이 "${data.word}" 단어를 제출했습니다...`);
@@ -229,8 +240,8 @@ const GameRoomPage: React.FC = () => {
     if (data.current_turn_user_id) {
       setGameState(prev => ({
         ...prev,
-        currentTurnUserId: data.current_turn_user_id,
-        remainingTime: 30 // 새로운 턴 시작
+        currentTurnUserId: String(data.current_turn_user_id),
+        remainingTime: data.current_turn_remaining_time || 30 // 다음 플레이어의 개별 시간
       }));
     }
   }, []);
@@ -259,6 +270,79 @@ const GameRoomPage: React.FC = () => {
     }
   }, [roomId, updateRoom]);
 
+  // 고도화된 방 나가기 이벤트 핸들러들
+  const handleHostLeftGame = useCallback((data: any) => {
+    console.log('👑❌ Host left game:', data);
+    showToast.error(data.message);
+    
+    // 5초 후 로비로 이동
+    setTimeout(() => {
+      navigate('/lobby');
+    }, 5000);
+    
+    showToast.info('5초 후 로비로 이동합니다...');
+  }, [navigate]);
+
+  const handleHostChanged = useCallback((data: any) => {
+    console.log('👑🔄 Host changed:', data);
+    showToast.info(data.message);
+    
+    // 새로운 방장 정보로 플레이어 목록 업데이트
+    if (roomId && currentRoomRef.current?.players) {
+      const updatedPlayers = currentRoomRef.current.players.map(player => ({
+        ...player,
+        isHost: String(player.id) === String(data.new_host_user_id)
+      }));
+      
+      updateRoom(roomId, {
+        players: updatedPlayers
+      });
+    }
+  }, [roomId, updateRoom]);
+
+  const handleOpponentLeftVictory = useCallback((data: any) => {
+    console.log('🏆 Opponent left victory:', data);
+    showToast.success(data.message);
+    
+    // 승리 처리
+    setGameState(prev => ({ 
+      ...prev, 
+      isPlaying: false,
+      gameResult: 'victory',
+      resultMessage: data.message
+    }));
+  }, []);
+
+  const handlePlayerLeftDuringTurn = useCallback((data: any) => {
+    console.log('🚪 Player left during turn:', data);
+    showToast.warning(data.message);
+    
+    // 턴 정보 업데이트
+    setGameState(prev => ({
+      ...prev,
+      currentTurnUserId: String(data.current_turn_user_id),
+      remainingTime: data.current_turn_remaining_time || prev.remainingTime
+    }));
+  }, []);
+
+  const handlePlayerLeftGame = useCallback((data: any) => {
+    console.log('🚪 Player left game:', data);
+    showToast.info(data.message);
+  }, []);
+
+  const handlePlayerLeftRoom = useCallback((data: any) => {
+    console.log('🚪 Player left room:', data);
+    showToast.info(data.message);
+  }, []);
+
+  const handleRoomDisbanded = useCallback((data: any) => {
+    console.log('💥 Room disbanded:', data);
+    showToast.error(data.message);
+    
+    // 로비로 이동
+    navigate('/lobby');
+  }, [navigate]);
+
   useEffect(() => {
     if (!isConnected || !roomId) return;
 
@@ -274,6 +358,13 @@ const GameRoomPage: React.FC = () => {
     on('turn_timeout', handleTurnTimeout);
     on('player_ready_status', handlePlayerReady);
     on('game_state_update', handleGameStateUpdate);
+    on('host_left_game', handleHostLeftGame);
+    on('host_changed', handleHostChanged);
+    on('opponent_left_victory', handleOpponentLeftVictory);
+    on('player_left_during_turn', handlePlayerLeftDuringTurn);
+    on('player_left_game', handlePlayerLeftGame);
+    on('player_left_room', handlePlayerLeftRoom);
+    on('room_disbanded', handleRoomDisbanded);
     on('error', handleError);
     on('success', handleSuccess);
     on('pong', (data: any) => console.log('🏓 Pong received:', data));
@@ -303,11 +394,18 @@ const GameRoomPage: React.FC = () => {
       off('turn_timeout', handleTurnTimeout);
       off('player_ready_status', handlePlayerReady);
       off('game_state_update', handleGameStateUpdate);
+      off('host_left_game', handleHostLeftGame);
+      off('host_changed', handleHostChanged);
+      off('opponent_left_victory', handleOpponentLeftVictory);
+      off('player_left_during_turn', handlePlayerLeftDuringTurn);
+      off('player_left_game', handlePlayerLeftGame);
+      off('player_left_room', handlePlayerLeftRoom);
+      off('room_disbanded', handleRoomDisbanded);
       off('error', handleError);
       off('success', handleSuccess);
       off('pong');
     };
-  }, [isConnected, roomId, user?.id, emit, on, off, handleRoomJoined, handlePlayerJoined, handlePlayerLeft, handleChatMessage, handleGameStarted, handleWordSubmitted, handleWordSubmissionFailed, handleTurnTimerStarted, handleTurnTimeout, handlePlayerReady, handleGameStateUpdate, handleError, handleSuccess]);
+  }, [isConnected, roomId, user?.id, emit, on, off, handleRoomJoined, handlePlayerJoined, handlePlayerLeft, handleChatMessage, handleGameStarted, handleWordSubmitted, handleWordSubmissionFailed, handleTurnTimerStarted, handleTurnTimeout, handlePlayerReady, handleGameStateUpdate, handleHostLeftGame, handleHostChanged, handleOpponentLeftVictory, handlePlayerLeftDuringTurn, handlePlayerLeftGame, handlePlayerLeftRoom, handleRoomDisbanded, handleError, handleSuccess]);
 
   useEffect(() => {
     if (!roomId) {
@@ -356,6 +454,28 @@ const GameRoomPage: React.FC = () => {
 
   const handleLeaveRoom = async () => {
     try {
+      // 게임 중인지 확인
+      const isGameInProgress = gameState.isPlaying;
+      const isHost = currentRoom?.players?.find(p => String(p.id) === String(user?.id))?.isHost;
+      
+      // 확인 메시지 생성
+      let confirmMessage = '정말로 방을 나가시겠습니까?';
+      
+      if (isGameInProgress && isHost) {
+        confirmMessage = '⚠️ 방장이 게임 중에 나가면 모든 플레이어의 게임이 종료됩니다.\n정말로 나가시겠습니까?';
+      } else if (isGameInProgress) {
+        confirmMessage = '⚠️ 게임이 진행 중입니다. 나가면 패배 처리됩니다.\n정말로 나가시겠습니까?';
+      } else if (isHost) {
+        confirmMessage = '⚠️ 방장이 나가면 다른 플레이어에게 방장이 넘어갑니다.\n정말로 나가시겠습니까?';
+      }
+      
+      // 확인 다이얼로그
+      const confirmed = window.confirm(confirmMessage);
+      
+      if (!confirmed) {
+        return;
+      }
+      
       if (roomId && isConnected) {
         emit('leave_room', { room_id: roomId });
       }
@@ -464,9 +584,9 @@ const GameRoomPage: React.FC = () => {
                     <h2 className="text-lg font-semibold">
                       {gameState.isPlaying ? '끝말잇기 게임' : '게임 대기'}
                     </h2>
-                    {gameState.isPlaying && gameState.currentTurnUserId === user.id && (
+                    {gameState.isPlaying && gameState.currentTurnUserId === String(user.id) && (
                       <div className="text-sm font-medium text-blue-600">
-                        ⏰ {gameState.remainingTime}초
+                        ⏰ {gameState.remainingTime?.toFixed(1)}초
                       </div>
                     )}
                   </div>
@@ -495,10 +615,10 @@ const GameRoomPage: React.FC = () => {
                       </div>
 
                       {/* 단어 입력 */}
-                      {gameState.currentTurnUserId === user.id ? (
+                      {gameState.currentTurnUserId === String(user.id) ? (
                         <div className="bg-blue-50 rounded-lg p-4">
                           <h4 className="font-medium text-blue-900 mb-2">
-                            내 차례입니다! ({gameState.remainingTime}초 남음)
+                            내 차례입니다! ({gameState.remainingTime?.toFixed(1)}초 남음)
                           </h4>
                           <div className="flex space-x-2">
                             <input
@@ -521,7 +641,7 @@ const GameRoomPage: React.FC = () => {
                       ) : (
                         <div className="bg-gray-50 rounded-lg p-4 text-center">
                           <p className="text-gray-600">
-                            {currentRoom?.players?.find(p => p.id === gameState.currentTurnUserId)?.nickname || '다른 플레이어'}님의 차례입니다...
+                            {currentRoom?.players?.find(p => String(p.id) === gameState.currentTurnUserId)?.nickname || '다른 플레이어'}님의 차례입니다...
                           </p>
                         </div>
                       )}

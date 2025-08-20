@@ -549,6 +549,61 @@ class GameEngine:
             
         except Exception as e:
             logger.error(f"게임 세션 기록 업데이트 중 오류: {e}")
+    
+    async def submit_word(self, room_id: str, user_id: int, word: str) -> Tuple[bool, str, Optional[Any], Optional[Any]]:
+        """단어 제출 처리"""
+        try:
+            # 게임 상태 조회
+            game_state = await self.redis_manager.get_game_state(room_id)
+            if not game_state:
+                return False, "게임을 찾을 수 없습니다", None, None
+            
+            # 게임이 진행 중인지 확인
+            if game_state.status != "playing":
+                return False, "게임이 진행 중이 아닙니다", None, None
+            
+            # 현재 턴인지 확인
+            current_player = game_state.get_current_player()
+            if not current_player or current_player.user_id != user_id:
+                return False, "현재 당신의 차례가 아닙니다", None, None
+            
+            # 단어 유효성 검사 (임시로 간단히 처리)
+            if len(word.strip()) < 2:
+                return False, "2글자 이상의 단어를 입력해주세요", None, None
+            
+            # 끝말잇기 규칙 확인
+            if game_state.word_chain.words:
+                last_char = game_state.word_chain.current_char
+                if word[0] != last_char:
+                    return False, f"'{last_char}'로 시작하는 단어를 입력해주세요", None, None
+            
+            # 단어 체인에 추가
+            game_state.word_chain.words.append(word)
+            game_state.word_chain.used_words.append(word)
+            game_state.word_chain.last_word = word
+            game_state.word_chain.current_char = word[-1]  # 마지막 글자
+            
+            # 플레이어 점수 및 통계 업데이트
+            current_player.words_submitted += 1
+            current_player.score += 10  # 기본 점수
+            
+            # 플레이어 시간 감소 (매 턴마다 2초씩 감소)
+            new_time = current_player.reduce_time()
+            logger.info(f"플레이어 {current_player.nickname}의 남은 시간: {current_player.get_remaining_seconds()}초")
+            
+            # 다음 턴으로 이동
+            game_state.next_turn()
+            
+            # 게임 상태 저장
+            await self.redis_manager.save_game_state(game_state)
+            
+            logger.info(f"단어 제출 성공: room_id={room_id}, user_id={user_id}, word={word}, next_turn={game_state.current_turn}")
+            
+            return True, "단어 제출 성공", None, None
+            
+        except Exception as e:
+            logger.error(f"단어 제출 중 오류: {e}")
+            return False, "단어 제출 처리 중 오류가 발생했습니다", None, None
 
 
 # 전역 게임 엔진 인스턴스
