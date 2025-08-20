@@ -1170,7 +1170,22 @@ const GameRoomPage: React.FC = () => {
           }}
           onPlayAgain={() => {
             setGameState(prev => ({ ...prev, showFinalRankings: false }));
-            // TODO: 같은 방에서 다시 시작하는 로직 구현
+            // 게임 상태 초기화
+            setGameState({
+              isPlaying: false,
+              isRoundTransition: false,
+              wordChain: [],
+              scores: {},
+              turnTimeLimit: 30,
+              remainingTime: 30,
+              currentRound: 1,
+              maxRounds: 5,
+              showFinalRankings: false,
+              finalRankings: []
+            });
+            // 모든 플레이어를 준비 상태로 리셋하고 새 게임 요청
+            emit('reset_game_for_restart', { room_id: roomId });
+            showToast.info('새 게임을 위해 모든 플레이어가 다시 준비해주세요');
           }}
           onBackToLobby={() => {
             setGameState(prev => ({ ...prev, showFinalRankings: false }));

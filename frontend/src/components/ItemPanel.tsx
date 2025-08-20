@@ -100,8 +100,10 @@ export const ItemPanel: React.FC<ItemPanelProps> = ({
     const needsTarget = ['freeze_opponent', 'steal_word'].includes(item.effect_type);
     
     if (needsTarget) {
-      // setSelectedItem(item); // TODO: 타겟 선택 UI 구현
-      showToast.info('상대방을 선택해주세요 (기능 구현 중)');
+      // 임시 구현: 랜덤 상대방 선택 (실제로는 타겟 선택 모달 필요)
+      const targetUserId = Math.floor(Math.random() * 1000) + 1;
+      onItemUse?.(item.id, targetUserId);
+      showToast.success(`${item.name} 사용! (랜덤 타겟)`);
     } else {
       // 즉시 사용
       onItemUse?.(item.id);

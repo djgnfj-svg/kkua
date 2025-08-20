@@ -223,8 +223,13 @@ async def guest_login(request: GuestLoginRequest):
 @app.get("/auth/me")
 async def get_current_user():
     """현재 사용자 정보 (토큰 검증용)"""
-    # TODO: JWT 토큰 헤더에서 사용자 정보 추출
-    return {"message": "인증된 사용자 정보 조회는 아직 구현되지 않았습니다"}
+    # 임시 구현: 게스트 사용자 정보 반환
+    return {
+        "id": 1,
+        "nickname": "게스트",
+        "is_guest": True,
+        "created_at": datetime.now().isoformat()
+    }
 
 # 임시 게임룸 데이터 (메모리에 저장)
 temporary_rooms = []
