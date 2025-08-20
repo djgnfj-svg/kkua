@@ -145,6 +145,162 @@ async def api_status():
     }
 
 
+# 인증 및 API 관련 import
+from auth import AuthService
+from pydantic import BaseModel
+from fastapi import HTTPException
+
+# Request/Response 모델
+class GuestLoginRequest(BaseModel):
+    nickname: str
+
+class AuthResponse(BaseModel):
+    success: bool
+    user_id: str
+    nickname: str
+    session_token: str
+    message: str
+
+# AuthService 인스턴스
+auth_service = AuthService()
+
+# REST API 엔드포인트
+@app.post("/auth/login", response_model=AuthResponse)
+async def guest_login(request: GuestLoginRequest):
+    """게스트 로그인"""
+    try:
+        # 닉네임 검증
+        if not request.nickname or len(request.nickname.strip()) < 2:
+            raise HTTPException(
+                status_code=400,
+                detail="닉네임은 최소 2글자 이상이어야 합니다"
+            )
+        
+        if len(request.nickname.strip()) > 12:
+            raise HTTPException(
+                status_code=400,
+                detail="닉네임은 최대 12글자까지 가능합니다"
+            )
+        
+        nickname = request.nickname.strip()
+        
+        # 간단한 사용자 ID 생성 (실제로는 DB에서 관리해야 함)
+        import time
+        user_id = int(time.time() * 1000) % 1000000  # 임시 ID 생성
+        
+        # JWT 토큰 생성
+        token = auth_service.create_guest_token(user_id, nickname)
+        
+        logger.info(f"게스트 로그인 성공: {nickname} (ID: {user_id})")
+        
+        return AuthResponse(
+            success=True,
+            user_id=str(user_id),
+            nickname=nickname,
+            session_token=token,
+            message=f"환영합니다, {nickname}님!"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"게스트 로그인 실패: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="로그인 처리 중 오류가 발생했습니다"
+        )
+
+@app.get("/auth/me")
+async def get_current_user():
+    """현재 사용자 정보 (토큰 검증용)"""
+    # TODO: JWT 토큰 헤더에서 사용자 정보 추출
+    return {"message": "인증된 사용자 정보 조회는 아직 구현되지 않았습니다"}
+
+# 임시 게임룸 데이터 (메모리에 저장)
+temporary_rooms = []
+
+class CreateRoomRequest(BaseModel):
+    name: str
+    max_players: int = 4
+
+@app.get("/gamerooms")
+async def list_gamerooms():
+    """게임룸 목록 조회"""
+    return temporary_rooms
+
+@app.post("/gamerooms")
+async def create_gameroom(request: CreateRoomRequest):
+    """게임룸 생성"""
+    try:
+        if not request.name or len(request.name.strip()) < 2:
+            raise HTTPException(
+                status_code=400,
+                detail="방 이름은 최소 2글자 이상이어야 합니다"
+            )
+        
+        if request.max_players < 2 or request.max_players > 8:
+            raise HTTPException(
+                status_code=400,
+                detail="최대 플레이어 수는 2-8명 사이여야 합니다"
+            )
+        
+        import time
+        from datetime import datetime
+        
+        room_id = f"room_{int(time.time() * 1000)}"
+        
+        new_room = {
+            "id": room_id,
+            "name": request.name.strip(),
+            "maxPlayers": request.max_players,
+            "currentPlayers": 1,  # 방을 만든 사람
+            "status": "waiting",
+            "createdAt": datetime.now().isoformat(),
+            "players": []
+        }
+        
+        temporary_rooms.append(new_room)
+        
+        logger.info(f"게임룸 생성: {request.name} (ID: {room_id})")
+        
+        return {"room_id": room_id, **new_room}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"게임룸 생성 실패: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="방 생성 중 오류가 발생했습니다"
+        )
+
+@app.post("/gamerooms/{room_id}/join")
+async def join_gameroom(room_id: str):
+    """게임룸 참가"""
+    # 임시 구현
+    for room in temporary_rooms:
+        if room["id"] == room_id:
+            if room["currentPlayers"] < room["maxPlayers"]:
+                room["currentPlayers"] += 1
+                return {"message": f"{room['name']} 방에 참가했습니다", "room": room}
+            else:
+                raise HTTPException(status_code=400, detail="방이 가득 찼습니다")
+    
+    raise HTTPException(status_code=404, detail="방을 찾을 수 없습니다")
+
+@app.post("/gamerooms/{room_id}/leave")
+async def leave_gameroom(room_id: str):
+    """게임룸 나가기"""
+    # 임시 구현
+    for room in temporary_rooms:
+        if room["id"] == room_id:
+            room["currentPlayers"] = max(0, room["currentPlayers"] - 1)
+            if room["currentPlayers"] == 0:
+                temporary_rooms.remove(room)
+            return {"message": "방에서 나갔습니다"}
+    
+    raise HTTPException(status_code=404, detail="방을 찾을 수 없습니다")
+
 # Phase 2 라우터 추가
 from websocket.websocket_endpoint import get_websocket_router
 

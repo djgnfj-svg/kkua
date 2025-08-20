@@ -5,7 +5,7 @@
 
 import re
 import logging
-from typing import Dict, Set, Optional, Tuple, Any
+from typing import Dict, Set, Optional, Tuple, Any, List
 from dataclasses import dataclass
 from enum import Enum
 from database import get_db, get_redis
