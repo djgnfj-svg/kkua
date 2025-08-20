@@ -82,9 +82,6 @@ const GameRoomPage: React.FC = () => {
     }
   }, [roomId, setCurrentRoom, updateRoom]);
 
-  useEffect(() => {
-    if (!isConnected || !roomId) return;
-
   // 플레이어 입장/퇴장 이벤트
   const handlePlayerJoined = useCallback((data: any) => {
     console.log('👤 Player joined:', data);
@@ -116,6 +113,9 @@ const GameRoomPage: React.FC = () => {
       });
     }
   }, [roomId, updateRoom]);
+
+  useEffect(() => {
+    if (!isConnected || !roomId) return;
 
   // 채팅 메시지 이벤트
   const handleChatMessage = useCallback((data: any) => {
@@ -191,6 +191,30 @@ const GameRoomPage: React.FC = () => {
     console.log('✅ Success:', data);
   }, []);
 
+  // 타이머 관련 핸들러들
+  const handleTurnTimerStarted = useCallback((data: any) => {
+    console.log('⏰ Turn timer started:', data);
+    if (data.remaining_time) {
+      setGameState(prev => ({
+        ...prev,
+        remainingTime: data.remaining_time
+      }));
+    }
+  }, []);
+
+  const handleTurnTimeout = useCallback((data: any) => {
+    console.log('⏰ Turn timeout:', data);
+    showToast.warning('시간 초과! 다음 플레이어에게 넘어갑니다');
+    // 턴 타임아웃 시 다음 플레이어로 이동
+    if (data.current_turn_user_id) {
+      setGameState(prev => ({
+        ...prev,
+        currentTurnUserId: data.current_turn_user_id,
+        remainingTime: 30 // 새로운 턴 시작
+      }));
+    }
+  }, []);
+
     // 이벤트 리스너 등록
     on('room_joined', handleRoomJoined);
     on('player_joined', handlePlayerJoined);
@@ -226,12 +250,15 @@ const GameRoomPage: React.FC = () => {
       off('chat_message', handleChatMessage);
       off('game_started', handleGameStarted);
       off('word_submitted', handleWordSubmitted);
+      off('word_submission_failed', handleWordSubmissionFailed);
+      off('turn_timer_started', handleTurnTimerStarted);
+      off('turn_timeout', handleTurnTimeout);
       off('player_ready_status', handlePlayerReady);
       off('error', handleError);
       off('success', handleSuccess);
       off('pong');
     };
-  }, [isConnected, roomId, user?.id, emit, on, off, handleRoomJoined, handlePlayerJoined, handlePlayerLeft, handleChatMessage, handleGameStarted, handleWordSubmitted, handleWordSubmissionFailed, handlePlayerReady, handleError, handleSuccess]);
+  }, [isConnected, roomId, user?.id, emit, on, off, handleRoomJoined, handlePlayerJoined, handlePlayerLeft, handleChatMessage, handleGameStarted, handleWordSubmitted, handleWordSubmissionFailed, handleTurnTimerStarted, handleTurnTimeout, handlePlayerReady, handleError, handleSuccess]);
 
   useEffect(() => {
     if (!roomId) {
