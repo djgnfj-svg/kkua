@@ -1,6 +1,6 @@
 import React from 'react';
 import toast, { Toaster } from 'react-hot-toast';
-import type { Toast as HotToast } from 'react-hot-toast';
+// import type { Toast as HotToast } from 'react-hot-toast';
 
 // Toast 유틸리티 함수들
 export const showToast = {
@@ -21,7 +21,8 @@ export const showToast = {
   ) => toast.promise(promise, messages)
 };
 
-// 커스텀 토스트 컴포넌트
+// 커스텀 토스트 컴포넌트 (사용 안함)
+/*
 const CustomToast: React.FC<{ t: HotToast }> = ({ t }) => (
   <div
     className={`${
@@ -61,6 +62,7 @@ const CustomToast: React.FC<{ t: HotToast }> = ({ t }) => (
     </div>
   </div>
 );
+*/
 
 // 토스터 래퍼 컴포넌트
 export const ToastProvider: React.FC = () => {

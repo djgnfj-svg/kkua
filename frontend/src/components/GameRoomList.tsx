@@ -98,7 +98,7 @@ const GameRoomList: React.FC<GameRoomListProps> = ({ onJoinRoom, onCreateRoom })
     // 검색어 필터
     const searchMatch = !filters.search || 
       room.name.toLowerCase().includes(filters.search.toLowerCase()) ||
-      room.hostNickname?.toLowerCase().includes(filters.search.toLowerCase());
+      (room as any).hostNickname?.toLowerCase().includes(filters.search.toLowerCase());
     
     // 상태 필터
     const statusMatch = filters.status === 'all' || room.status === filters.status;
@@ -150,7 +150,7 @@ const GameRoomList: React.FC<GameRoomListProps> = ({ onJoinRoom, onCreateRoom })
         
         {/* 필터링 UI */}
         <div className="space-y-3 pt-4 border-t">
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
             {/* 검색 */}
             <div className="flex-1">
               <input
@@ -162,7 +162,7 @@ const GameRoomList: React.FC<GameRoomListProps> = ({ onJoinRoom, onCreateRoom })
               />
             </div>
             
-            <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+            <div className="flex flex-col sm:flex-row gap-3 sm:items-center min-w-0 sm:min-w-max">
               {/* 상태 필터 */}
               <select
                 value={filters.status}
@@ -232,15 +232,15 @@ const GameRoomList: React.FC<GameRoomListProps> = ({ onJoinRoom, onCreateRoom })
             </button>
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {filteredRooms.map((room) => (
               <div
                 key={room.id}
-                className="border rounded-lg p-4 hover:shadow-md transition-shadow"
+                className="border rounded-lg p-3 sm:p-4 hover:shadow-md transition-shadow cursor-pointer"
               >
                 <div className="flex justify-between items-start mb-3">
-                  <h3 className="font-semibold text-lg truncate">{room.name}</h3>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(room.status)}`}>
+                  <h3 className="font-semibold text-base sm:text-lg truncate pr-2">{room.name}</h3>
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${getStatusColor(room.status)}`}>
                     {getStatusText(room.status)}
                   </span>
                 </div>
@@ -254,7 +254,7 @@ const GameRoomList: React.FC<GameRoomListProps> = ({ onJoinRoom, onCreateRoom })
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">생성시간</span>
-                    <span className="text-gray-700">
+                    <span className="text-gray-700 text-xs sm:text-sm">
                       {new Date(room.createdAt).toLocaleTimeString('ko-KR', {
                         hour: '2-digit',
                         minute: '2-digit'
@@ -267,15 +267,21 @@ const GameRoomList: React.FC<GameRoomListProps> = ({ onJoinRoom, onCreateRoom })
                   <div className="mb-4">
                     <div className="text-xs text-gray-600 mb-1">참가자:</div>
                     <div className="flex flex-wrap gap-1">
-                      {room.players.map((player) => (
+                      {room.players.slice(0, 3).map((player) => (
                         <span
                           key={player.id}
-                          className="px-2 py-1 bg-gray-100 rounded text-xs"
+                          className="px-2 py-1 bg-gray-100 rounded text-xs truncate max-w-20"
+                          title={player.nickname + (player.isHost ? ' (방장)' : '')}
                         >
                           {player.nickname}
                           {player.isHost && ' 👑'}
                         </span>
                       ))}
+                      {room.players.length > 3 && (
+                        <span className="px-2 py-1 bg-gray-200 rounded text-xs text-gray-600">
+                          +{room.players.length - 3}
+                        </span>
+                      )}
                     </div>
                   </div>
                 )}

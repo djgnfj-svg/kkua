@@ -77,6 +77,12 @@ export const apiEndpoints = {
     submitWord: (roomId: string, word: string) => 
       api.post(`/gamerooms/${roomId}/submit-word`, { word }),
   },
+  
+  // Item endpoints
+  items: {
+    inventory: (userId: number) => api.get(`/users/${userId}/inventory`),
+    list: () => api.get('/items/list'),
+  },
 };
 
 export default api;

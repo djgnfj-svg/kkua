@@ -4,8 +4,11 @@ import { Button, Card, Loading } from '../components/ui';
 import { useUserStore } from '../stores/useUserStore';
 import { useGameStore } from '../stores/useGameStore';
 import { showToast } from '../components/Toast';
-import { apiEndpoints } from '../utils/api';
+// import { apiEndpoints } from '../utils/api';
 import { useNativeWebSocket } from '../hooks/useNativeWebSocket';
+import GameReport from '../components/GameReport';
+import ItemPanel from '../components/ItemPanel';
+import ChatPanel from '../components/ChatPanel';
 
 const GameRoomPage: React.FC = () => {
   const { roomId } = useParams<{ roomId: string }>();
@@ -47,6 +50,14 @@ const GameRoomPage: React.FC = () => {
     finalRankings: []
   });
   const [currentWord, setCurrentWord] = useState('');
+  const [chatMessages, setChatMessages] = useState<Array<{
+    id: string;
+    userId: number;
+    nickname: string;
+    message: string;
+    timestamp: string;
+    type?: 'user' | 'system' | 'game';
+  }>>([]);
   const [wordValidation, setWordValidation] = useState<{
     isValid: boolean;
     message: string;
@@ -143,10 +154,9 @@ const GameRoomPage: React.FC = () => {
   const wsUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
   const { 
     isConnected, 
-    error: wsError, 
     emit, 
     on, 
-    off 
+    off
   } = useNativeWebSocket({
     url: wsUrl,
     roomId,
@@ -232,7 +242,37 @@ const GameRoomPage: React.FC = () => {
   // 채팅 메시지 이벤트
   const handleChatMessage = useCallback((data: any) => {
     console.log('💬 Chat message:', data);
-    showToast.info(`${data.nickname}: ${data.message}`);
+    
+    setChatMessages(prev => [...prev, {
+      id: `chat-${Date.now()}-${data.user_id}`,
+      userId: data.user_id,
+      nickname: data.nickname,
+      message: data.message,
+      timestamp: new Date().toISOString(),
+      type: 'user' as const
+    }]);
+  }, []);
+
+  // const addSystemMessage = useCallback((message: string) => {
+  //   setChatMessages(prev => [...prev, {
+  //     id: `system-${Date.now()}`,
+  //     userId: 0,
+  //     nickname: '시스템',
+  //     message,
+  //     timestamp: new Date().toISOString(),
+  //     type: 'system' as const
+  //   }]);
+  // }, []);
+
+  const addGameMessage = useCallback((message: string) => {
+    setChatMessages(prev => [...prev, {
+      id: `game-${Date.now()}`,
+      userId: 0,
+      nickname: '게임',
+      message,
+      timestamp: new Date().toISOString(),
+      type: 'game' as const
+    }]);
   }, []);
 
   // 게임 관련 이벤트들
@@ -262,7 +302,8 @@ const GameRoomPage: React.FC = () => {
       finalRankings: [] // 이전 게임 순위 데이터 초기화
     });
     showToast.success(`게임이 시작되었습니다! ${data.current_turn_nickname}님의 차례입니다 🎮`);
-  }, [user?.id]);
+    addGameMessage(`🎮 게임이 시작되었습니다! ${data.current_turn_nickname}님의 차례입니다.`);
+  }, [user?.id, addGameMessage]);
 
   const handleWordSubmitted = useCallback((data: any) => {
     console.log('📝 Word submitted:', data);
@@ -282,22 +323,25 @@ const GameRoomPage: React.FC = () => {
       const wordLength = data.word.length;
       const wordScore = wordLength * 10;
       showToast.success(`${data.nickname}님: "${data.word}" (+${wordScore}점, ${wordLength}글자) ✅`);
+      addGameMessage(`📝 ${data.nickname}님이 "${data.word}" 제출! (+${wordScore}점)`);
       
       // 다음 플레이어 알림
       const nextPlayer = currentRoomRef.current?.players?.find(p => String(p.id) === String(data.current_turn_user_id));
       if (nextPlayer) {
         const remainingTime = data.current_turn_remaining_time || 30;
         showToast.info(`다음 차례: ${nextPlayer.nickname}님 (${data.next_char}로 시작, ${remainingTime}초)`);
+        addGameMessage(`⏰ ${nextPlayer.nickname}님의 차례 (${data.next_char}로 시작)`);
       }
     } else if (data.status === 'pending_validation') {
       showToast.info(`${data.nickname}님이 "${data.word}" 단어를 제출했습니다...`);
     }
-  }, []);
+  }, [addGameMessage]);
   
   const handleWordSubmissionFailed = useCallback((data: any) => {
     console.log('❌ Word submission failed:', data);
     showToast.error(data.reason || '단어 제출에 실패했습니다');
-  }, []);
+    addGameMessage(`❌ 단어 제출 실패: ${data.reason || '알 수 없는 오류'}`);
+  }, [addGameMessage]);
   
   const handlePlayerReady = useCallback((data: any) => {
     console.log('✅ Player ready:', data);
@@ -416,7 +460,7 @@ const GameRoomPage: React.FC = () => {
     
     // 10초 후 순위 창 자동 닫기 및 게임 상태 완전 초기화
     setTimeout(() => {
-      setGameState(prev => ({ 
+      setGameState(() => ({ 
         isPlaying: false,
         wordChain: [],
         scores: {},
@@ -744,7 +788,7 @@ const GameRoomPage: React.FC = () => {
   const handleReadyToggle = () => {
     if (!isConnected) return;
     
-    const currentPlayerReady = currentRoom?.players?.find(p => p.id === user.id)?.isReady;
+    const currentPlayerReady = currentRoom?.players?.find(p => p.id === user?.id)?.isReady;
     emit('ready_game', { 
       room_id: roomId,
       ready: !currentPlayerReady
@@ -801,15 +845,15 @@ const GameRoomPage: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <h1 className="text-xl font-bold text-gray-900">
+              <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate max-w-48 sm:max-w-none">
                 {currentRoom?.name || `게임룸 ${roomId?.slice(-4)}`}
               </h1>
               {gameState.isPlaying && (
-                <div className="ml-4 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                <div className="ml-2 sm:ml-4 px-2 sm:px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs sm:text-sm font-medium">
                   라운드 {gameState.currentRound}/{gameState.maxRounds}
                 </div>
               )}
-              <div className={`ml-3 px-2 py-1 rounded-full text-xs font-medium ${
+              <div className={`ml-2 sm:ml-3 px-1 sm:px-2 py-1 rounded-full text-xs font-medium ${
                 isConnected 
                   ? 'bg-green-100 text-green-800' 
                   : 'bg-red-100 text-red-800'
@@ -830,11 +874,11 @@ const GameRoomPage: React.FC = () => {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+      <main className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-2 sm:py-4 lg:py-8">
         {isLoading ? (
           <Loading />
         ) : (
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-3 sm:gap-4 lg:gap-6 xl:gap-8">
             {/* 게임 영역 */}
             <div className="xl:col-span-2">
               <Card>
@@ -846,7 +890,7 @@ const GameRoomPage: React.FC = () => {
                     {gameState.isPlaying && gameState.currentTurnUserId === String(user.id) && (
                       <div className="text-sm font-medium text-blue-600 flex items-center space-x-2">
                         <span>⏰ {gameState.remainingTime?.toFixed(1)}초</span>
-                        <div className="w-12 sm:w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div className="w-8 sm:w-12 lg:w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
                           <div 
                             className={`h-full transition-all duration-1000 ${
                               (gameState.remainingTime || 0) > 15 ? 'bg-green-500' :
@@ -1061,42 +1105,30 @@ const GameRoomPage: React.FC = () => {
                 </Card.Body>
               </Card>
 
-              {/* 간단한 채팅 */}
-              <Card>
-                <Card.Header>
-                  <h3 className="text-lg font-semibold">채팅</h3>
-                </Card.Header>
-                <Card.Body>
-                  <div className="space-y-3">
-                    <input
-                      type="text"
-                      placeholder="채팅 메시지..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter') {
-                          handleSendChat((e.target as HTMLInputElement).value);
-                          (e.target as HTMLInputElement).value = '';
-                        }
-                      }}
-                      disabled={!isConnected}
-                    />
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      disabled={!isConnected}
-                      onClick={() => {
-                        const input = document.querySelector('input[placeholder="채팅 메시지..."]') as HTMLInputElement;
-                        if (input?.value) {
-                          handleSendChat(input.value);
-                          input.value = '';
-                        }
-                      }}
-                    >
-                      💬
-                    </Button>
-                  </div>
-                </Card.Body>
-              </Card>
+              {/* 아이템 패널 */}
+              <ItemPanel
+                userId={Number(user?.id) || 0}
+                roomId={roomId}
+                isGameActive={gameState.isPlaying}
+                isMyTurn={gameState.currentTurnUserId === String(user?.id)}
+                onItemUse={(itemId, targetUserId) => {
+                  if (isConnected) {
+                    emit('use_item', {
+                      room_id: roomId,
+                      item_id: itemId,
+                      target_user_id: targetUserId
+                    });
+                  }
+                }}
+              />
+
+              {/* 채팅 패널 */}
+              <ChatPanel
+                messages={chatMessages}
+                isConnected={isConnected}
+                currentUserId={Number(user?.id) || 0}
+                onSendMessage={handleSendChat}
+              />
             </div>
           </div>
         )}
@@ -1111,62 +1143,24 @@ const GameRoomPage: React.FC = () => {
         </div>
       </main>
       
-      {/* 최종 순위 모달 */}
+      {/* 게임 리포트 */}
       {gameState.showFinalRankings && gameState.finalRankings && gameState.finalRankings.length > 0 && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <div className="text-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">🏆 게임 완료!</h2>
-              <p className="text-gray-600">최종 순위</p>
-            </div>
-            
-            <div className="space-y-3">
-              {gameState.finalRankings.map((player, index) => (
-                <div 
-                  key={player.user_id}
-                  className={`flex items-center justify-between p-3 rounded-lg ${
-                    index === 0 ? 'bg-yellow-50 border-2 border-yellow-200' :
-                    index === 1 ? 'bg-gray-50 border border-gray-200' :
-                    index === 2 ? 'bg-orange-50 border border-orange-200' :
-                    'bg-gray-50 border border-gray-100'
-                  }`}
-                >
-                  <div className="flex items-center">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold mr-3 ${
-                      index === 0 ? 'bg-yellow-500' :
-                      index === 1 ? 'bg-gray-500' :
-                      index === 2 ? 'bg-orange-500' :
-                      'bg-gray-400'
-                    }`}>
-                      {player.rank}
-                    </div>
-                    <div>
-                      <div className="font-semibold text-gray-900">{player.nickname}</div>
-                      <div className="text-sm text-gray-600">
-                        {player.words_submitted}개 단어 · 최대 콤보 {player.max_combo}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-bold text-lg text-gray-900">{player.score}점</div>
-                    {player.items_used > 0 && (
-                      <div className="text-xs text-blue-600">아이템 {player.items_used}개 사용</div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-            
-            <div className="mt-6 text-center">
-              <Button 
-                onClick={() => setGameState(prev => ({ ...prev, showFinalRankings: false }))}
-                variant="primary"
-              >
-                확인
-              </Button>
-            </div>
-          </div>
-        </div>
+        <GameReport
+          finalRankings={gameState.finalRankings}
+          currentUserId={Number(user?.id) || 0}
+          wordChain={gameState.wordChain}
+          gameStats={{
+            totalRounds: gameState.maxRounds || 5
+          }}
+          onPlayAgain={() => {
+            setGameState(prev => ({ ...prev, showFinalRankings: false }));
+            // TODO: 같은 방에서 다시 시작하는 로직 구현
+          }}
+          onBackToLobby={() => {
+            setGameState(prev => ({ ...prev, showFinalRankings: false }));
+            navigate('/lobby');
+          }}
+        />
       )}
     </div>
   );

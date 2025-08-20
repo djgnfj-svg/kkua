@@ -6,6 +6,9 @@ export default {
   ],
   theme: {
     extend: {
+      screens: {
+        'xs': '475px',
+      },
       colors: {
         primary: {
           50: '#f0f9ff',
@@ -68,6 +71,8 @@ export default {
         'fade-in': 'fadeIn 0.5s ease-in-out',
         'slide-up': 'slideUp 0.3s ease-out',
         'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'bounce-gentle': 'bounce 2s infinite',
+        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
       },
       keyframes: {
         fadeIn: {
@@ -81,5 +86,28 @@ export default {
       }
     },
   },
-  plugins: [],
+  plugins: [
+    function({ addUtilities }) {
+      addUtilities({
+        '.line-clamp-1': {
+          'overflow': 'hidden',
+          'display': '-webkit-box',
+          '-webkit-box-orient': 'vertical',
+          '-webkit-line-clamp': '1',
+        },
+        '.line-clamp-2': {
+          'overflow': 'hidden',
+          'display': '-webkit-box',
+          '-webkit-box-orient': 'vertical',
+          '-webkit-line-clamp': '2',
+        },
+        '.line-clamp-3': {
+          'overflow': 'hidden',
+          'display': '-webkit-box',
+          '-webkit-box-orient': 'vertical',
+          '-webkit-line-clamp': '3',
+        }
+      });
+    }
+  ],
 }

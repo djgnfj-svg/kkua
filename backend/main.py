@@ -315,6 +315,47 @@ async def leave_gameroom(room_id: str):
     
     raise HTTPException(status_code=404, detail="방을 찾을 수 없습니다")
 
+# 아이템 관련 API
+@app.get("/users/{user_id}/inventory")
+async def get_user_inventory(user_id: int):
+    """사용자 아이템 인벤토리 조회"""
+    try:
+        from services.item_service import get_item_service
+        item_service = get_item_service()
+        
+        inventory = await item_service.get_user_inventory(user_id)
+        return {
+            "success": True,
+            "inventory": inventory
+        }
+        
+    except Exception as e:
+        logger.error(f"인벤토리 조회 실패: user_id={user_id}, error={e}")
+        raise HTTPException(
+            status_code=500,
+            detail="인벤토리 조회 중 오류가 발생했습니다"
+        )
+
+@app.get("/items/list")
+async def list_available_items():
+    """사용 가능한 아이템 목록 조회"""
+    try:
+        from services.item_service import get_item_service
+        item_service = get_item_service()
+        
+        items = await item_service.get_all_items()
+        return {
+            "success": True,
+            "items": items
+        }
+        
+    except Exception as e:
+        logger.error(f"아이템 목록 조회 실패: error={e}")
+        raise HTTPException(
+            status_code=500,
+            detail="아이템 목록 조회 중 오류가 발생했습니다"
+        )
+
 # Phase 2 라우터 추가
 from websocket.websocket_endpoint import get_websocket_router
 

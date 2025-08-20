@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { GameRoom, GamePlayer, GameState } from '../types/game';
+import type { GameRoom, GameState } from '../types/game';
 
 interface GameStoreState {
   // Game Room
@@ -31,7 +31,7 @@ interface GameStoreActions {
   clearError: () => void;
 }
 
-export const useGameStore = create<GameStoreState & GameStoreActions>((set, get) => ({
+export const useGameStore = create<GameStoreState & GameStoreActions>((set) => ({
   // State
   currentRoom: null,
   rooms: [],
