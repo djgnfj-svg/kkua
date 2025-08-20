@@ -18,6 +18,7 @@ const useSimpleGameRoom = (roomId) => {
   const reconnectTimeoutRef = useRef(null);
   const connectionAttempts = useRef(0);
   const maxReconnectAttempts = 5;
+  const connectWebSocketRef = useRef(null);
   
   // Hooks
   const { user, isAuthenticated } = useAuth();
@@ -116,7 +117,9 @@ const useSimpleGameRoom = (roomId) => {
           console.log(`🔄 ${delay}ms 후 재연결 시도 (${connectionAttempts.current}/${maxReconnectAttempts})`);
           
           reconnectTimeoutRef.current = setTimeout(() => {
-            connectWebSocket();
+            if (connectWebSocketRef.current) {
+              connectWebSocketRef.current();
+            }
           }, delay);
           
           if (toast) {
@@ -142,7 +145,7 @@ const useSimpleGameRoom = (roomId) => {
       console.error('❌ WebSocket 연결 생성 실패:', error);
       setConnected(false);
     }
-  }, [roomId, isAuthenticated, user, toast]);
+  }, [roomId]); // toast와 다른 dependency 제거
 
   // 📤 메시지 전송
   const sendMessage = useCallback((message) => {
@@ -192,8 +195,10 @@ const useSimpleGameRoom = (roomId) => {
       clearTimeout(reconnectTimeoutRef.current);
     }
     connectionAttempts.current = 0;
-    connectWebSocket();
-  }, [connectWebSocket]);
+    if (connectWebSocketRef.current) {
+      connectWebSocketRef.current();
+    }
+  }, []);
 
   // 🔌 연결 해제
   const disconnect = useCallback(() => {
@@ -219,6 +224,11 @@ const useSimpleGameRoom = (roomId) => {
   // 📊 참가자 수
   const participantCount = participants.length;
 
+  // connectWebSocketRef에 함수 할당
+  useEffect(() => {
+    connectWebSocketRef.current = connectWebSocket;
+  }, [connectWebSocket]);
+
   // 🔄 Effect: 연결 관리
   useEffect(() => {
     connectWebSocket();
@@ -226,7 +236,8 @@ const useSimpleGameRoom = (roomId) => {
     return () => {
       disconnect();
     };
-  }, [connectWebSocket, disconnect]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomId]); // roomId가 변경될 때만 재연결
 
   // 🧹 정리
   useEffect(() => {

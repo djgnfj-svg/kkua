@@ -6,26 +6,27 @@ import ParticipantList from './components/ParticipantList';
 import ChatWindow from './components/ChatWindow';
 import ActionButtons from './components/ActionButtons';
 import WebSocketStatus from '../../components/WebSocketStatus';
-import useTestWebSocket from '../../hooks/useTestWebSocket';
+import useGameRoomSocket from '../../hooks/useGameRoomSocket';
 
 function GameLobbyPage() {
   const { roomId } = useParams();
   const { user } = useAuth();
   const toast = useToast();
   
-  const { connected, messages, sendMessage } = useTestWebSocket(roomId);
+  const { 
+    connected, 
+    messages, 
+    participants: socketParticipants, 
+    isReconnecting,
+    connectionAttempts,
+    maxReconnectAttempts,
+    gameStatus,
+    sendMessage: sendSocketMessage,
+    manualReconnect 
+  } = useGameRoomSocket(roomId);
 
-  // 최신 참가자 목록 가져오기
-  const participants = React.useMemo(() => {
-    const participantMessages = messages
-      .filter(msg => ['participant_joined', 'participant_left', 'ready_toggled'].includes(msg.type))
-      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    
-    if (participantMessages.length > 0) {
-      return participantMessages[0].participants || [];
-    }
-    return [];
-  }, [messages]);
+  // 참가자 목록은 useGameRoomSocket에서 직접 관리
+  const participants = socketParticipants;
 
   // 모든 메시지를 채팅에 표시 (채팅 + 시스템 메시지)
   const chatMessages = messages;
@@ -44,7 +45,7 @@ function GameLobbyPage() {
 
   // 준비 상태 토글
   const handleToggleReady = () => {
-    sendMessage({
+    sendSocketMessage({
       type: 'toggle_ready',
       timestamp: new Date().toISOString()
     });
@@ -52,7 +53,7 @@ function GameLobbyPage() {
 
   // 채팅 메시지 전송
   const handleSendChat = (content) => {
-    sendMessage({
+    sendSocketMessage({
       type: 'chat',
       message: content.trim(),
       timestamp: new Date().toISOString()
@@ -68,8 +69,10 @@ function GameLobbyPage() {
 
   // 게임 시작
   const handleStartGame = () => {
-    // 나중에 구현할 게임 시작 로직
-    alert('게임 시작 기능을 구현 중입니다!');
+    sendSocketMessage({
+      type: 'start_game',
+      timestamp: new Date().toISOString()
+    });
   };
 
   // WebSocket 연결 대기 중이면 로딩 표시
@@ -91,10 +94,10 @@ function GameLobbyPage() {
         <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 border border-white/20">
           <WebSocketStatus
             connected={connected}
-            isReconnecting={false}
-            connectionAttempts={0}
-            maxAttempts={5}
-            onReconnect={() => window.location.reload()}
+            isReconnecting={isReconnecting}
+            connectionAttempts={connectionAttempts}
+            maxAttempts={maxReconnectAttempts}
+            onReconnect={manualReconnect}
             className="text-white"
           />
         </div>

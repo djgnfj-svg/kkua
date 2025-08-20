@@ -8,6 +8,7 @@ from routers import (
 )
 import simple_gameroom_ws
 import test_simple_ws
+import simple_game_ws
 from fastapi.openapi.utils import get_openapi
 from app_config import settings
 from middleware.logging_middleware import RequestLoggingMiddleware
@@ -90,6 +91,7 @@ app.include_router(gamerooms_router.router)
 app.include_router(gameroom_ws_router.router)
 app.include_router(simple_gameroom_ws.router)  # 🚀 새로운 간소화된 WebSocket 라우터
 app.include_router(test_simple_ws.router)      # 🧪 테스트용 WebSocket 라우터
+app.include_router(simple_game_ws.router)      # 🎮 간소화된 게임 WebSocket 라우터
 
 
 @app.get("/")

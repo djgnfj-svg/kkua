@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
 import useGameRoomSocket from '../../../hooks/useGameRoomSocket';
-import axiosInstance from '../../../Api/axiosInstance';
 
 const useWordChain = () => {
   const { gameid } = useParams();
@@ -38,41 +37,26 @@ const useWordChain = () => {
     manualReconnect,
   } = useGameRoomSocket(gameid);
 
-  // Redis 기반 게임 상태 조회
-  const fetchGameState = useCallback(async () => {
-    try {
-      const response = await axiosInstance.get(`/api/game/${gameid}/state`);
-      const redisGameState = response.data;
-
-      setGameState((prevState) => ({
-        ...prevState,
-        status: redisGameState.status,
-        currentWord: redisGameState.last_word,
-        currentPlayerId: redisGameState.current_player_id,
-        currentPlayerNickname: redisGameState.current_player_nickname || '',
-        lastCharacter: redisGameState.last_character,
-        usedWords: redisGameState.used_words || [],
-        currentRound: redisGameState.round_number,
-        maxRounds: redisGameState.max_rounds,
-        timeLeft: redisGameState.time_left,
-        turnTimeLimit: 30, // Redis에서 기본값 가져오기, 추후 설정에서 가져올 수 있음
-        isGameOver: redisGameState.status === 'finished',
-      }));
-    } catch (error) {
-      console.error('게임 상태 조회 실패:', error);
+  // WebSocket을 통한 게임 상태 요청
+  const requestGameState = useCallback(() => {
+    if (connected) {
+      sendSocketMessage({
+        type: 'get_game_state',
+        timestamp: new Date().toISOString(),
+      });
     }
-  }, [gameid]);
+  }, [connected, sendSocketMessage]);
 
-  // 초기 게임 상태 로드 및 주기적 업데이트
+  // 초기 게임 상태 로드 및 주기적 업데이트 (WebSocket 기반)
   useEffect(() => {
-    if (gameid) {
-      fetchGameState();
+    if (gameid && connected) {
+      requestGameState();
 
-      // 3초마다 게임 상태 업데이트 (WebSocket 보완용)
-      const interval = setInterval(fetchGameState, 3000);
+      // 5초마다 게임 상태 요청 (WebSocket 보완용)
+      const interval = setInterval(requestGameState, 5000);
       return () => clearInterval(interval);
     }
-  }, [gameid, fetchGameState]);
+  }, [gameid, connected, requestGameState]);
 
   // WebSocket 메시지 처리
   useEffect(() => {
@@ -157,6 +141,22 @@ const useWordChain = () => {
           alert(
             `🎮 ${message.message}\n턴 순서: ${message.participants_order?.join(' → ')}`
           );
+        } else if (message.type === 'game_state_response') {
+          // 게임 상태 응답 처리
+          setGameState((prevState) => ({
+            ...prevState,
+            status: message.status,
+            currentWord: message.last_word,
+            currentPlayerId: message.current_player_id,
+            currentPlayerNickname: message.current_player_nickname || '',
+            lastCharacter: message.last_character,
+            usedWords: message.used_words || [],
+            currentRound: message.round_number,
+            maxRounds: message.max_rounds,
+            timeLeft: message.time_left,
+            turnTimeLimit: message.game_settings?.turn_time_limit || 30,
+            isGameOver: message.status === 'finished',
+          }));
         }
 
         // 기존 WebSocket 메시지 처리 (호환성)
@@ -205,9 +205,9 @@ const useWordChain = () => {
       }
     };
   }, [gameState.status, gameState.currentPlayerId]); // currentPlayerId 변경 시 타이머 재시작
-  // Redis API를 통한 단어 제출
+  // WebSocket을 통한 단어 제출
   const submitWord = useCallback(
-    async (word) => {
+    (word) => {
       if (!word || !word.trim()) {
         setErrorMessage('단어를 입력해주세요.');
         return;
@@ -218,33 +218,22 @@ const useWordChain = () => {
         return;
       }
 
-      try {
-        const response = await axiosInstance.post(
-          `/api/game/${gameid}/submit-word`,
-          {
-            word: word.trim(),
-          }
-        );
-
-        if (response.data.success) {
-          // 성공 시 WebSocket에서 자동으로 상태 업데이트됨
-          setInputWord('');
-          setErrorMessage('');
-        } else {
-          setErrorMessage(response.data.message || '단어 제출에 실패했습니다.');
-        }
-      } catch (error) {
-        if (error.response?.data?.detail) {
-          setErrorMessage(error.response.data.detail);
-        } else {
-          setErrorMessage('단어 제출 중 오류가 발생했습니다.');
-        }
-
-        // 에러 메시지 3초 후 자동 제거
-        setTimeout(() => setErrorMessage(''), 3000);
+      if (!connected) {
+        setErrorMessage('연결이 끊어졌습니다. 재연결을 시도해주세요.');
+        return;
       }
+
+      // WebSocket으로 단어 제출
+      sendSocketMessage({
+        type: 'submit_word',
+        word: word.trim(),
+        timestamp: new Date().toISOString(),
+      });
+
+      // 입력 필드 초기화
+      setInputWord('');
     },
-    [isMyTurn, gameid]
+    [isMyTurn, connected, sendSocketMessage]
   );
 
   const handleInputChange = useCallback(

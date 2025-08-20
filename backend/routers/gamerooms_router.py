@@ -162,3 +162,78 @@ def start_game(
         return {"message": "게임이 시작되었습니다"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/{room_id}/game/state")
+async def get_game_state(
+    room_id: int,
+    guest: Guest = Depends(get_current_guest),
+    service: GameroomService = Depends(get_gameroom_service),
+) -> Dict:
+    """Redis에서 게임 상태를 조회합니다."""
+    try:
+        # 게임룸 존재 확인
+        room = service.get_gameroom(room_id)
+        if not room:
+            raise HTTPException(status_code=404, detail="게임룸을 찾을 수 없습니다")
+        
+        # 참가자 확인
+        participant = service.repository.find_participant(room_id, guest.guest_id)
+        if not participant:
+            raise HTTPException(status_code=403, detail="게임에 참가하지 않은 사용자입니다")
+        
+        # Redis에서 게임 상태 조회
+        from services.redis_game_service import get_redis_game_service
+        redis_service = await get_redis_game_service()
+        
+        game_state = await redis_service.get_game_state(room_id)
+        if not game_state:
+            raise HTTPException(status_code=404, detail="게임 상태를 찾을 수 없습니다")
+        
+        return game_state
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"게임 상태 조회 중 오류 발생: {str(e)}")
+
+
+@router.post("/{room_id}/game/submit-word")
+async def submit_word(
+    room_id: int,
+    word_data: Dict[str, str],
+    guest: Guest = Depends(get_current_guest),
+    service: GameroomService = Depends(get_gameroom_service),
+) -> Dict:
+    """Redis 게임에 단어를 제출합니다."""
+    try:
+        # 게임룸 존재 확인
+        room = service.get_gameroom(room_id)
+        if not room:
+            raise HTTPException(status_code=404, detail="게임룸을 찾을 수 없습니다")
+        
+        # 참가자 확인
+        participant = service.repository.find_participant(room_id, guest.guest_id)
+        if not participant:
+            raise HTTPException(status_code=403, detail="게임에 참가하지 않은 사용자입니다")
+        
+        # 단어 추출
+        word = word_data.get("word", "").strip()
+        if not word:
+            raise HTTPException(status_code=400, detail="단어를 입력해주세요")
+        
+        # Redis에서 단어 제출
+        from services.redis_game_service import get_redis_game_service
+        redis_service = await get_redis_game_service()
+        
+        result = await redis_service.submit_word(room_id, guest.guest_id, word)
+        
+        if not result.get("success", False):
+            raise HTTPException(status_code=400, detail=result.get("message", "단어 제출에 실패했습니다"))
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"단어 제출 중 오류 발생: {str(e)}")

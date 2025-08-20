@@ -151,6 +151,10 @@ export default function useGameRoomSocket(roomId) {
         if (toast) {
           toast.showSuccess('게임이 시작되었습니다!');
         }
+        // 게임 페이지로 이동
+        setTimeout(() => {
+          navigate(`/keaing/${roomId}`);
+        }, 2000);
         break;
 
       case 'game_over':

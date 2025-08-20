@@ -189,6 +189,18 @@ async def websocket_endpoint(
                         await message_service.handle_word_chain_message(
                             message_data, websocket, room_id, guest
                         )
+                    elif message_type == "start_game":
+                        await message_service.handle_game_start_message(
+                            message_data, websocket, room_id, guest
+                        )
+                    elif message_type == "get_game_state":
+                        await message_service.handle_get_game_state_message(
+                            message_data, websocket, room_id, guest
+                        )
+                    elif message_type == "submit_word":
+                        await message_service.handle_submit_word_message(
+                            message_data, websocket, room_id, guest
+                        )
 
             except json.JSONDecodeError:
                 await ws_manager.send_personal_message(

@@ -676,3 +676,251 @@ class WebSocketMessageService:
         """특정 게스트가 게임룸의 방장인지 확인합니다."""
         participant = self.repository.find_participant(room_id, guest_id)
         return participant is not None and participant.is_creator
+
+    async def handle_game_start_message(
+        self,
+        message_data: Dict[str, Any],
+        websocket: WebSocket,
+        room_id: int,
+        guest: Guest,
+    ):
+        """게임 시작 메시지 처리 (Redis 기반)"""
+        try:
+            # 방장 확인
+            if not self.is_room_owner(room_id, guest.guest_id):
+                await self.ws_manager.send_personal_message(
+                    {
+                        "type": "error",
+                        "message": "방장만 게임을 시작할 수 있습니다.",
+                        "timestamp": datetime.utcnow().isoformat()
+                    },
+                    websocket,
+                )
+                return
+
+            # 참가자 목록 조회
+            participants = self.repository.find_room_participants(room_id)
+            if len(participants) < 2:
+                await self.ws_manager.send_personal_message(
+                    {
+                        "type": "error",
+                        "message": "게임 시작을 위해 최소 2명의 플레이어가 필요합니다.",
+                        "timestamp": datetime.utcnow().isoformat()
+                    },
+                    websocket,
+                )
+                return
+
+            # 모든 참가자(방장 제외)가 준비되었는지 확인
+            non_owner_participants = [p for p in participants if not p.is_creator]
+            all_ready = all(p.status == ParticipantStatus.READY for p in non_owner_participants)
+            
+            if not all_ready:
+                await self.ws_manager.send_personal_message(
+                    {
+                        "type": "error",
+                        "message": "모든 플레이어가 준비 상태여야 게임을 시작할 수 있습니다.",
+                        "timestamp": datetime.utcnow().isoformat()
+                    },
+                    websocket,
+                )
+                return
+
+            # Redis 게임 서비스로 게임 생성
+            from services.redis_game_service import get_redis_game_service
+            redis_service = await get_redis_game_service()
+            
+            participant_data = [
+                {
+                    "guest_id": p.guest.guest_id,
+                    "nickname": p.guest.nickname,
+                    "is_creator": p.is_creator
+                }
+                for p in participants
+            ]
+            
+            # Redis에 게임 생성
+            game_created = await redis_service.create_game(room_id, participant_data)
+            if not game_created:
+                await self.ws_manager.send_personal_message(
+                    {
+                        "type": "error",
+                        "message": "게임 생성에 실패했습니다. 잠시 후 다시 시도해주세요.",
+                        "timestamp": datetime.utcnow().isoformat()
+                    },
+                    websocket,
+                )
+                return
+
+            # Redis에서 게임 시작
+            game_started = await redis_service.start_game(room_id)
+            if not game_started:
+                await self.ws_manager.send_personal_message(
+                    {
+                        "type": "error",
+                        "message": "게임 시작에 실패했습니다.",
+                        "timestamp": datetime.utcnow().isoformat()
+                    },
+                    websocket,
+                )
+                return
+
+            # 게임 시작 성공 알림
+            await self.ws_manager.broadcast_to_room(
+                room_id,
+                {
+                    "type": "game_started",
+                    "message": "🎮 게임이 시작됩니다!",
+                    "room_id": room_id,
+                    "participants": participant_data,
+                    "timestamp": datetime.utcnow().isoformat()
+                },
+            )
+
+            logger.info(f"Redis 기반 게임 시작 완료: room_id={room_id}, participants={len(participant_data)}")
+
+        except Exception as e:
+            logger.error(f"게임 시작 처리 중 오류: {e}", exc_info=True)
+            await self.ws_manager.send_personal_message(
+                {
+                    "type": "error",
+                    "message": "게임 시작 중 오류가 발생했습니다.",
+                    "timestamp": datetime.utcnow().isoformat()
+                },
+                websocket,
+            )
+
+    async def handle_get_game_state_message(
+        self,
+        message_data: Dict[str, Any],
+        websocket: WebSocket,
+        room_id: int,
+        guest: Guest,
+    ):
+        """게임 상태 조회 메시지 처리 (WebSocket 기반)"""
+        try:
+            # 참가자 확인
+            participant = self.repository.find_participant(room_id, guest.guest_id)
+            if not participant:
+                await self.ws_manager.send_personal_message(
+                    {
+                        "type": "error",
+                        "message": "게임에 참가하지 않은 사용자입니다.",
+                        "timestamp": datetime.utcnow().isoformat()
+                    },
+                    websocket,
+                )
+                return
+
+            # Redis에서 게임 상태 조회
+            from services.redis_game_service import get_redis_game_service
+            redis_service = await get_redis_game_service()
+            
+            game_state = await redis_service.get_game_state(room_id)
+            if not game_state:
+                await self.ws_manager.send_personal_message(
+                    {
+                        "type": "error",
+                        "message": "게임 상태를 찾을 수 없습니다.",
+                        "timestamp": datetime.utcnow().isoformat()
+                    },
+                    websocket,
+                )
+                return
+
+            # 게임 상태 응답 전송
+            await self.ws_manager.send_personal_message(
+                {
+                    "type": "game_state_response",
+                    "timestamp": datetime.utcnow().isoformat(),
+                    **game_state
+                },
+                websocket,
+            )
+
+        except Exception as e:
+            logger.error(f"게임 상태 조회 메시지 처리 중 오류: {e}")
+            await self.ws_manager.send_personal_message(
+                {
+                    "type": "error",
+                    "message": "게임 상태 조회 중 오류가 발생했습니다.",
+                    "timestamp": datetime.utcnow().isoformat()
+                },
+                websocket,
+            )
+
+    async def handle_submit_word_message(
+        self,
+        message_data: Dict[str, Any],
+        websocket: WebSocket,
+        room_id: int,
+        guest: Guest,
+    ):
+        """단어 제출 메시지 처리 (WebSocket 기반)"""
+        try:
+            # 참가자 확인
+            participant = self.repository.find_participant(room_id, guest.guest_id)
+            if not participant:
+                await self.ws_manager.send_personal_message(
+                    {
+                        "type": "error",
+                        "message": "게임에 참가하지 않은 사용자입니다.",
+                        "timestamp": datetime.utcnow().isoformat()
+                    },
+                    websocket,
+                )
+                return
+
+            # 단어 추출
+            word = message_data.get("word", "").strip()
+            if not word:
+                await self.ws_manager.send_personal_message(
+                    {
+                        "type": "error",
+                        "message": "단어를 입력해주세요.",
+                        "timestamp": datetime.utcnow().isoformat()
+                    },
+                    websocket,
+                )
+                return
+
+            # Redis에서 단어 제출
+            from services.redis_game_service import get_redis_game_service
+            redis_service = await get_redis_game_service()
+            
+            result = await redis_service.submit_word(room_id, guest.guest_id, word)
+            
+            if result.get("success", False):
+                # 성공 시 방의 모든 참가자에게 브로드캐스트
+                await self.ws_manager.broadcast_to_room(
+                    room_id,
+                    {
+                        "type": "word_submitted",
+                        "word": word,
+                        "submitted_by": guest.nickname,
+                        "submitted_by_id": guest.guest_id,
+                        "timestamp": datetime.utcnow().isoformat(),
+                        **result
+                    }
+                )
+            else:
+                # 실패 시 개인에게만 오류 메시지 전송
+                await self.ws_manager.send_personal_message(
+                    {
+                        "type": "word_chain_error",
+                        "message": result.get("message", "단어 제출에 실패했습니다."),
+                        "timestamp": datetime.utcnow().isoformat()
+                    },
+                    websocket,
+                )
+
+        except Exception as e:
+            logger.error(f"단어 제출 메시지 처리 중 오류: {e}")
+            await self.ws_manager.send_personal_message(
+                {
+                    "type": "error",
+                    "message": "단어 제출 중 오류가 발생했습니다.",
+                    "timestamp": datetime.utcnow().isoformat()
+                },
+                websocket,
+            )

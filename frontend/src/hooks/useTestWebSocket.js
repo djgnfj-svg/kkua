@@ -21,6 +21,15 @@ function useTestWebSocket(roomId) {
     socket.onmessage = (event) => {
       const data = JSON.parse(event.data);
       console.log('📨 Message:', data);
+      
+      // 게임 시작 메시지 처리
+      if (data.type === 'game_started') {
+        // 게임 페이지로 이동
+        setTimeout(() => {
+          window.location.href = `/keaing/${data.room_id}`;
+        }, 2000);
+      }
+      
       setMessages(prev => [...prev, data]);
     };
 

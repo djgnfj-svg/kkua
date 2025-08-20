@@ -129,6 +129,46 @@ async def test_websocket_endpoint(websocket: WebSocket, room_id: int):
                     
                     await broadcast_to_room(room_id, ready_message)
                     
+                elif msg.get("type") == "start_game":
+                    # 게임 시작 (방장만 가능)
+                    if not user_info.get("is_creator"):
+                        await websocket.send_text(json.dumps({
+                            "type": "error",
+                            "message": "방장만 게임을 시작할 수 있습니다.",
+                            "timestamp": datetime.now().isoformat()
+                        }))
+                        continue
+                    
+                    participants = get_room_participants(room_id)
+                    if len(participants) < 2:
+                        await websocket.send_text(json.dumps({
+                            "type": "error", 
+                            "message": "게임 시작을 위해 최소 2명의 플레이어가 필요합니다.",
+                            "timestamp": datetime.now().isoformat()
+                        }))
+                        continue
+                    
+                    # 모든 참가자가 준비되었는지 확인
+                    non_owner_ready = all(p.get("is_ready", False) for p in participants if not p.get("is_creator"))
+                    if not non_owner_ready:
+                        await websocket.send_text(json.dumps({
+                            "type": "error",
+                            "message": "모든 플레이어가 준비 상태여야 게임을 시작할 수 있습니다.",
+                            "timestamp": datetime.now().isoformat()
+                        }))
+                        continue
+                    
+                    # 게임 시작 메시지 전송
+                    start_message = {
+                        "type": "game_started",
+                        "message": "🎮 게임이 시작됩니다!",
+                        "room_id": room_id,
+                        "participants": participants,
+                        "timestamp": datetime.now().isoformat()
+                    }
+                    
+                    await broadcast_to_room(room_id, start_message)
+                    
             except Exception as e:
                 logger.error(f"❌ 메시지 처리 오류: {e}")
                 
