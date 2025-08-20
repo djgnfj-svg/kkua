@@ -190,11 +190,19 @@ class GameEventHandler:
             # 게임 상태 저장
             await self.redis_manager.save_game_state(game_state)
             
+            # 플레이어 정보 찾기
+            current_player = None
+            for player in game_state.players:
+                if player.user_id == user_id:
+                    current_player = player
+                    break
+            
             # 준비 상태 변경 알림
             await self.websocket_manager.broadcast_to_room(room_id, {
                 "type": "player_ready_status",
                 "data": {
                     "user_id": user_id,
+                    "nickname": current_player.nickname if current_player else "Unknown",
                     "ready": ready_status
                 }
             })

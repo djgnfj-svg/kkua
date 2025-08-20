@@ -165,13 +165,16 @@ const GameRoomPage: React.FC = () => {
   
   const handlePlayerReady = useCallback((data: any) => {
     console.log('✅ Player ready:', data);
+    console.log('현재 플레이어 목록:', currentRoomRef.current?.players);
+    
     showToast.info(`${data.nickname}님이 ${data.ready ? '준비완료' : '준비취소'}했습니다`);
     
-    // Update player ready status
+    // Update player ready status - 양쪽 타입 모두 확인
     if (roomId && currentRoomRef.current) {
       updateRoom(roomId, {
         players: (currentRoomRef.current.players || []).map(p => 
-          p.id === data.user_id ? { ...p, isReady: data.ready } : p
+          p.id === String(data.user_id) || p.id === data.user_id 
+            ? { ...p, isReady: data.ready } : p
         )
       });
     }
@@ -216,12 +219,23 @@ const GameRoomPage: React.FC = () => {
   const handleGameStateUpdate = useCallback((data: any) => {
     console.log('🔄 Game state update:', data);
     if (roomId && data.players) {
-      // 플레이어 목록 업데이트
+      console.log('게임 상태 업데이트 - 플레이어 목록:', data.players);
+      
+      // 플레이어 목록 전체 업데이트
       updateRoom(roomId, {
         players: data.players,
         currentPlayers: data.players.length,
         status: data.status
       });
+      
+      // 게임 상태도 업데이트 (게임이 시작된 경우)
+      if (data.status === 'playing') {
+        setGameState(prev => ({
+          ...prev,
+          isPlaying: true,
+          currentTurnUserId: data.current_turn ? String(data.players[data.current_turn]?.user_id) : prev.currentTurnUserId
+        }));
+      }
     }
   }, [roomId, updateRoom]);
 
