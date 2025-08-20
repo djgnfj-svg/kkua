@@ -215,6 +215,15 @@ const GameRoomPage: React.FC = () => {
     }
   }, []);
 
+  // 채팅 메시지 이벤트
+  const handleChatMessage = useCallback((data: any) => {
+    console.log('💬 Chat message:', data);
+    showToast.info(`${data.nickname}: ${data.message}`);
+  }, []);
+
+  useEffect(() => {
+    if (!isConnected || !roomId) return;
+
     // 이벤트 리스너 등록
     on('room_joined', handleRoomJoined);
     on('player_joined', handlePlayerJoined);
