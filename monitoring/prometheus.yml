@@ -1,0 +1,61 @@
+# Prometheus 설정
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# 알림 규칙 파일
+rule_files:
+  - "alert_rules.yml"
+
+# Alertmanager 설정
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+# 스크래핑 작업 설정
+scrape_configs:
+  # Prometheus 자체 모니터링
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # KKUA 백엔드 애플리케이션
+  - job_name: 'kkua-backend'
+    static_configs:
+      - targets: ['backend:8000']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+    scrape_timeout: 5s
+
+  # PostgreSQL 데이터베이스
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['db:5432']
+    scrape_interval: 30s
+
+  # Redis 캐시
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+    scrape_interval: 30s
+
+  # Docker 컨테이너 메트릭
+  - job_name: 'docker'
+    static_configs:
+      - targets: ['host.docker.internal:9323']
+    scrape_interval: 30s
+
+  # Nginx 웹서버 (프로덕션)
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx:80']
+    metrics_path: '/nginx_status'
+    scrape_interval: 30s
+
+  # Node Exporter (시스템 메트릭)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['host.docker.internal:9100']
+    scrape_interval: 30s

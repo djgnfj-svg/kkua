@@ -1,0 +1,289 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "KKUA 게임 모니터링 대시보드",
+    "tags": ["kkua", "game", "monitoring"],
+    "timezone": "Asia/Seoul",
+    "refresh": "30s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "서비스 상태",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "up",
+            "legendFormat": "{{ job }}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "red", "value": 0},
+                {"color": "green", "value": 1}
+              ]
+            },
+            "mappings": [
+              {"options": {"0": {"text": "DOWN"}}, "type": "value"},
+              {"options": {"1": {"text": "UP"}}, "type": "value"}
+            ]
+          }
+        },
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "활성 사용자 수",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "concurrent_users_total",
+            "legendFormat": "동시 접속자"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "unit": "short"
+          }
+        },
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "활성 게임 수",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "active_games_total",
+            "legendFormat": "진행 중인 게임"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "unit": "short"
+          }
+        },
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0}
+      },
+      {
+        "id": 4,
+        "title": "응답 시간",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "95th Percentile"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 0.5},
+                {"color": "red", "value": 1.0}
+              ]
+            },
+            "unit": "s"
+          }
+        },
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0}
+      },
+      {
+        "id": 5,
+        "title": "HTTP 요청률",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total[5m])",
+            "legendFormat": "{{ method }} {{ handler }}"
+          }
+        ],
+        "yAxes": [
+          {"label": "요청/초", "min": 0}
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}
+      },
+      {
+        "id": 6,
+        "title": "에러율",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total{status=~\"4..|5..\"}[5m]) / rate(http_requests_total[5m]) * 100",
+            "legendFormat": "에러율 %"
+          }
+        ],
+        "yAxes": [
+          {"label": "에러율 (%)", "min": 0, "max": 100}
+        ],
+        "thresholds": [
+          {"value": 5, "colorMode": "critical", "op": "gt"}
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4}
+      },
+      {
+        "id": 7,
+        "title": "메모리 사용량",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100",
+            "legendFormat": "메모리 사용률 %"
+          }
+        ],
+        "yAxes": [
+          {"label": "사용률 (%)", "min": 0, "max": 100}
+        ],
+        "thresholds": [
+          {"value": 80, "colorMode": "critical", "op": "gt"}
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12}
+      },
+      {
+        "id": 8,
+        "title": "CPU 사용량",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "100 - (avg(irate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+            "legendFormat": "CPU 사용률 %"
+          }
+        ],
+        "yAxes": [
+          {"label": "사용률 (%)", "min": 0, "max": 100}
+        ],
+        "thresholds": [
+          {"value": 80, "colorMode": "critical", "op": "gt"}
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12}
+      },
+      {
+        "id": 9,
+        "title": "데이터베이스 연결 수",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "pg_stat_database_numbackends",
+            "legendFormat": "{{ datname }}"
+          }
+        ],
+        "yAxes": [
+          {"label": "연결 수", "min": 0}
+        ],
+        "thresholds": [
+          {"value": 80, "colorMode": "critical", "op": "gt"}
+        ],
+        "gridPos": {"h": 8, "w": 8, "x": 0, "y": 20}
+      },
+      {
+        "id": 10,
+        "title": "Redis 메모리 사용량",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "redis_memory_used_bytes / redis_memory_max_bytes * 100",
+            "legendFormat": "Redis 메모리 사용률 %"
+          }
+        ],
+        "yAxes": [
+          {"label": "사용률 (%)", "min": 0, "max": 100}
+        ],
+        "thresholds": [
+          {"value": 80, "colorMode": "critical", "op": "gt"}
+        ],
+        "gridPos": {"h": 8, "w": 8, "x": 8, "y": 20}
+      },
+      {
+        "id": 11,
+        "title": "WebSocket 연결 수",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "websocket_connections_total",
+            "legendFormat": "WebSocket 연결"
+          }
+        ],
+        "yAxes": [
+          {"label": "연결 수", "min": 0}
+        ],
+        "gridPos": {"h": 8, "w": 8, "x": 16, "y": 20}
+      },
+      {
+        "id": 12,
+        "title": "게임 통계",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "daily_active_users",
+            "legendFormat": "일일 활성 사용자",
+            "format": "table",
+            "instant": true
+          },
+          {
+            "expr": "total_games_today",
+            "legendFormat": "오늘 게임 수",
+            "format": "table",
+            "instant": true
+          },
+          {
+            "expr": "avg_game_duration_seconds / 60",
+            "legendFormat": "평균 게임 시간(분)",
+            "format": "table",
+            "instant": true
+          },
+          {
+            "expr": "game_completion_rate * 100",
+            "legendFormat": "게임 완료율(%)",
+            "format": "table",
+            "instant": true
+          }
+        ],
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 28}
+      },
+      {
+        "id": 13,
+        "title": "인기 게임 모드",
+        "type": "piechart",
+        "targets": [
+          {
+            "expr": "game_mode_popularity",
+            "legendFormat": "{{ mode }}"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 36}
+      },
+      {
+        "id": 14,
+        "title": "아이템 사용 통계",
+        "type": "bargauge",
+        "targets": [
+          {
+            "expr": "item_usage_count",
+            "legendFormat": "{{ item_name }}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "unit": "short"
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 36}
+      }
+    ]
+  }
+}

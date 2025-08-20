@@ -1,0 +1,135 @@
+# Prometheus 알림 규칙
+groups:
+  - name: kkua_alerts
+    rules:
+      # 서비스 가용성 알림
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "서비스 {{ $labels.job }} 다운"
+          description: "{{ $labels.instance }} 서비스가 1분 이상 응답하지 않습니다."
+
+      # 높은 응답 시간 알림
+      - alert: HighResponseTime
+        expr: http_request_duration_seconds{quantile="0.95"} > 1.0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "높은 응답 시간 감지"
+          description: "95th percentile 응답 시간이 {{ $value }}초로 1초를 초과했습니다."
+
+      # 높은 에러율 알림
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.05
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "높은 에러율 감지"
+          description: "5xx 에러율이 {{ $value | humanizePercentage }}로 5%를 초과했습니다."
+
+      # 메모리 사용량 알림
+      - alert: HighMemoryUsage
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "높은 메모리 사용량"
+          description: "메모리 사용량이 {{ $value | humanizePercentage }}로 90%를 초과했습니다."
+
+      # CPU 사용량 알림
+      - alert: HighCPUUsage
+        expr: 100 - (avg(irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "높은 CPU 사용량"
+          description: "CPU 사용량이 {{ $value }}%로 80%를 초과했습니다."
+
+      # 디스크 공간 부족 알림
+      - alert: DiskSpaceLow
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) * 100 < 10
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "디스크 공간 부족"
+          description: "{{ $labels.mountpoint }} 디스크 여유 공간이 {{ $value }}%로 10% 미만입니다."
+
+      # 데이터베이스 연결 수 알림
+      - alert: TooManyDatabaseConnections
+        expr: pg_stat_database_numbackends > 80
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "데이터베이스 연결 수 과다"
+          description: "PostgreSQL 연결 수가 {{ $value }}개로 임계치를 초과했습니다."
+
+      # Redis 메모리 사용량 알림
+      - alert: RedisHighMemoryUsage
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis 메모리 사용량 높음"
+          description: "Redis 메모리 사용량이 {{ $value | humanizePercentage }}로 80%를 초과했습니다."
+
+      # WebSocket 연결 수 급증 알림
+      - alert: TooManyWebSocketConnections
+        expr: websocket_connections_total > 1000
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "WebSocket 연결 수 급증"
+          description: "WebSocket 연결 수가 {{ $value }}개로 임계치를 초과했습니다."
+
+      # 게임 큐 백로그 알림
+      - alert: GameQueueBacklog
+        expr: game_queue_size > 50
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "게임 큐 백로그 발생"
+          description: "게임 큐에 {{ $value }}개의 대기 중인 요청이 있습니다."
+
+  - name: business_alerts
+    rules:
+      # 일일 활성 사용자 급감 알림
+      - alert: DAUDropped
+        expr: daily_active_users < daily_active_users offset 24h * 0.7
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "일일 활성 사용자 급감"
+          description: "DAU가 전날 대비 30% 이상 감소했습니다: {{ $value }}명"
+
+      # 게임 성공률 저하 알림
+      - alert: GameCompletionRateDropped
+        expr: game_completion_rate < 0.8
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "게임 완료율 저하"
+          description: "게임 완료율이 {{ $value | humanizePercentage }}로 80% 미만입니다."
+
+      # 평균 게임 시간 이상 알림
+      - alert: AbnormalGameDuration
+        expr: avg_game_duration_seconds > 1800 or avg_game_duration_seconds < 60
+        for: 5m
+        labels:
+          severity: info
+        annotations:
+          summary: "비정상적인 게임 시간"
+          description: "평균 게임 시간이 {{ $value }}초로 정상 범위를 벗어났습니다."
