@@ -21,12 +21,28 @@ const GameRoomPage: React.FC = () => {
     scores?: Record<string, number>;
     turnTimeLimit?: number;
     remainingTime?: number;
+    currentRound?: number;
+    maxRounds?: number;
+    showFinalRankings?: boolean;
+    finalRankings?: Array<{
+      rank: number;
+      user_id: number;
+      nickname: string;
+      score: number;
+      words_submitted: number;
+      max_combo: number;
+      items_used: number;
+    }>;
   }>({
     isPlaying: false,
     wordChain: [],
     scores: {},
     turnTimeLimit: 30,
-    remainingTime: 30
+    remainingTime: 30,
+    currentRound: 1,
+    maxRounds: 5,
+    showFinalRankings: false,
+    finalRankings: []
   });
   const [currentWord, setCurrentWord] = useState('');
   const [wordValidation, setWordValidation] = useState<{
@@ -233,7 +249,10 @@ const GameRoomPage: React.FC = () => {
       isPlaying: true,
       currentTurnUserId: currentTurnUserIdStr, // 문자열로 변환
       currentChar: data.next_char || '',
-      remainingTime: data.current_turn_remaining_time || 30,
+      remainingTime: data.current_turn_time_limit || 30,
+      turnTimeLimit: data.current_turn_time_limit || 30,
+      currentRound: data.current_round || 1,
+      maxRounds: data.max_rounds || 5,
       scores: data.scores || {}
     }));
     showToast.success(`게임이 시작되었습니다! ${data.current_turn_nickname}님의 차례입니다 🎮`);
@@ -299,37 +318,101 @@ const GameRoomPage: React.FC = () => {
     console.log('✅ Success:', data);
   }, []);
 
+  // 게임 시작 카운트다운 핸들러
+  const handleGameStartingCountdown = useCallback((data: any) => {
+    console.log('⏰ Game starting countdown:', data);
+    
+    showToast.info(data.message || `게임 시작까지 ${data.countdown}초...`);
+  }, []);
+
+  // 라운드 완료 핸들러
+  const handleRoundCompleted = useCallback((data: any) => {
+    console.log('🏁 Round completed:', data);
+    
+    showToast.success(data.message || `라운드 ${data.completed_round} 완료!`);
+    
+    // 라운드 순위 표시
+    if (data.rankings && data.rankings.length > 0) {
+      const topPlayer = data.rankings[0];
+      showToast.info(`🥇 라운드 우승: ${topPlayer.nickname}님 (${topPlayer.score}점)`);
+    }
+  }, []);
+
+  // 다음 라운드 시작 핸들러
+  const handleNextRoundStarting = useCallback((data: any) => {
+    console.log('🔄 Next round starting:', data);
+    
+    showToast.info(data.message || `라운드 ${data.round} 시작!`);
+    
+    // 게임 상태 업데이트
+    setGameState(prev => ({
+      ...prev,
+      currentRound: data.round,
+      isPlaying: true,
+      wordChain: [], // 새 라운드이므로 단어 체인 초기화
+      currentWord: '',
+      currentChar: ''
+    }));
+  }, []);
+
+  // 게임 완료 핸들러
+  const handleGameCompleted = useCallback((data: any) => {
+    console.log('🎉 Game completed:', data);
+    
+    setGameState(prev => ({ 
+      ...prev, 
+      isPlaying: false,
+      showFinalRankings: true,
+      finalRankings: data.final_rankings || []
+    }));
+    
+    if (data.winner) {
+      showToast.success(`🏆 ${data.winner.nickname}님이 최종 우승했습니다!`);
+    }
+    
+    // 최종 순위 표시
+    if (data.final_rankings && data.final_rankings.length > 0) {
+      showToast.info('게임이 완료되었습니다! 최종 순위를 확인하세요.');
+    }
+    
+    // 10초 후 순위 창 자동 닫기
+    setTimeout(() => {
+      setGameState(prev => ({ 
+        ...prev, 
+        showFinalRankings: false,
+        finalRankings: []
+      }));
+    }, 10000);
+  }, []);
+
   // 타이머 관련 핸들러들
   const handleTurnTimerStarted = useCallback((data: any) => {
     console.log('⏰ Turn timer started:', data);
     
-    // 서버에서 전송된 정확한 시간으로 동기화
-    const serverTime = data.remaining_time || data.time_limit || 30;
+    // 서버에서 전송된 현재 턴의 시간 제한으로 동기화
+    const turnTimeLimit = data.time_limit || 30;
     
     setGameState(prev => ({
       ...prev,
-      remainingTime: serverTime,
-      turnTimeLimit: serverTime
+      remainingTime: turnTimeLimit,
+      turnTimeLimit: turnTimeLimit,
+      currentTurnPlayer: data.user_id
     }));
     
-    console.log(`타이머 동기화: ${serverTime}초`);
+    console.log(`턴 타이머 시작: ${turnTimeLimit}초`);
   }, []);
 
   const handleTurnTimeout = useCallback((data: any) => {
     console.log('⏰ Turn timeout:', data);
-    showToast.warning(`${data.timeout_nickname}님의 시간이 초과되었습니다`);
+    showToast.warning(data.message || `${data.timeout_nickname}님의 시간이 초과되었습니다`);
     
-    // 타임아웃된 플레이어의 남은 시간 정보도 표시
-    if (data.timeout_player_remaining_time !== undefined) {
-      showToast.info(`${data.timeout_nickname}님의 남은 시간: ${data.timeout_player_remaining_time}초`);
-    }
-    
-    // 턴 타임아웃 시 다음 플레이어로 이동
+    // 다음 플레이어로 턴 이동 및 새로운 턴 시간 업데이트
     if (data.current_turn_user_id) {
       setGameState(prev => ({
         ...prev,
         currentTurnUserId: String(data.current_turn_user_id),
-        remainingTime: data.current_turn_remaining_time || 30 // 다음 플레이어의 개별 시간
+        remainingTime: data.current_turn_time_limit || 25, // 새로운 턴의 시간 제한
+        turnTimeLimit: data.current_turn_time_limit || 25
       }));
     }
   }, []);
@@ -343,11 +426,11 @@ const GameRoomPage: React.FC = () => {
       isPlaying: false 
     }));
     
-    if (data.reason === 'time_elimination') {
-      showToast.error(`${data.eliminated_player}님이 시간 소진으로 탈락했습니다!`);
-      if (data.winner) {
-        showToast.success(`🏆 ${data.winner}님이 승리했습니다!`);
-      }
+    // 게임 종료 메시지
+    if (data.winner) {
+      showToast.success(`🏆 ${data.winner}님이 승리했습니다!`);
+    } else {
+      showToast.info('게임이 종료되었습니다.');
     }
     
     // 5초 후 로비로 이동
@@ -356,21 +439,6 @@ const GameRoomPage: React.FC = () => {
     }, 5000);
   }, [navigate]);
 
-  // 플레이어 탈락 핸들러 추가
-  const handlePlayerEliminated = useCallback((data: any) => {
-    console.log('💀 Player eliminated:', data);
-    
-    showToast.error(`${data.eliminated_player}님이 시간 소진으로 탈락했습니다!`);
-    
-    // 다음 플레이어로 턴 이동
-    if (data.current_turn_user_id) {
-      setGameState(prev => ({
-        ...prev,
-        currentTurnUserId: String(data.current_turn_user_id),
-        remainingTime: data.current_turn_remaining_time || 30
-      }));
-    }
-  }, []);
 
   // game_state_update 핸들러 추가
   const handleGameStateUpdate = useCallback((data: any) => {
@@ -492,7 +560,10 @@ const GameRoomPage: React.FC = () => {
     on('player_left_room', handlePlayerLeftRoom);
     on('room_disbanded', handleRoomDisbanded);
     on('game_ended', handleGameEnded);
-    on('player_eliminated', handlePlayerEliminated);
+    on('round_completed', handleRoundCompleted);
+    on('next_round_starting', handleNextRoundStarting);
+    on('game_completed', handleGameCompleted);
+    on('game_starting_countdown', handleGameStartingCountdown);
     on('error', handleError);
     on('success', handleSuccess);
     on('pong', (data: any) => console.log('🏓 Pong received:', data));
@@ -530,12 +601,15 @@ const GameRoomPage: React.FC = () => {
       off('player_left_room', handlePlayerLeftRoom);
       off('room_disbanded', handleRoomDisbanded);
       off('game_ended', handleGameEnded);
-      off('player_eliminated', handlePlayerEliminated);
+      off('round_completed', handleRoundCompleted);
+      off('next_round_starting', handleNextRoundStarting);
+      off('game_completed', handleGameCompleted);
+      off('game_starting_countdown', handleGameStartingCountdown);
       off('error', handleError);
       off('success', handleSuccess);
       off('pong');
     };
-  }, [isConnected, roomId, user?.id, emit, on, off, handleRoomJoined, handlePlayerJoined, handlePlayerLeft, handleChatMessage, handleGameStarted, handleWordSubmitted, handleWordSubmissionFailed, handleTurnTimerStarted, handleTurnTimeout, handlePlayerReady, handleGameStateUpdate, handleHostLeftGame, handleHostChanged, handleOpponentLeftVictory, handlePlayerLeftDuringTurn, handlePlayerLeftGame, handlePlayerLeftRoom, handleRoomDisbanded, handleGameEnded, handlePlayerEliminated, handleError, handleSuccess]);
+  }, [isConnected, roomId, user?.id, emit, on, off, handleRoomJoined, handlePlayerJoined, handlePlayerLeft, handleChatMessage, handleGameStarted, handleWordSubmitted, handleWordSubmissionFailed, handleTurnTimerStarted, handleTurnTimeout, handlePlayerReady, handleGameStateUpdate, handleHostLeftGame, handleHostChanged, handleOpponentLeftVictory, handlePlayerLeftDuringTurn, handlePlayerLeftGame, handlePlayerLeftRoom, handleRoomDisbanded, handleGameEnded, handleRoundCompleted, handleNextRoundStarting, handleGameCompleted, handleGameStartingCountdown, handleError, handleSuccess]);
 
   useEffect(() => {
     if (!roomId) {
@@ -680,7 +754,12 @@ const GameRoomPage: React.FC = () => {
               <h1 className="text-xl font-bold text-gray-900">
                 {currentRoom?.name || `게임룸 ${roomId?.slice(-4)}`}
               </h1>
-              <div className={`ml-4 px-2 py-1 rounded-full text-xs font-medium ${
+              {gameState.isPlaying && (
+                <div className="ml-4 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                  라운드 {gameState.currentRound}/{gameState.maxRounds}
+                </div>
+              )}
+              <div className={`ml-3 px-2 py-1 rounded-full text-xs font-medium ${
                 isConnected 
                   ? 'bg-green-100 text-green-800' 
                   : 'bg-red-100 text-red-800'
@@ -975,6 +1054,64 @@ const GameRoomPage: React.FC = () => {
           </p>
         </div>
       </main>
+      
+      {/* 최종 순위 모달 */}
+      {gameState.showFinalRankings && gameState.finalRankings && gameState.finalRankings.length > 0 && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="text-center mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">🏆 게임 완료!</h2>
+              <p className="text-gray-600">최종 순위</p>
+            </div>
+            
+            <div className="space-y-3">
+              {gameState.finalRankings.map((player, index) => (
+                <div 
+                  key={player.user_id}
+                  className={`flex items-center justify-between p-3 rounded-lg ${
+                    index === 0 ? 'bg-yellow-50 border-2 border-yellow-200' :
+                    index === 1 ? 'bg-gray-50 border border-gray-200' :
+                    index === 2 ? 'bg-orange-50 border border-orange-200' :
+                    'bg-gray-50 border border-gray-100'
+                  }`}
+                >
+                  <div className="flex items-center">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold mr-3 ${
+                      index === 0 ? 'bg-yellow-500' :
+                      index === 1 ? 'bg-gray-500' :
+                      index === 2 ? 'bg-orange-500' :
+                      'bg-gray-400'
+                    }`}>
+                      {player.rank}
+                    </div>
+                    <div>
+                      <div className="font-semibold text-gray-900">{player.nickname}</div>
+                      <div className="text-sm text-gray-600">
+                        {player.words_submitted}개 단어 · 최대 콤보 {player.max_combo}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-bold text-lg text-gray-900">{player.score}점</div>
+                    {player.items_used > 0 && (
+                      <div className="text-xs text-blue-600">아이템 {player.items_used}개 사용</div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            <div className="mt-6 text-center">
+              <Button 
+                onClick={() => setGameState(prev => ({ ...prev, showFinalRankings: false }))}
+                variant="primary"
+              >
+                확인
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
