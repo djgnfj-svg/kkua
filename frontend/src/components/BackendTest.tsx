@@ -42,9 +42,9 @@ const BackendTest: React.FC = () => {
 
   const getStatusColor = () => {
     switch (healthStatus.status) {
-      case 'healthy': return 'text-success-600';
-      case 'error': return 'text-danger-600';
-      case 'loading': return 'text-primary-600';
+      case 'healthy': return 'text-green-400';
+      case 'error': return 'text-red-400';
+      case 'loading': return 'text-purple-400';
     }
   };
 
@@ -52,13 +52,13 @@ const BackendTest: React.FC = () => {
     switch (healthStatus.status) {
       case 'healthy':
         return (
-          <svg className="w-5 h-5 text-success-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
           </svg>
         );
       case 'error':
         return (
-          <svg className="w-5 h-5 text-danger-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
           </svg>
         );
@@ -68,23 +68,23 @@ const BackendTest: React.FC = () => {
   };
 
   return (
-    <Card className="max-w-md mx-auto">
+    <Card variant="glass" className="max-w-md mx-auto">
       <Card.Header>
-        <h2 className="text-lg font-semibold text-gray-900">Backend Connection Test</h2>
+        <h2 className="text-lg font-semibold text-white font-english">Backend Connection Test</h2>
       </Card.Header>
       
       <Card.Body className="space-y-4">
         <div className="flex items-center space-x-3">
           {getStatusIcon()}
-          <span className={`font-medium ${getStatusColor()}`}>
+          <span className={`font-medium ${getStatusColor()} font-english`}>
             {healthStatus.message}
           </span>
         </div>
         
         {healthStatus.details && (
-          <div className="bg-gray-50 rounded-lg p-3">
-            <h4 className="text-sm font-medium text-gray-700 mb-2">Response Details:</h4>
-            <pre className="text-xs text-gray-600 whitespace-pre-wrap">
+          <div className="bg-white/5 backdrop-blur-sm rounded-lg p-3 border border-white/10">
+            <h4 className="text-sm font-medium text-white/90 mb-2 font-english">Response Details:</h4>
+            <pre className="text-xs text-white/70 whitespace-pre-wrap font-mono">
               {JSON.stringify(healthStatus.details, null, 2)}
             </pre>
           </div>
@@ -93,6 +93,7 @@ const BackendTest: React.FC = () => {
         <Button 
           onClick={checkBackendHealth}
           disabled={healthStatus.status === 'loading'}
+          variant="primary"
           className="w-full"
         >
           {healthStatus.status === 'loading' ? 'Testing...' : 'Test Again'}

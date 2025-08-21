@@ -15,6 +15,12 @@ const GameRoomList: React.FC<GameRoomListProps> = ({ onJoinRoom, onCreateRoom })
   const { rooms, setRooms, isLoading, setLoading, setError } = useGameStore();
   const { user } = useUserStore();
   const [refreshing, setRefreshing] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState<{isOpen: boolean, roomId: string, roomName: string}>({
+    isOpen: false,
+    roomId: '',
+    roomName: ''
+  });
+  const [passwordInput, setPasswordInput] = useState('');
   
   // 필터링 상태
   const [filters, setFilters] = useState({
@@ -53,10 +59,29 @@ const GameRoomList: React.FC<GameRoomListProps> = ({ onJoinRoom, onCreateRoom })
       return;
     }
 
+    // 비밀방인 경우 비밀번호 모달 표시
+    if ((room as any).hasPassword || (room as any).isPrivate) {
+      setShowPasswordModal({
+        isOpen: true,
+        roomId: room.id,
+        roomName: room.name
+      });
+      return;
+    }
+
+    // 공개방인 경우 바로 입장
+    await joinRoomWithPassword(room.id, room.name);
+  };
+
+  const joinRoomWithPassword = async (roomId: string, roomName: string, password?: string) => {
     try {
-      await apiEndpoints.gameRooms.join(room.id);
-      onJoinRoom(room.id);
-      showToast.success(`${room.name} 방에 입장했습니다`);
+      await apiEndpoints.gameRooms.join(roomId, password);
+      onJoinRoom(roomId);
+      showToast.success(`${roomName} 방에 입장했습니다`);
+      
+      // 비밀번호 모달 닫기
+      setShowPasswordModal({ isOpen: false, roomId: '', roomName: '' });
+      setPasswordInput('');
     } catch (error: any) {
       const errorMessage = error.response?.data?.detail || '방 입장에 실패했습니다';
       showToast.error(errorMessage);
@@ -77,10 +102,10 @@ const GameRoomList: React.FC<GameRoomListProps> = ({ onJoinRoom, onCreateRoom })
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'waiting': return 'text-green-600 bg-green-100';
-      case 'playing': return 'text-yellow-600 bg-yellow-100';
-      case 'finished': return 'text-gray-600 bg-gray-100';
-      default: return 'text-gray-600 bg-gray-100';
+      case 'waiting': return 'text-green-300 bg-green-500/20 border border-green-400/30';
+      case 'playing': return 'text-yellow-300 bg-yellow-500/20 border border-yellow-400/30';
+      case 'finished': return 'text-white/60 bg-white/10 border border-white/20';
+      default: return 'text-white/60 bg-white/10 border border-white/20';
     }
   };
 
@@ -236,10 +261,19 @@ const GameRoomList: React.FC<GameRoomListProps> = ({ onJoinRoom, onCreateRoom })
             {filteredRooms.map((room) => (
               <div
                 key={room.id}
-                className="border rounded-lg p-3 sm:p-4 hover:shadow-md transition-shadow cursor-pointer"
+                className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg p-3 sm:p-4 hover:bg-white/20 hover:shadow-xl transition-all duration-300 cursor-pointer"
               >
                 <div className="flex justify-between items-start mb-3">
-                  <h3 className="font-semibold text-base sm:text-lg truncate pr-2">{room.name}</h3>
+                  <div className="flex items-center space-x-2 flex-1 min-w-0">
+                    <h3 className="font-semibold text-base sm:text-lg truncate text-white font-korean">
+                      {room.name}
+                    </h3>
+                    {((room as any).hasPassword || (room as any).isPrivate) && (
+                      <span className="text-yellow-400 text-sm" title="비밀방">
+                        🔒
+                      </span>
+                    )}
+                  </div>
                   <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${getStatusColor(room.status)}`}>
                     {getStatusText(room.status)}
                   </span>
@@ -247,14 +281,14 @@ const GameRoomList: React.FC<GameRoomListProps> = ({ onJoinRoom, onCreateRoom })
 
                 <div className="space-y-2 mb-4">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">플레이어</span>
-                    <span className="font-medium">
+                    <span className="text-white/60 font-korean">플레이어</span>
+                    <span className="font-medium text-white font-korean">
                       {room.currentPlayers}/{room.maxPlayers}명
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">생성시간</span>
-                    <span className="text-gray-700 text-xs sm:text-sm">
+                    <span className="text-white/60 font-korean">생성시간</span>
+                    <span className="text-white/80 text-xs sm:text-sm font-korean">
                       {new Date(room.createdAt).toLocaleTimeString('ko-KR', {
                         hour: '2-digit',
                         minute: '2-digit'
@@ -303,6 +337,61 @@ const GameRoomList: React.FC<GameRoomListProps> = ({ onJoinRoom, onCreateRoom })
           </div>
         )}
       </Card.Body>
+      
+      {/* 비밀번호 입력 모달 */}
+      {showPasswordModal.isOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-6 w-full max-w-md shadow-2xl">
+            <h3 className="text-lg font-semibold text-white mb-4 font-korean">
+              🔒 비밀방 입장
+            </h3>
+            <p className="text-white/80 mb-4 font-korean">
+              "<span className="font-medium">{showPasswordModal.roomName}</span>" 방은 비밀번호가 필요합니다.
+            </p>
+            
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              if (passwordInput.trim()) {
+                joinRoomWithPassword(showPasswordModal.roomId, showPasswordModal.roomName, passwordInput.trim());
+              }
+            }}>
+              <div className="mb-4">
+                <input
+                  type="password"
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                  placeholder="비밀번호를 입력하세요"
+                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white placeholder-white/50 backdrop-blur-sm font-korean"
+                  autoFocus
+                  maxLength={20}
+                />
+              </div>
+              
+              <div className="flex gap-3">
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setShowPasswordModal({ isOpen: false, roomId: '', roomName: '' });
+                    setPasswordInput('');
+                  }}
+                  variant="secondary"
+                  className="flex-1"
+                >
+                  취소
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  className="flex-1"
+                  disabled={!passwordInput.trim()}
+                >
+                  입장
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </Card>
   );
 };

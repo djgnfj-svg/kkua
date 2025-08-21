@@ -151,6 +151,7 @@ async def api_status():
 # 인증 및 API 관련 import
 from auth import AuthService
 from pydantic import BaseModel
+from typing import Optional
 from fastapi import HTTPException
 
 # Redis 관련 import (일찍 import 필요)
@@ -233,10 +234,14 @@ async def get_current_user():
 
 # 임시 게임룸 데이터 (메모리에 저장)
 temporary_rooms = []
+# 방 비밀번호 임시 저장소 (실제 운영에서는 Redis나 DB에 해시로 저장)
+room_passwords = {}
 
 class CreateRoomRequest(BaseModel):
     name: str
     max_players: int = 4
+    password: Optional[str] = None
+    is_private: bool = False
 
 @app.get("/gamerooms")
 async def list_gamerooms():
@@ -259,6 +264,16 @@ async def create_gameroom(request: CreateRoomRequest):
                 detail="최대 플레이어 수는 2-8명 사이여야 합니다"
             )
         
+        # 비밀번호 검증
+        if request.password is not None and len(request.password.strip()) == 0:
+            raise HTTPException(
+                status_code=400,
+                detail="비밀번호가 설정된 경우 공백일 수 없습니다"
+            )
+        
+        # 비밀번호가 있으면 자동으로 비공개방으로 설정
+        is_private = request.is_private or (request.password is not None)
+        
         import time
         from datetime import datetime
         
@@ -271,10 +286,17 @@ async def create_gameroom(request: CreateRoomRequest):
             "currentPlayers": 1,  # 방을 만든 사람
             "status": "waiting",
             "createdAt": datetime.now().isoformat(),
-            "players": []
+            "players": [],
+            "isPrivate": is_private,
+            "hasPassword": request.password is not None
+            # 실제 password는 보안상 저장하지 않고, 필요시에만 검증
         }
         
         temporary_rooms.append(new_room)
+        
+        # 비밀번호가 있는 경우 별도 저장
+        if request.password:
+            room_passwords[room_id] = request.password.strip()
         
         # Redis에 빈 게임 상태 생성 (실제 플레이어는 WebSocket 입장 시 추가)
         logger.info(f"Redis 게임 상태 준비: {room_id}")
@@ -293,12 +315,30 @@ async def create_gameroom(request: CreateRoomRequest):
             detail="방 생성 중 오류가 발생했습니다"
         )
 
+class JoinRoomRequest(BaseModel):
+    password: Optional[str] = None
+
 @app.post("/gamerooms/{room_id}/join")
-async def join_gameroom(room_id: str):
+async def join_gameroom(room_id: str, request: JoinRoomRequest = None):
     """게임룸 참가"""
     # 임시 구현
     for room in temporary_rooms:
         if room["id"] == room_id:
+            # 비밀번호 검증
+            if room.get("hasPassword", False):
+                if not request or not request.password:
+                    raise HTTPException(
+                        status_code=401,
+                        detail="이 방은 비밀번호가 필요합니다"
+                    )
+                
+                stored_password = room_passwords.get(room_id)
+                if not stored_password or request.password.strip() != stored_password:
+                    raise HTTPException(
+                        status_code=401,
+                        detail="비밀번호가 올바르지 않습니다"
+                    )
+            
             if room["currentPlayers"] < room["maxPlayers"]:
                 room["currentPlayers"] += 1
                 return {"message": f"{room['name']} 방에 참가했습니다", "room": room}

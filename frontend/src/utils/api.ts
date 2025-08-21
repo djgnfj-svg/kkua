@@ -65,9 +65,10 @@ export const apiEndpoints = {
   // Game room endpoints
   gameRooms: {
     list: () => api.get('/gamerooms'),
-    create: (name: string, maxPlayers: number = 4) => 
-      api.post('/gamerooms', { name, max_players: maxPlayers }),
-    join: (roomId: string) => api.post(`/gamerooms/${roomId}/join`),
+    create: (name: string, maxPlayers: number = 4, password: string | null = null, isPrivate: boolean = false) => 
+      api.post('/gamerooms', { name, max_players: maxPlayers, password, is_private: isPrivate }),
+    join: (roomId: string, password?: string) => 
+      api.post(`/gamerooms/${roomId}/join`, password ? { password } : {}),
     leave: (roomId: string) => api.post(`/gamerooms/${roomId}/leave`),
     get: (roomId: string) => api.get(`/gamerooms/${roomId}`),
   },

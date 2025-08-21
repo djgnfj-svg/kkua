@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, Integer, String, DateTime, BigInteger, ForeignKey, JSON
+from sqlalchemy import Column, Integer, String, DateTime, BigInteger, ForeignKey, JSON, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -17,6 +17,8 @@ class GameRoom(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     status = Column(String(20), default="waiting", index=True)  # waiting, playing, finished
     settings = Column(JSON, default=dict)
+    password = Column(String(255), nullable=True)  # 방 비밀번호 (선택적)
+    is_private = Column(Boolean, default=False, index=True)  # 비공개방 여부
     
     # 관계
     creator = relationship("User", back_populates="created_rooms")
@@ -25,16 +27,21 @@ class GameRoom(Base):
     def __repr__(self):
         return f"<GameRoom(id={self.id}, name='{self.name}', status='{self.status}')>"
     
-    def to_dict(self):
-        return {
+    def to_dict(self, include_password=False):
+        result = {
             "id": str(self.id),
             "name": self.name,
             "max_players": self.max_players,
             "created_by": self.created_by,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "status": self.status,
-            "settings": self.settings
+            "settings": self.settings,
+            "is_private": self.is_private
         }
+        # 비밀번호는 필요한 경우에만 포함 (보안)
+        if include_password:
+            result["password"] = self.password
+        return result
 
 
 class GameSession(Base):
