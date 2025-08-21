@@ -41,7 +41,7 @@ class TimerConfig:
     warning_threshold: int = 5  # 경고 알림 시점 (초)
 
 
-class GameTimer:
+class TimerInstance:
     """게임 타이머 클래스"""
     
     def __init__(self, config: TimerConfig):
@@ -227,7 +227,7 @@ class TimerService:
     
     def __init__(self):
         self.redis_manager = RedisGameManager(get_redis())
-        self.active_timers: Dict[str, GameTimer] = {}
+        self.active_timers: Dict[str, TimerInstance] = {}
         
         # 기본 타이머 설정
         self.default_turn_duration = 30  # 30초
@@ -246,7 +246,7 @@ class TimerService:
             warning_threshold=5
         )
         
-        timer = GameTimer(config)
+        timer = TimerInstance(config)
         self.active_timers[timer_id] = timer
         
         # Redis에 타이머 정보 저장
@@ -312,7 +312,7 @@ class TimerService:
             warning_threshold=60  # 1분 전 경고
         )
         
-        timer = GameTimer(config)
+        timer = TimerInstance(config)
         self.active_timers[timer_id] = timer
         
         await self._save_timer_to_redis(timer_id, {
@@ -337,7 +337,7 @@ class TimerService:
             warning_threshold=0  # 아이템은 경고 없음
         )
         
-        timer = GameTimer(config)
+        timer = TimerInstance(config)
         self.active_timers[timer_id] = timer
         
         await self._save_timer_to_redis(timer_id, {
@@ -474,10 +474,11 @@ class TimerService:
         """Redis에 타이머 정보 저장"""
         try:
             key = f"timer:{timer_id}"
+            import json
             await self.redis_manager.redis.setex(
                 key, 
                 7200,  # 2시간 TTL
-                self.redis_manager._serialize(timer_info)
+                json.dumps(timer_info, ensure_ascii=False)
             )
         except Exception as e:
             logger.error(f"타이머 Redis 저장 중 오류: {e}")

@@ -416,22 +416,22 @@ class RedisGameManager:
         try:
             key = self._get_game_key(game_state.room_id)
             data = json.dumps(game_state.to_dict(), ensure_ascii=False)
-            self.redis.setex(key, self.DEFAULT_TTL, data)
+            await self.redis.setex(key, self.DEFAULT_TTL, data)
             return True
         except Exception as e:
-            print(f"게임 상태 저장 실패: {e}")
+            logger.error(f"게임 상태 저장 실패: {e}")
             return False
 
     async def get_game_state(self, room_id: str) -> Optional[GameState]:
         """게임 상태 조회"""
         try:
             key = self._get_game_key(room_id)
-            data = self.redis.get(key)
+            data = await self.redis.get(key)
             if data:
                 return GameState.from_dict(json.loads(data))
             return None
         except Exception as e:
-            print(f"게임 상태 조회 실패: {e}")
+            logger.error(f"게임 상태 조회 실패: {e}")
             return None
 
     async def delete_game_state(self, room_id: str) -> bool:
@@ -441,7 +441,7 @@ class RedisGameManager:
             timer_key = self._get_timer_key(room_id)
             
             # 게임 상태와 타이머 모두 삭제
-            result = self.redis.delete(key, timer_key)
+            result = await self.redis.delete(key, timer_key)
             
             logger = logging.getLogger(__name__)
             logger.info(f"방 삭제 완료: room_id={room_id}, 삭제된 키: {result}개")
@@ -458,7 +458,7 @@ class RedisGameManager:
             data = json.dumps(timer.to_dict(), ensure_ascii=False)
             # 타이머는 만료 시간보다 약간 더 길게 TTL 설정
             ttl = max(timer.remaining_ms // 1000 + 10, 60)
-            self.redis.setex(key, ttl, data)
+            await self.redis.setex(key, ttl, data)
             logger.info(f"타이머 Redis 저장: room_id={room_id}, ttl={ttl}초, expires_at={timer.expires_at}")
             return True
         except Exception as e:
@@ -469,7 +469,7 @@ class RedisGameManager:
         """타이머 조회"""
         try:
             key = self._get_timer_key(room_id)
-            data = self.redis.get(key)
+            data = await self.redis.get(key)
             if data:
                 timer = GameTimer.from_dict(json.loads(data))
                 logger.info(f"타이머 Redis 조회 성공: room_id={room_id}, expires_at={timer.expires_at}")
@@ -491,20 +491,20 @@ class RedisGameManager:
                 "cached_at": datetime.now(timezone.utc).isoformat()
             }
             # 1시간 캐시
-            self.redis.setex(key, 3600, json.dumps(data, ensure_ascii=False))
+            await self.redis.setex(key, 3600, json.dumps(data, ensure_ascii=False))
         except Exception as e:
-            print(f"단어 캐시 저장 실패: {e}")
+            logger.error(f"단어 캐시 저장 실패: {e}")
 
     async def get_cached_word_validation(self, word: str) -> Optional[Dict[str, Any]]:
         """캐시된 단어 검증 결과 조회"""
         try:
             key = self._get_word_cache_key(word)
-            data = self.redis.get(key)
+            data = await self.redis.get(key)
             if data:
                 return json.loads(data)
             return None
         except Exception as e:
-            print(f"단어 캐시 조회 실패: {e}")
+            logger.error(f"단어 캐시 조회 실패: {e}")
             return None
 
     async def save_user_session(self, user_id: int, session_data: Dict[str, Any]) -> bool:
@@ -512,31 +512,31 @@ class RedisGameManager:
         try:
             key = self._get_session_key(user_id)
             data = json.dumps(session_data, ensure_ascii=False)
-            self.redis.setex(key, self.DEFAULT_TTL, data)
+            await self.redis.setex(key, self.DEFAULT_TTL, data)
             return True
         except Exception as e:
-            print(f"세션 저장 실패: {e}")
+            logger.error(f"세션 저장 실패: {e}")
             return False
 
     async def get_user_session(self, user_id: int) -> Optional[Dict[str, Any]]:
         """사용자 세션 조회"""
         try:
             key = self._get_session_key(user_id)
-            data = self.redis.get(key)
+            data = await self.redis.get(key)
             if data:
                 return json.loads(data)
             return None
         except Exception as e:
-            print(f"세션 조회 실패: {e}")
+            logger.error(f"세션 조회 실패: {e}")
             return None
 
     async def get_all_active_games(self) -> List[str]:
         """모든 활성 게임 룸 ID 조회"""
         try:
-            keys = self.redis.keys(f"{self.GAME_KEY_PREFIX}*")
+            keys = await self.redis.keys(f"{self.GAME_KEY_PREFIX}*")
             return [key.replace(self.GAME_KEY_PREFIX, "") for key in keys]
         except Exception as e:
-            print(f"활성 게임 조회 실패: {e}")
+            logger.error(f"활성 게임 조회 실패: {e}")
             return []
     
     async def add_player_to_game(self, room_id: str, user_id: int, nickname: str) -> bool:
@@ -557,7 +557,7 @@ class RedisGameManager:
             
             # 플레이어 추가 (첫 번째 플레이어는 방장)
             is_host = len(game_state.players) == 0  # 첫 번째 플레이어가 방장
-            print(f"DEBUG: 플레이어 추가 - user_id={user_id}, nickname={nickname}, 현재 플레이어 수={len(game_state.players)}, is_host={is_host}")
+            logger.debug(f"플레이어 추가 - user_id={user_id}, nickname={nickname}, 현재 플레이어 수={len(game_state.players)}, is_host={is_host}")
             
             new_player = GamePlayer(
                 user_id=user_id,
@@ -573,7 +573,7 @@ class RedisGameManager:
             return False
             
         except Exception as e:
-            print(f"플레이어 게임 추가 실패: {e}")
+            logger.error(f"플레이어 게임 추가 실패: {e}")
             return False
     
     async def remove_player_from_game(self, room_id: str, user_id: int) -> bool:
@@ -592,7 +592,7 @@ class RedisGameManager:
             return False
             
         except Exception as e:
-            print(f"플레이어 게임 제거 실패: {e}")
+            logger.error(f"플레이어 게임 제거 실패: {e}")
             return False
     
     async def update_game_state(self, game_state: GameState) -> bool:

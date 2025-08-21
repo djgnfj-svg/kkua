@@ -1408,7 +1408,7 @@ class GameEventHandler:
                 
         except Exception as e:
             logger.error(f"고도화된 방 나가기 처리 중 오류: {e}")
-            return True, "오류로 인한 일반 처리"
+            return False, f"오류 발생: {str(e)}"
     
     async def _handle_host_leave_during_game(self, room_id: str, user_id: int, nickname: str, game_state) -> tuple[bool, str]:
         """방장이 게임 중에 나가는 경우"""
@@ -1438,7 +1438,7 @@ class GameEventHandler:
             
         except Exception as e:
             logger.error(f"방장 게임 중 나가기 처리 오류: {e}")
-            return True, "오류 발생"
+            return False, f"오류 발생: {str(e)}"
     
     async def _handle_host_leave_before_game(self, room_id: str, user_id: int, nickname: str, game_state) -> tuple[bool, str]:
         """방장이 게임 시작 전에 나가는 경우"""
@@ -1490,7 +1490,7 @@ class GameEventHandler:
                 
         except Exception as e:
             logger.error(f"방장 게임 전 나가기 처리 오류: {e}")
-            return True, "오류 발생"
+            return False, f"오류 발생: {str(e)}"
     
     async def _handle_last_opponent_leave(self, room_id: str, user_id: int, nickname: str, game_state) -> tuple[bool, str]:
         """마지막 상대가 나가는 경우 (1:1 게임에서)"""
@@ -1529,7 +1529,7 @@ class GameEventHandler:
             
         except Exception as e:
             logger.error(f"마지막 상대 나가기 처리 오류: {e}")
-            return True, "오류 발생"
+            return False, f"오류 발생: {str(e)}"
     
     async def _handle_player_leave_during_game(self, room_id: str, user_id: int, nickname: str, game_state) -> tuple[bool, str]:
         """일반 플레이어가 게임 중에 나가는 경우"""
@@ -1577,7 +1577,7 @@ class GameEventHandler:
             
         except Exception as e:
             logger.error(f"게임 중 플레이어 나가기 처리 오류: {e}")
-            return True, "오류 발생"
+            return False, f"오류 발생: {str(e)}"
     
     async def _handle_normal_leave(self, room_id: str, user_id: int, nickname: str, game_state) -> tuple[bool, str]:
         """일반적인 나가기 (게임 시작 전)"""
@@ -1597,7 +1597,7 @@ class GameEventHandler:
             
         except Exception as e:
             logger.error(f"일반 나가기 처리 오류: {e}")
-            return True, "오류 발생"
+            return False, f"오류 발생: {str(e)}"
     
     async def _delayed_room_cleanup(self, room_id: str, delay_seconds: int):
         """지연된 방 정리"""
