@@ -18,6 +18,56 @@ const GameRoomPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useUserStore();
   const { currentRoom, setCurrentRoom, updateRoom, isLoading, setLoading } = useGameStore();
+  
+  // 사운드 시스템
+  const playSound = useCallback((type: 'type' | 'success' | 'error' | 'warning') => {
+    try {
+      // Web Audio API로 간단한 효과음 생성
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      switch (type) {
+        case 'type':
+          oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+          gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+          oscillator.start();
+          oscillator.stop(audioContext.currentTime + 0.1);
+          break;
+        case 'success':
+          oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime); // C5
+          oscillator.frequency.setValueAtTime(659.25, audioContext.currentTime + 0.1); // E5
+          oscillator.frequency.setValueAtTime(783.99, audioContext.currentTime + 0.2); // G5
+          gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+          oscillator.start();
+          oscillator.stop(audioContext.currentTime + 0.3);
+          break;
+        case 'error':
+          oscillator.frequency.setValueAtTime(220, audioContext.currentTime);
+          oscillator.frequency.setValueAtTime(196, audioContext.currentTime + 0.15);
+          gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+          oscillator.start();
+          oscillator.stop(audioContext.currentTime + 0.3);
+          break;
+        case 'warning':
+          oscillator.frequency.setValueAtTime(440, audioContext.currentTime);
+          oscillator.frequency.setValueAtTime(880, audioContext.currentTime + 0.1);
+          gainNode.gain.setValueAtTime(0.15, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+          oscillator.start();
+          oscillator.stop(audioContext.currentTime + 0.2);
+          break;
+      }
+    } catch (error) {
+      // 사운드 재생 실패는 무시 (선택적 기능)
+    }
+  }, []);
   const tabCommManager = getTabCommunicationManager();
   const [roomNotFound, setRoomNotFound] = useState(false);
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
@@ -55,6 +105,10 @@ const GameRoomPage: React.FC = () => {
     finalRankings: []
   });
   const [currentWord, setCurrentWord] = useState('');
+  const [typingEffect, setTypingEffect] = useState<{
+    chars: Array<{ char: string; animated: boolean; id: string }>;
+    isTyping: boolean;
+  }>({ chars: [], isTyping: false });
   const [chatMessages, setChatMessages] = useState<Array<{
     id: string;
     userId: number;
@@ -85,12 +139,18 @@ const GameRoomPage: React.FC = () => {
     const interval = setInterval(() => {
       setGameState(prev => {
         const newTime = Math.max(0.1, (prev.remainingTime || 30) - 1);
+        
+        // 경고음 재생 (5초 남았을 때)
+        if (Math.floor(newTime) === 5 && Math.floor(prev.remainingTime || 30) === 6) {
+          playSound('warning');
+        }
+        
         return { ...prev, remainingTime: newTime };
       });
     }, 1000);
     
     return () => clearInterval(interval);
-  }, [gameState.isPlaying, gameState.currentTurnUserId, user?.id]);
+  }, [gameState.isPlaying, gameState.currentTurnUserId, user?.id, playSound]);
 
   // 실시간 단어 검증
   useEffect(() => {
@@ -184,6 +244,54 @@ const GameRoomPage: React.FC = () => {
   useEffect(() => {
     currentRoomRef.current = currentRoom;
   }, [currentRoom]);
+
+  // 타이핑 애니메이션 효과
+  const lastSoundTime = useRef(0);
+  const handleWordChange = useCallback((newValue: string) => {
+    const oldLength = currentWord.length;
+    const newLength = newValue.length;
+    
+    if (newLength > oldLength) {
+      // 연속 타이핑시 사운드 제한 (100ms 간격)
+      const now = Date.now();
+      if (now - lastSoundTime.current > 100) {
+        playSound('type');
+        lastSoundTime.current = now;
+      }
+      
+      // 새로운 글자 애니메이션
+      const newChars = newValue.split('').map((char, index) => ({
+        char,
+        animated: index >= oldLength,
+        id: `${Date.now()}-${index}`
+      }));
+      
+      setTypingEffect({
+        chars: newChars,
+        isTyping: true
+      });
+      
+      // 애니메이션 초기화
+      setTimeout(() => {
+        setTypingEffect(prev => ({
+          chars: prev.chars.map(char => ({ ...char, animated: false })),
+          isTyping: false
+        }));
+      }, 300);
+    } else {
+      // 글자 삭제 시에는 즉시 업데이트
+      setTypingEffect({
+        chars: newValue.split('').map((char, index) => ({
+          char,
+          animated: false,
+          id: `${Date.now()}-${index}`
+        })),
+        isTyping: false
+      });
+    }
+    
+    setCurrentWord(newValue);
+  }, [currentWord, playSound]);
 
   // 채팅 메시지 추가 함수들
   const addGameMessage = useCallback((message: string) => {
@@ -336,7 +444,8 @@ const GameRoomPage: React.FC = () => {
     console.log('📝 Word submitted:', data);
     
     if (data.status === 'accepted') {
-      // 성공한 단어 제출 - 성공 애니메이션 효과
+      // 성공한 단어 제출 - 성공 애니메이션 효과 및 효과음
+      playSound('success');
       setVisualEffects(prev => ({ 
         ...prev, 
         wordSubmitEffect: 'success'
@@ -382,7 +491,8 @@ const GameRoomPage: React.FC = () => {
     console.log('❌ Word submission failed:', data);
     addSystemMessage(`❌ 단어 제출 실패: ${data.reason || '알 수 없는 오류'}`);
     
-    // 에러 시각 효과 추가
+    // 에러 시각 효과 및 효과음 추가
+    playSound('error');
     setVisualEffects(prev => ({ ...prev, wordSubmitEffect: 'error' }));
     setTimeout(() => {
       setVisualEffects(prev => ({ ...prev, wordSubmitEffect: 'none' }));
@@ -1237,10 +1347,12 @@ const GameRoomPage: React.FC = () => {
                                 <input
                                   type="text"
                                   value={currentWord}
-                                  onChange={(e) => setCurrentWord(e.target.value)}
+                                  onChange={(e) => handleWordChange(e.target.value)}
                                   onKeyPress={(e) => e.key === 'Enter' && handleSubmitWord()}
-                                  placeholder={gameState.currentChar ? `${gameState.currentChar}로 시작하는 단어...` : '단어를 입력하세요...'}
-                                  className={`w-full px-4 py-3 bg-white/10 backdrop-blur-sm border-2 rounded-xl focus:outline-none focus:ring-2 transition-all text-white placeholder-white/60 text-lg font-korean ${
+                                  placeholder={!currentWord ? (gameState.currentChar ? `${gameState.currentChar}로 시작하는 단어...` : '단어를 입력하세요...') : ''}
+                                  className={`w-full px-4 py-3 bg-white/10 backdrop-blur-sm border-2 rounded-xl focus:outline-none focus:ring-2 transition-all placeholder-white/60 text-lg font-korean ${
+                                    currentWord ? 'text-transparent' : 'text-white'
+                                  } ${
                                     wordValidation.isChecking ? 'border-gray-400/50 focus:ring-gray-400' :
                                     !wordValidation.isValid && currentWord.trim() ? 'border-red-400/50 focus:ring-red-400 bg-red-500/10' :
                                     wordValidation.isValid && currentWord.trim() && wordValidation.message ? 'border-green-400/50 focus:ring-green-400 bg-green-500/10' :
@@ -1252,7 +1364,30 @@ const GameRoomPage: React.FC = () => {
                                     ''
                                   }`}
                                   disabled={!isConnected}
+                                  style={{ caretColor: 'transparent' }}
                                 />
+                                
+                                {/* 타이핑 애니메이션 오버레이 */}
+                                <div className="absolute inset-0 px-4 py-3 pointer-events-none flex items-center text-lg font-korean">
+                                  <div className="flex">
+                                    {typingEffect.chars.map((charObj) => (
+                                      <span
+                                        key={charObj.id}
+                                        className={`text-white transition-all duration-200 ${
+                                          charObj.animated 
+                                            ? 'animate-bounce text-yellow-300 text-xl font-bold drop-shadow-lg scale-125 transform' 
+                                            : ''
+                                        }`}
+                                        style={{
+                                          textShadow: charObj.animated ? '0 0 10px rgba(255, 255, 0, 0.8)' : 'none'
+                                        }}
+                                      >
+                                        {charObj.char}
+                                      </span>
+                                    ))}
+                                    <span className="animate-pulse text-white/70 ml-1">|</span>
+                                  </div>
+                                </div>
                                 {wordValidation.isChecking && (
                                   <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
                                     <div className="animate-spin w-5 h-5 border-2 border-white/30 border-t-white rounded-full"></div>
