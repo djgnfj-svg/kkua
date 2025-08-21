@@ -95,7 +95,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
               아직 채팅 메시지가 없습니다
             </div>
           ) : (
-            messages.map((message, index) => (
+            messages.map((message) => (
               <div 
                 key={message.id} 
                 className={`${getMessageStyle(message)} transform transition-all duration-300 hover:scale-[1.02]`}

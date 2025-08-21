@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Button, Card } from './ui';
+import { Button } from './ui';
 import { apiEndpoints } from '../utils/api';
 import { showToast } from './Toast';
 
