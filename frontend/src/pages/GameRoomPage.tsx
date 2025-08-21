@@ -185,7 +185,7 @@ const GameRoomPage: React.FC = () => {
     currentRoomRef.current = currentRoom;
   }, [currentRoom]);
 
-  // 채팅 메시지 추가 함수 (먼저 정의)
+  // 채팅 메시지 추가 함수들
   const addGameMessage = useCallback((message: string) => {
     setChatMessages(prev => [...prev, {
       id: `game-${Date.now()}`,
@@ -197,10 +197,20 @@ const GameRoomPage: React.FC = () => {
     }]);
   }, []);
 
+  const addSystemMessage = useCallback((message: string) => {
+    setChatMessages(prev => [...prev, {
+      id: `system-${Date.now()}`,
+      userId: 0,
+      nickname: '시스템',
+      message,
+      timestamp: new Date().toISOString(),
+      type: 'system' as const
+    }]);
+  }, []);
+
   // WebSocket 이벤트 리스너 설정 - useCallback으로 안정화
   const handleRoomJoined = useCallback((data: any) => {
     console.log('🎮 Room joined:', data);
-    showToast.success(data.message || '방에 입장했습니다! 🎮');
     addGameMessage(`🎮 방에 입장하셨습니다! 게임을 준비하세요.`);
     // game_state_update 이벤트로 플레이어 목록이 업데이트될 예정
   }, [addGameMessage]);
@@ -211,7 +221,6 @@ const GameRoomPage: React.FC = () => {
     console.log('현재 플레이어 목록:', currentRoomRef.current?.players);
     
     const hostText = data.is_host ? '(방장)' : '';
-    showToast.info(`${data.nickname}님이 입장했습니다 ${hostText}`);
     addGameMessage(`👋 ${data.nickname}님이 방에 입장하셨습니다! ${hostText}`);
     
     // 중복 체크 - 이미 있는 플레이어인지 확인
@@ -255,7 +264,6 @@ const GameRoomPage: React.FC = () => {
     );
     
     const playerName = leftPlayer?.nickname || data.nickname || 'Unknown';
-    showToast.info(`${playerName}님이 퇴장했습니다`);
     addGameMessage(`😢 ${playerName}님이 방을 나갔습니다`);
     
     // Update player list - 해당 플레이어 제거
@@ -321,7 +329,6 @@ const GameRoomPage: React.FC = () => {
       showFinalRankings: false, // 이전 게임 결과창 숨김
       finalRankings: [] // 이전 게임 순위 데이터 초기화
     });
-    showToast.success(`게임이 시작되었습니다! ${data.current_turn_nickname}님의 차례입니다 🎮`);
     addGameMessage(`🎮 게임이 시작되었습니다! ${data.current_turn_nickname}님의 차례입니다.`);
   }, [user?.id, addGameMessage]);
 
@@ -349,15 +356,13 @@ const GameRoomPage: React.FC = () => {
       // 점수 계산 표시 (글자 수 × 10)
       const wordLength = data.word.length;
       const wordScore = wordLength * 10;
-      showToast.success(`${data.nickname}님: "${data.word}" (+${wordScore}점, ${wordLength}글자) ✅`);
-      addGameMessage(`📝 ${data.nickname}님이 "${data.word}" 제출! (+${wordScore}점)`);
+      addGameMessage(`📝 ${data.nickname}님이 "${data.word}" 제출! (+${wordScore}점, ${wordLength}글자)`);
       
       // 다음 플레이어 알림
       const nextPlayer = currentRoomRef.current?.players?.find(p => String(p.id) === String(data.current_turn_user_id));
       if (nextPlayer) {
         const remainingTime = data.current_turn_remaining_time || 30;
-        showToast.info(`다음 차례: ${nextPlayer.nickname}님 (${data.next_char}로 시작, ${remainingTime}초)`);
-        addGameMessage(`⏰ ${nextPlayer.nickname}님의 차례 (${data.next_char}로 시작)`);
+        addGameMessage(`⏰ ${nextPlayer.nickname}님의 차례 (${data.next_char}로 시작, ${remainingTime}초)`);
       }
       
       // 효과 초기화
@@ -369,27 +374,26 @@ const GameRoomPage: React.FC = () => {
       }, 2000);
       
     } else if (data.status === 'pending_validation') {
-      showToast.info(`${data.nickname}님이 "${data.word}" 단어를 제출했습니다...`);
+      addGameMessage(`🔍 ${data.nickname}님이 "${data.word}" 단어를 검증 중...`);
     }
   }, []);
   
   const handleWordSubmissionFailed = useCallback((data: any) => {
     console.log('❌ Word submission failed:', data);
-    showToast.error(data.reason || '단어 제출에 실패했습니다');
-    addGameMessage(`❌ 단어 제출 실패: ${data.reason || '알 수 없는 오류'}`);
+    addSystemMessage(`❌ 단어 제출 실패: ${data.reason || '알 수 없는 오류'}`);
     
     // 에러 시각 효과 추가
     setVisualEffects(prev => ({ ...prev, wordSubmitEffect: 'error' }));
     setTimeout(() => {
       setVisualEffects(prev => ({ ...prev, wordSubmitEffect: 'none' }));
     }, 1000);
-  }, []);
+  }, [addSystemMessage]);
   
   const handlePlayerReady = useCallback((data: any) => {
     console.log('✅ Player ready:', data);
     console.log('현재 플레이어 목록:', currentRoomRef.current?.players);
     
-    showToast.info(`${data.nickname}님이 ${data.ready ? '준비완료' : '준비취소'}했습니다`);
+    addGameMessage(`${data.ready ? '✅' : '❌'} ${data.nickname}님이 ${data.ready ? '준비완료' : '준비취소'}했습니다`);
     
     // Update player ready status - 양쪽 타입 모두 확인
     if (roomId && currentRoomRef.current) {
@@ -431,52 +435,53 @@ const GameRoomPage: React.FC = () => {
   const handleConnectionReplaced = useCallback((data: any) => {
     console.log('🔄 Connection replaced:', data);
     
-    showToast.warning('다른 탭에서 접속하여 현재 연결이 종료됩니다');
+    addSystemMessage('⚠️ 다른 탭에서 접속하여 현재 연결이 종료됩니다');
+    addSystemMessage('🔄 3초 후 로비로 이동합니다...');
     
     // 3초 후 로비로 이동
     setTimeout(() => {
       navigateSafely('/lobby');
     }, 3000);
-  }, [navigate]);
+  }, [navigate, addSystemMessage]);
 
   // 라운드 시작 카운트다운 핸들러
   const handleRoundStartingCountdown = useCallback((data: any) => {
     console.log('🔄 Round starting countdown:', data);
     
-    showToast.info(data.message || `라운드 ${data.round} 시작까지 ${data.countdown}초...`);
-  }, []);
+    addGameMessage(`⏰ ${data.message || `라운드 ${data.round} 시작까지 ${data.countdown}초...`}`);
+  }, [addGameMessage]);
 
   // 라운드 전환 핸들러
   const handleRoundTransition = useCallback((data: any) => {
     console.log('⏳ Round transition:', data);
     
-    showToast.info(data.message || `잠시 후 라운드 ${data.next_round} 시작...`);
+    addGameMessage(`⏳ ${data.message || `잠시 후 라운드 ${data.next_round} 시작...`}`);
     
     // 라운드 전환 상태 확실히 설정
     setGameState(prev => ({
       ...prev,
       isRoundTransition: true
     }));
-  }, []);
+  }, [addGameMessage]);
 
   // 라운드 완료 핸들러
   const handleRoundCompleted = useCallback((data: any) => {
     console.log('🏁 Round completed:', data);
     
-    showToast.success(data.message || `라운드 ${data.completed_round} 완료!`);
+    addGameMessage(`🏁 ${data.message || `라운드 ${data.completed_round} 완료!`}`);
     
     // 라운드 순위 표시
     if (data.rankings && data.rankings.length > 0) {
       const topPlayer = data.rankings[0];
-      showToast.info(`🥇 라운드 우승: ${topPlayer.nickname}님 (${topPlayer.score}점)`);
+      addGameMessage(`🥇 라운드 우승: ${topPlayer.nickname}님 (${topPlayer.score}점)`);
     }
-  }, []);
+  }, [addGameMessage]);
 
   // 다음 라운드 시작 핸들러
   const handleNextRoundStarting = useCallback((data: any) => {
     console.log('🔄 Next round starting:', data);
     
-    showToast.info(data.message || `라운드 ${data.round} 시작!`);
+    addGameMessage(`🔄 ${data.message || `라운드 ${data.round} 시작!`}`);
     
     // 게임 상태 업데이트 - 턴 정보 포함
     setGameState(prev => ({
@@ -494,9 +499,9 @@ const GameRoomPage: React.FC = () => {
     
     // 다음 턴 플레이어 알림
     if (data.current_turn_nickname) {
-      showToast.success(`${data.current_turn_nickname}님의 차례입니다! 🎮`);
+      addGameMessage(`🎮 ${data.current_turn_nickname}님의 차례입니다!`);
     }
-  }, []);
+  }, [addGameMessage]);
 
   // 게임 완료 핸들러
   const handleGameCompleted = useCallback((data: any) => {
@@ -514,12 +519,12 @@ const GameRoomPage: React.FC = () => {
     setVisualEffects(prev => ({ ...prev, gameEndCelebration: 'victory' }));
     
     if (data.winner) {
-      showToast.success(`🏆 ${data.winner.nickname}님이 최종 우승했습니다!`);
+      addGameMessage(`🏆 ${data.winner.nickname}님이 최종 우승했습니다!`);
     }
     
     // 최종 순위 표시
     if (data.final_rankings && data.final_rankings.length > 0) {
-      showToast.info('게임이 완료되었습니다! 최종 순위를 확인하세요.');
+      addGameMessage('🏆 게임이 완료되었습니다! 최종 순위를 확인하세요.');
     }
     
     // 축하 효과 종료
@@ -564,7 +569,7 @@ const GameRoomPage: React.FC = () => {
 
   const handleTurnTimeout = useCallback((data: any) => {
     console.log('⏰ Turn timeout:', data);
-    showToast.warning(data.message || `${data.timeout_nickname}님의 시간이 초과되었습니다`);
+    addSystemMessage(`⏰ ${data.message || `${data.timeout_nickname}님의 시간이 초과되었습니다`}`);
     
     // 시간 초과는 라운드 완료를 의미함 (현재 게임 규칙)
     // round_completed 이벤트에서 라운드 완료 처리가 될 예정
@@ -574,7 +579,7 @@ const GameRoomPage: React.FC = () => {
         isRoundTransition: true  // 라운드 전환 중 상태로 변경 (isPlaying은 유지)
       }));
     }
-  }, []);
+  }, [addSystemMessage]);
 
   // 게임 종료 핸들러 추가
   const handleGameEnded = useCallback((data: any) => {
@@ -590,10 +595,12 @@ const GameRoomPage: React.FC = () => {
     
     // 게임 종료 메시지
     if (data.winner) {
-      showToast.success(`🏆 ${data.winner}님이 승리했습니다!`);
+      addGameMessage(`🏆 ${data.winner}님이 승리했습니다!`);
     } else {
-      showToast.info('게임이 종료되었습니다.');
+      addGameMessage('🏁 게임이 종료되었습니다.');
     }
+    
+    addSystemMessage('🔄 5초 후 로비로 이동합니다...');
     
     // 효과 종료
     setTimeout(() => {
@@ -604,7 +611,7 @@ const GameRoomPage: React.FC = () => {
     setTimeout(() => {
       navigateSafely('/lobby');
     }, 5000);
-  }, [navigate, addGameMessage]);
+  }, [navigate, addGameMessage, addSystemMessage]);
 
 
   // game_state_update 핸들러 추가
@@ -634,19 +641,18 @@ const GameRoomPage: React.FC = () => {
   // 고도화된 방 나가기 이벤트 핸들러들
   const handleHostLeftGame = useCallback((data: any) => {
     console.log('👑❌ Host left game:', data);
-    showToast.error(data.message);
+    addSystemMessage(`👑❌ ${data.message}`);
+    addSystemMessage('🔄 5초 후 로비로 이동합니다...');
     
     // 5초 후 로비로 이동
     setTimeout(() => {
       navigateSafely('/lobby');
     }, 5000);
-    
-    showToast.info('5초 후 로비로 이동합니다...');
-  }, [navigate]);
+  }, [navigate, addSystemMessage]);
 
   const handleHostChanged = useCallback((data: any) => {
     console.log('👑🔄 Host changed:', data);
-    showToast.info(data.message);
+    addGameMessage(`👑 ${data.message}`);
     
     // 새로운 방장 정보로 플레이어 목록 업데이트
     if (roomId && currentRoomRef.current?.players) {
@@ -659,11 +665,11 @@ const GameRoomPage: React.FC = () => {
         players: updatedPlayers
       });
     }
-  }, [roomId, updateRoom]);
+  }, [roomId, updateRoom, addGameMessage]);
 
   const handleOpponentLeftVictory = useCallback((data: any) => {
     console.log('🏆 Opponent left victory:', data);
-    showToast.success(data.message);
+    addGameMessage(`🏆 ${data.message}`);
     
     // 승리 처리
     setGameState(prev => ({ 
@@ -672,11 +678,11 @@ const GameRoomPage: React.FC = () => {
       gameResult: 'victory',
       resultMessage: data.message
     }));
-  }, []);
+  }, [addGameMessage]);
 
   const handlePlayerLeftDuringTurn = useCallback((data: any) => {
     console.log('🚪 Player left during turn:', data);
-    showToast.warning(data.message);
+    addSystemMessage(`⚠️ ${data.message}`);
     
     // 턴 정보 업데이트
     setGameState(prev => ({
@@ -684,25 +690,26 @@ const GameRoomPage: React.FC = () => {
       currentTurnUserId: String(data.current_turn_user_id),
       remainingTime: data.current_turn_remaining_time || prev.remainingTime
     }));
-  }, []);
+  }, [addSystemMessage]);
 
   const handlePlayerLeftGame = useCallback((data: any) => {
     console.log('🚪 Player left game:', data);
-    showToast.info(data.message);
-  }, []);
+    addGameMessage(`🚪 ${data.message}`);
+  }, [addGameMessage]);
 
   const handlePlayerLeftRoom = useCallback((data: any) => {
     console.log('🚪 Player left room:', data);
-    showToast.info(data.message);
-  }, []);
+    addGameMessage(`🚪 ${data.message}`);
+  }, [addGameMessage]);
 
   const handleRoomDisbanded = useCallback((data: any) => {
     console.log('💥 Room disbanded:', data);
-    showToast.error(data.message);
+    addSystemMessage(`💥 ${data.message}`);
+    addSystemMessage('🔄 로비로 이동합니다...');
     
     // 로비로 이동
     navigateSafely('/lobby');
-  }, [navigate]);
+  }, [navigate, addSystemMessage]);
 
   useEffect(() => {
     if (!isConnected || !roomId) return;
@@ -792,7 +799,7 @@ const GameRoomPage: React.FC = () => {
       off('success', handleSuccess);
       off('pong');
     };
-  }, [isConnected, roomId, user?.id, emit, on, off, handleRoomJoined, handlePlayerJoined, handlePlayerLeft, handleChatMessage, handleGameStarted, handleWordSubmitted, handleWordSubmissionFailed, handleTurnTimerStarted, handleTurnTimeout, handlePlayerReady, handleGameStateUpdate, handleHostLeftGame, handleHostChanged, handleOpponentLeftVictory, handlePlayerLeftDuringTurn, handlePlayerLeftGame, handlePlayerLeftRoom, handleRoomDisbanded, handleGameEnded, handleRoundCompleted, handleNextRoundStarting, handleGameCompleted, handleGameStartingCountdown, handleGameStartFailed, handleConnectionReplaced, handleRoundStartingCountdown, handleRoundTransition, handleError, handleSuccess]);
+  }, [isConnected, roomId, user?.id, emit, on, off, handleRoomJoined, handlePlayerJoined, handlePlayerLeft, handleChatMessage, handleGameStarted, handleWordSubmitted, handleWordSubmissionFailed, handleTurnTimerStarted, handleTurnTimeout, handlePlayerReady, handleGameStateUpdate, handleHostLeftGame, handleHostChanged, handleOpponentLeftVictory, handlePlayerLeftDuringTurn, handlePlayerLeftGame, handlePlayerLeftRoom, handleRoomDisbanded, handleGameEnded, handleRoundCompleted, handleNextRoundStarting, handleGameCompleted, handleGameStartingCountdown, handleGameStartFailed, handleConnectionReplaced, handleRoundStartingCountdown, handleRoundTransition, handleError, handleSuccess, addGameMessage, addSystemMessage]);
 
   // 브라우저 내비게이션 보호 (뒤로가기, 새로고침, 탭 닫기 방지)
   const shouldProtectNavigation = () => {
@@ -820,7 +827,7 @@ const GameRoomPage: React.FC = () => {
     message: getNavigationMessage(),
     onNavigationBlocked: () => {
       // 뒤로가기 시도 시 추가 피드백
-      showToast.warning('게임 중에는 뒤로가기를 할 수 없습니다. 방 나가기 버튼을 이용해주세요.');
+      addSystemMessage('⚠️ 게임 중에는 뒤로가기를 할 수 없습니다. 방 나가기 버튼을 이용해주세요.');
     },
     onBeforeUnload: () => {
       // 페이지 언로드 전 서버에 알림 (선택적)
@@ -865,7 +872,7 @@ const GameRoomPage: React.FC = () => {
     setShowDuplicateModal(false);
     // 현재 탭에서 계속 - 기존 연결 강제 종료
     emit('force_takeover_connection', { room_id: roomId });
-    showToast.info('기존 연결을 종료하고 현재 탭에서 계속합니다');
+    addSystemMessage('🔄 기존 연결을 종료하고 현재 탭에서 계속합니다');
   };
 
   const handleDuplicateConnectionCancel = () => {
@@ -909,11 +916,11 @@ const GameRoomPage: React.FC = () => {
       };
       
       setCurrentRoom(mockRoom);
-      showToast.success('방 정보를 불러왔습니다');
+      addGameMessage('🏠 방 정보를 불러왔습니다');
     } catch (error) {
       console.error('방 정보 로드 실패:', error);
       setRoomNotFound(true);
-      showToast.error('방을 찾을 수 없습니다');
+      addSystemMessage('❌ 방을 찾을 수 없습니다');
     } finally {
       setLoading(false);
     }
@@ -947,7 +954,7 @@ const GameRoomPage: React.FC = () => {
         emit('leave_room', { room_id: roomId });
       }
       navigateSafely('/lobby');
-      showToast.info('방에서 나갔습니다');
+      addSystemMessage('🚺 방에서 나갔습니다');
     } catch (error) {
       console.error('방 나가기 실패:', error);
       navigateSafely('/lobby'); // 에러가 있어도 로비로 이동
@@ -1464,7 +1471,7 @@ const GameRoomPage: React.FC = () => {
             });
             // 모든 플레이어를 준비 상태로 리셋하고 새 게임 요청
             emit('reset_game_for_restart', { room_id: roomId });
-            showToast.info('새 게임을 위해 모든 플레이어가 다시 준비해주세요');
+            addGameMessage('🎮 새 게임을 위해 모든 플레이어가 다시 준비해주세요');
           }}
           onBackToLobby={() => {
             setGameState(prev => ({ ...prev, showFinalRankings: false }));
