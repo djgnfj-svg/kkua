@@ -99,16 +99,27 @@ export const useNativeWebSocket = (options: UseNativeWebSocketOptions) => {
       ws.onclose = (event) => {
         if (!mountedRef.current) return;
         console.log(`🔌 WebSocket disconnected: ${event.code} ${event.reason}`);
+        
+        // 1006 에러이고 reason이 비어있으면 토큰 만료로 추정
+        let errorMessage = event.reason || `Connection closed (${event.code})`;
+        if (event.code === 1006 && !event.reason) {
+          errorMessage = '인증이 만료되었습니다. 페이지를 새로고침 해주세요.';
+          // 토큰 만료 시 localStorage에서 토큰 제거
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+        }
+        
         setState(prev => ({
           ...prev,
           isConnected: false,
           isConnecting: false,
-          error: event.reason || `Connection closed (${event.code})`,
+          error: errorMessage,
           reconnectAttempt: reconnectCountRef.current
         }));
 
         // Auto-reconnect logic - 정상 종료(1000)가 아니고 재연결 횟수 제한 내에서만
-        if (event.code !== 1000 && reconnectCountRef.current < reconnectAttempts) {
+        // 1006 에러(인증 실패)는 재연결 시도하지 않음
+        if (event.code !== 1000 && event.code !== 1006 && reconnectCountRef.current < reconnectAttempts) {
           reconnectCountRef.current += 1;
           console.log(`🔄 Reconnecting... (${reconnectCountRef.current}/${reconnectAttempts})`);
           
