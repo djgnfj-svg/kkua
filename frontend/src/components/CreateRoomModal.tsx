@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, memo } from 'react';
 import { Button, Input, Modal } from './ui';
 import { apiEndpoints } from '../utils/api';
 import { showToast } from './Toast';
@@ -9,7 +9,7 @@ interface CreateRoomModalProps {
   onSuccess: (roomId: string) => void;
 }
 
-const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
+const CreateRoomModal: React.FC<CreateRoomModalProps> = memo(({
   isOpen,
   onClose,
   onSuccess
@@ -21,7 +21,7 @@ const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!roomName.trim()) {
@@ -64,9 +64,9 @@ const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [roomName, maxPlayers, password, isPrivate, onSuccess]);
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setRoomName('');
     setMaxPlayers(4);
     setPassword('');
@@ -74,7 +74,7 @@ const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
     setShowPassword(false);
     setIsLoading(false);
     onClose();
-  };
+  }, [onClose]);
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="🎮 새 게임 방 만들기" size="md">
@@ -238,6 +238,6 @@ const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
       </form>
     </Modal>
   );
-};
+});
 
 export default CreateRoomModal;

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Button, Card, Loading } from '../components/ui';
 import { useUserStore } from '../stores/useUserStore';
 import { useGameStore } from '../stores/useGameStore';
+import { useMobileOptimization } from '../hooks/useMobileOptimization';
 import { showToast } from '../components/Toast';
 // import { apiEndpoints } from '../utils/api';
 import { useNativeWebSocket } from '../hooks/useNativeWebSocket';
@@ -18,6 +19,7 @@ const GameRoomPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useUserStore();
   const { currentRoom, setCurrentRoom, updateRoom, isLoading, setLoading } = useGameStore();
+  const { isKeyboardOpen, orientation, handleInputFocus, handleTouchStart, isMobile } = useMobileOptimization();
   
   // 사운드 시스템
   const playSound = useCallback((type: 'type' | 'success' | 'error' | 'warning') => {
@@ -132,22 +134,24 @@ const GameRoomPage: React.FC = () => {
     gameEndCelebration: 'none'
   });
 
-  // 타이머 카운트다운 (서버 동기화)
+  // 타이머 카운트다운 (부드러운 연속 애니메이션)
   useEffect(() => {
     if (!gameState.isPlaying || gameState.currentTurnUserId !== user?.id) return;
     
+    // 100ms마다 더 부드러운 애니메이션
     const interval = setInterval(() => {
       setGameState(prev => {
-        const newTime = Math.max(0.1, (prev.remainingTime || 30) - 1);
+        const decrementRate = (prev.remainingTime || 0) > 5 ? 0.1 : (prev.remainingTime || 0) > 3 ? 0.15 : 0.25; // 시간이 적을수록 더 빠르게
+        const newTime = Math.max(0.1, (prev.remainingTime || 30) - decrementRate);
         
-        // 경고음 재생 (5초 남았을 때)
+        // 경고음 재생 (5초 남았을 때 - 한 번만)
         if (Math.floor(newTime) === 5 && Math.floor(prev.remainingTime || 30) === 6) {
           playSound('warning');
         }
         
         return { ...prev, remainingTime: newTime };
       });
-    }, 1000);
+    }, 100); // 100ms 간격으로 부드러운 애니메이션
     
     return () => clearInterval(interval);
   }, [gameState.isPlaying, gameState.currentTurnUserId, user?.id, playSound]);
@@ -1212,14 +1216,16 @@ const GameRoomPage: React.FC = () => {
                         </span>
                         <div className="w-24 h-3 bg-white/20 rounded-full overflow-hidden backdrop-blur-sm">
                           <div 
-                            className={`h-full rounded-full transition-all ease-out ${
+                            className={`h-full rounded-full ${
                               (gameState.remainingTime || 0) > 20 ? 'bg-gradient-to-r from-green-400 to-green-500' :
-                              (gameState.remainingTime || 0) > 10 ? 'bg-gradient-to-r from-yellow-400 to-orange-500' : 
-                              'bg-gradient-to-r from-red-400 to-red-600 animate-pulse drop-shadow-[0_0_8px_rgba(239,68,68,0.6)]'
+                              (gameState.remainingTime || 0) > 10 ? 'bg-gradient-to-r from-yellow-400 to-orange-500 animate-pulse' : 
+                              (gameState.remainingTime || 0) > 5 ? 'bg-gradient-to-r from-orange-400 to-red-500 animate-pulse drop-shadow-[0_0_8px_rgba(249,115,22,0.6)]' :
+                              (gameState.remainingTime || 0) > 3 ? 'bg-gradient-to-r from-red-500 to-red-700 animate-bounce drop-shadow-[0_0_12px_rgba(239,68,68,0.8)]' :
+                              'bg-gradient-to-r from-red-600 to-red-800 animate-ping drop-shadow-[0_0_20px_rgba(239,68,68,1)]'
                             }`}
                             style={{ 
                               width: `${Math.max(0, Math.min(100, ((gameState.remainingTime || 0) / (gameState.turnTimeLimit || 30)) * 100))}%`,
-                              transition: 'width 1s ease-out'
+                              transition: `width ${(gameState.remainingTime || 0) > 10 ? '100ms' : (gameState.remainingTime || 0) > 5 ? '60ms' : (gameState.remainingTime || 0) > 3 ? '40ms' : '20ms'} linear`
                             }}
                           />
                         </div>
@@ -1297,11 +1303,13 @@ const GameRoomPage: React.FC = () => {
                               className={`h-full rounded-full transition-all ease-out ${
                                 (gameState.remainingTime || 0) > 20 ? 'bg-gradient-to-r from-green-400 to-green-500' :
                                 (gameState.remainingTime || 0) > 10 ? 'bg-gradient-to-r from-yellow-400 to-orange-500' : 
-                                'bg-gradient-to-r from-red-400 to-red-600 animate-pulse drop-shadow-[0_0_8px_rgba(239,68,68,0.6)]'
+                                (gameState.remainingTime || 0) > 5 ? 'bg-gradient-to-r from-orange-400 to-red-500 animate-pulse drop-shadow-[0_0_8px_rgba(249,115,22,0.6)]' :
+                                (gameState.remainingTime || 0) > 3 ? 'bg-gradient-to-r from-red-500 to-red-700 animate-bounce drop-shadow-[0_0_12px_rgba(239,68,68,0.8)]' :
+                                'bg-gradient-to-r from-red-600 to-red-800 animate-ping drop-shadow-[0_0_20px_rgba(239,68,68,1)]'
                               }`}
                               style={{ 
                                 width: `${Math.max(0, Math.min(100, ((gameState.remainingTime || 0) / (gameState.turnTimeLimit || 30)) * 100))}%`,
-                                transition: 'width 1s ease-out'
+                                transition: `width ${(gameState.remainingTime || 0) > 10 ? '100ms' : (gameState.remainingTime || 0) > 5 ? '60ms' : (gameState.remainingTime || 0) > 3 ? '40ms' : '20ms'} linear`
                               }}
                             />
                           </div>
@@ -1349,7 +1357,14 @@ const GameRoomPage: React.FC = () => {
                                   value={currentWord}
                                   onChange={(e) => handleWordChange(e.target.value)}
                                   onKeyPress={(e) => e.key === 'Enter' && handleSubmitWord()}
+                                  onFocus={(e) => isMobile && handleInputFocus(e.target)}
                                   placeholder={!currentWord ? (gameState.currentChar ? `${gameState.currentChar}로 시작하는 단어...` : '단어를 입력하세요...') : ''}
+                                  aria-label={gameState.currentChar ? `${gameState.currentChar}로 시작하는 끝말잇기 단어 입력` : '끝말잇기 단어 입력'}
+                                  aria-invalid={!wordValidation.isValid && currentWord.trim() ? 'true' : 'false'}
+                                  aria-describedby={wordValidation.message ? 'word-validation-message' : undefined}
+                                  autoComplete="off"
+                                  autoCapitalize="off"
+                                  spellCheck="false"
                                   className={`w-full px-4 py-3 bg-white/10 backdrop-blur-sm border-2 rounded-xl focus:outline-none focus:ring-2 transition-all placeholder-white/60 text-lg font-korean ${
                                     currentWord ? 'text-transparent' : 'text-white'
                                   } ${
@@ -1399,6 +1414,8 @@ const GameRoomPage: React.FC = () => {
                                 disabled={!isConnected || !currentWord.trim() || !wordValidation.isValid}
                                 variant={wordValidation.isValid && currentWord.trim() ? 'primary' : 'secondary'}
                                 size="lg"
+                                aria-label={`단어 "${currentWord}" 제출하기`}
+                                aria-describedby={wordValidation.message ? 'word-validation-message' : undefined}
                                 className="w-full sm:w-auto px-8 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold"
                                 glow
                               >
@@ -1407,11 +1424,15 @@ const GameRoomPage: React.FC = () => {
                             </div>
                             {/* 실시간 검증 피드백 */}
                             {currentWord.trim() && (
-                              <div className={`text-sm px-2 py-1 rounded transition-colors ${
-                                wordValidation.isChecking ? 'text-gray-600 bg-gray-100' :
-                                !wordValidation.isValid ? 'text-red-600 bg-red-100' :
-                                wordValidation.message ? 'text-green-600 bg-green-100' : ''
-                              }`}>
+                              <div 
+                                id="word-validation-message"
+                                role="status"
+                                aria-live="polite"
+                                className={`text-sm px-2 py-1 rounded transition-colors ${
+                                  wordValidation.isChecking ? 'text-gray-600 bg-gray-100' :
+                                  !wordValidation.isValid ? 'text-red-600 bg-red-100' :
+                                  wordValidation.message ? 'text-green-600 bg-green-100' : ''
+                                }`}>
                                 {wordValidation.isChecking ? '🔍 검증 중...' : wordValidation.message}
                               </div>
                             )}

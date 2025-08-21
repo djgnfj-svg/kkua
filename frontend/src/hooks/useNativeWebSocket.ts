@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { useNetworkRecovery } from './useNetworkRecovery';
 
 export interface WebSocketMessage {
   type: string;
@@ -30,6 +31,14 @@ export const useNativeWebSocket = (options: UseNativeWebSocketOptions) => {
     reconnectAttempts = 5,
     reconnectInterval = 3000
   } = options;
+
+  const { isOnline, withErrorRecovery } = useNetworkRecovery({
+    onReconnected: () => {
+      if (!state.isConnected && !state.isConnecting) {
+        connect();
+      }
+    }
+  });
 
   const [state, setState] = useState<WebSocketState>({
     isConnected: false,
