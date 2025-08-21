@@ -91,7 +91,7 @@ const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
         />
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-white mb-2 font-korean">
             최대 플레이어 수
           </label>
           <div className="grid grid-cols-4 gap-2">
@@ -103,15 +103,15 @@ const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
                 disabled={isLoading}
                 className={`p-2 border rounded-lg text-center font-medium transition-colors ${
                   maxPlayers === num
-                    ? 'bg-primary-100 border-primary-500 text-primary-700'
-                    : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                    ? 'bg-purple-600 border-purple-500 text-white'
+                    : 'bg-white/10 border-white/30 text-white hover:bg-white/20'
                 }`}
               >
                 {num}명
               </button>
             ))}
           </div>
-          <p className="text-xs text-gray-500 mt-2">
+          <p className="text-xs text-white/60 mt-2 font-korean">
             추천: 2-4명이 가장 재미있어요!
           </p>
         </div>

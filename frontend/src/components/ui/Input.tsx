@@ -22,9 +22,9 @@ const Input: React.FC<InputProps> = ({
   const baseClasses = 'w-full border rounded-xl focus:outline-none focus:ring-2 focus:ring-offset-0 transition-all duration-300 placeholder-secondary-400 font-korean';
   
   const variantClasses = {
-    default: 'bg-white border-secondary-300 focus:border-primary-500 focus:ring-primary-200 hover:border-secondary-400',
-    glass: 'bg-white/80 backdrop-blur-sm border-white/30 focus:border-primary-500 focus:ring-primary-200/50 hover:bg-white/90',
-    filled: 'bg-secondary-50 border-transparent focus:bg-white focus:border-primary-500 focus:ring-primary-200 hover:bg-secondary-100'
+    default: 'bg-white/10 backdrop-blur-sm border-white/30 focus:border-purple-500 focus:ring-purple-500/20 hover:border-white/50 text-white placeholder-white/50',
+    glass: 'bg-white/10 backdrop-blur-sm border-white/30 focus:border-purple-500 focus:ring-purple-500/20 hover:bg-white/20 text-white placeholder-white/50',
+    filled: 'bg-white/10 backdrop-blur-sm border-white/20 focus:bg-white/20 focus:border-purple-500 focus:ring-purple-500/20 hover:bg-white/15 text-white placeholder-white/50'
   };
   
   const sizeClasses = {
@@ -49,7 +49,7 @@ const Input: React.FC<InputProps> = ({
   return (
     <div className="w-full">
       {label && (
-        <label className="block text-sm font-semibold text-secondary-700 mb-2 font-korean">
+        <label className="block text-sm font-semibold text-white mb-2 font-korean">
           {label}
         </label>
       )}
@@ -65,7 +65,7 @@ const Input: React.FC<InputProps> = ({
         />
       </div>
       {(error || helperText) && (
-        <p className={`mt-2 text-sm font-korean ${error ? 'text-danger-600' : 'text-secondary-500'}`}>
+        <p className={`mt-2 text-sm font-korean ${error ? 'text-red-400' : 'text-white/60'}`}>
           {error || helperText}
         </p>
       )}
