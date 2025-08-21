@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Card, Loading } from './ui';
+import { Button, Loading } from './ui';
 import { apiEndpoints } from '../utils/api';
 import { useGameStore } from '../stores/useGameStore';
 import type { GameRoom } from '../types/game';
-import { useUserStore } from '../stores/useUserStore';
 import { showToast } from './Toast';
 
 interface GameRoomListProps {
@@ -13,7 +12,6 @@ interface GameRoomListProps {
 
 const GameRoomList: React.FC<GameRoomListProps> = ({ onJoinRoom, onCreateRoom }) => {
   const { rooms, setRooms, isLoading, setLoading, setError } = useGameStore();
-  const { user } = useUserStore();
   const [refreshing, setRefreshing] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState<{isOpen: boolean, roomId: string, roomName: string}>({
     isOpen: false,
@@ -136,217 +134,182 @@ const GameRoomList: React.FC<GameRoomListProps> = ({ onJoinRoom, onCreateRoom })
 
   if (isLoading && rooms.length === 0) {
     return (
-      <Card>
-        <Card.Body className="text-center py-12">
-          <Loading size="lg" text="방 목록을 불러오는 중..." />
-        </Card.Body>
-      </Card>
+      <div className="text-center py-16 bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10">
+        <div className="text-6xl mb-4 animate-bounce">🔍</div>
+        <Loading size="lg" text="게임 방을 찾고 있어요..." />
+      </div>
     );
   }
 
   return (
-    <Card>
-      <Card.Header>
-        <div className="flex justify-between items-center mb-4">
-          <div>
-            <h2 className="text-xl font-semibold text-white">게임 방 목록</h2>
-            <p className="text-white/70 text-sm mt-1">
-              {user?.nickname}님, 게임 방을 선택하거나 새로 만드세요
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              onClick={() => fetchRooms()}
-              disabled={refreshing}
-              variant="secondary"
-              size="sm"
-            >
-              {refreshing ? '새로고침 중...' : '🔄 새로고침'}
-            </Button>
-            <Button
-              onClick={onCreateRoom}
-              variant="primary"
-              size="sm"
-            >
-              ➕ 방 만들기
-            </Button>
-          </div>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-bold text-white font-korean">🏠 게임 방 목록</h2>
+          <p className="text-white/70 mt-1 font-korean">
+            마음에 드는 방을 선택하세요
+          </p>
         </div>
-        
-        {/* 필터링 UI */}
-        <div className="space-y-3 pt-4 border-t">
-          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-            {/* 검색 */}
-            <div className="flex-1">
-              <input
-                type="text"
-                placeholder="방 이름 또는 호스트 검색..."
-                value={filters.search}
-                onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-              />
-            </div>
-            
-            <div className="flex flex-col sm:flex-row gap-3 sm:items-center min-w-0 sm:min-w-max">
-              {/* 상태 필터 */}
-              <select
-                value={filters.status}
-                onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value as any }))}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-              >
-                <option value="all">모든 방</option>
-                <option value="waiting">대기중만</option>
-                <option value="playing">게임중만</option>
-              </select>
-              
-              {/* 가득찬 방 표시 */}
-              <label className="flex items-center space-x-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={filters.showFull}
-                  onChange={(e) => setFilters(prev => ({ ...prev, showFull: e.target.checked }))}
-                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                />
-                <span>가득찬 방 표시</span>
-              </label>
-            </div>
-          </div>
-          
-          <div className="flex justify-between items-center text-sm text-gray-600">
-            <span>총 {filteredRooms.length}개의 방 (전체 {rooms.length}개)</span>
-            {filters.search || filters.status !== 'all' || !filters.showFull ? (
-              <button
-                onClick={() => setFilters({ search: '', status: 'all', showFull: true })}
-                className="text-blue-600 hover:text-blue-800 underline"
-              >
-                필터 초기화
-              </button>
-            ) : null}
-          </div>
-        </div>
-      </Card.Header>
+        <Button
+          onClick={() => fetchRooms()}
+          disabled={refreshing}
+          variant="glass"
+          size="sm"
+          className="text-white border-white/30 hover:bg-white/20"
+        >
+          {refreshing ? '⏳' : '🔄'}
+        </Button>
+      </div>
 
-      <Card.Body>
+      {/* 간단한 검색 */}
+      {rooms.length > 3 && (
+        <div className="mb-4">
+          <input
+            type="text"
+            placeholder="🔍 방 이름 검색..."
+            value={filters.search}
+            onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+            className="w-full px-4 py-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white placeholder-white/50 font-korean"
+          />
+        </div>
+      )}
+      
+      <div>
         {rooms.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="text-6xl mb-4">🎮</div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              아직 생성된 방이 없습니다
+          <div className="text-center py-16 bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10">
+            <div className="text-8xl mb-6">🎮</div>
+            <h3 className="text-2xl font-bold text-white mb-4 font-korean">
+              첫 번째 방을 만들어보세요!
             </h3>
-            <p className="text-gray-600 mb-4">
-              첫 번째 방을 만들어 게임을 시작해보세요!
+            <p className="text-white/70 mb-6 font-korean text-lg">
+              친구들과 함께 끝말잇기를 즐겨보세요
             </p>
-            <Button onClick={onCreateRoom} variant="primary">
-              첫 방 만들기
+            <Button 
+              onClick={onCreateRoom} 
+              variant="primary"
+              size="lg"
+              className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-8 py-4 text-lg rounded-2xl shadow-xl font-korean"
+            >
+              ✨ 첫 방 만들기
             </Button>
           </div>
         ) : filteredRooms.length === 0 ? (
-          <div className="text-center py-12">
+          <div className="text-center py-12 bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10">
             <div className="text-6xl mb-4">🔍</div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
+            <h3 className="text-lg font-semibold text-white mb-2 font-korean">
               검색 결과가 없습니다
             </h3>
-            <p className="text-gray-600 mb-4">
-              다른 검색 조건을 시도해보세요
+            <p className="text-white/60 mb-4 font-korean">
+              다른 검색어를 시도해보세요
             </p>
-            <button
+            <Button
               onClick={() => setFilters({ search: '', status: 'all', showFull: true })}
-              className="text-blue-600 hover:text-blue-800 underline"
+              variant="secondary"
+              className="text-white"
             >
-              필터 초기화
-            </button>
+              전체 보기
+            </Button>
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {filteredRooms.map((room) => (
-              <div
-                key={room.id}
-                className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg p-3 sm:p-4 hover:bg-white/20 hover:shadow-xl transition-all duration-300 cursor-pointer"
-              >
-                <div className="flex justify-between items-start mb-3">
-                  <div className="flex items-center space-x-2 flex-1 min-w-0">
-                    <h3 className="font-semibold text-base sm:text-lg truncate text-white font-korean">
-                      {room.name}
-                    </h3>
-                    {((room as any).hasPassword || (room as any).isPrivate) && (
-                      <span className="text-yellow-400 text-sm" title="비밀방">
-                        🔒
-                      </span>
-                    )}
-                  </div>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${getStatusColor(room.status)}`}>
-                    {getStatusText(room.status)}
-                  </span>
-                </div>
-
-                <div className="space-y-2 mb-4">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-white/60 font-korean">플레이어</span>
-                    <span className="font-medium text-white font-korean">
-                      {room.currentPlayers}/{room.maxPlayers}명
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-white/60 font-korean">생성시간</span>
-                    <span className="text-white/80 text-xs sm:text-sm font-korean">
-                      {new Date(room.createdAt).toLocaleTimeString('ko-KR', {
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </span>
-                  </div>
-                </div>
-
-                {room.players && room.players.length > 0 && (
-                  <div className="mb-4">
-                    <div className="text-xs text-gray-600 mb-1">참가자:</div>
-                    <div className="flex flex-wrap gap-1">
-                      {room.players.slice(0, 3).map((player) => (
-                        <span
-                          key={player.id}
-                          className="px-2 py-1 bg-gray-100 rounded text-xs truncate max-w-20"
-                          title={player.nickname + (player.isHost ? ' (방장)' : '')}
-                        >
-                          {player.nickname}
-                          {player.isHost && ' 👑'}
-                        </span>
-                      ))}
-                      {room.players.length > 3 && (
-                        <span className="px-2 py-1 bg-gray-200 rounded text-xs text-gray-600">
-                          +{room.players.length - 3}
-                        </span>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {filteredRooms.map((room) => {
+              const isJoinable = room.status === 'waiting' && room.currentPlayers < room.maxPlayers;
+              const isFull = room.currentPlayers >= room.maxPlayers;
+              const isPlaying = room.status === 'playing';
+              
+              return (
+                <div
+                  key={room.id}
+                  className={`bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-6 transition-all duration-300 ${
+                    isJoinable ? 'hover:bg-white/20 hover:shadow-2xl hover:scale-105 cursor-pointer' : 'opacity-75'
+                  }`}
+                  onClick={isJoinable ? () => handleJoinRoom(room) : undefined}
+                >
+                  {/* 방 헤더 */}
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="flex items-center space-x-2 flex-1">
+                      <h3 className="font-bold text-xl text-white font-korean truncate">
+                        {room.name}
+                      </h3>
+                      {((room as any).hasPassword || (room as any).isPrivate) && (
+                        <span className="text-yellow-400" title="비밀방">🔒</span>
                       )}
                     </div>
+                    <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getStatusColor(room.status)}`}>
+                      {getStatusText(room.status)}
+                    </span>
                   </div>
-                )}
 
-                <Button
-                  onClick={() => handleJoinRoom(room)}
-                  className="w-full"
-                  variant={room.status === 'waiting' ? 'primary' : 'secondary'}
-                  disabled={
-                    room.status === 'playing' || 
-                    room.currentPlayers >= room.maxPlayers
-                  }
-                >
-                  {room.status === 'waiting' ? '참가하기' : 
-                   room.status === 'playing' ? '게임중' : '참가불가'}
-                </Button>
-              </div>
-            ))}
+                  {/* 플레이어 정보 */}
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-white/70 font-korean text-sm">플레이어</span>
+                      <div className="flex items-center space-x-2">
+                        <span className={`text-lg font-bold ${
+                          isFull ? 'text-red-400' : isJoinable ? 'text-green-400' : 'text-white'
+                        } font-korean`}>
+                          {room.currentPlayers}/{room.maxPlayers}
+                        </span>
+                        <span className="text-white/60">👥</span>
+                      </div>
+                    </div>
+                    
+                      {/* 플레이어 현황 막대 */}
+                    <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden">
+                      <div 
+                        className={`h-full transition-all duration-500 ${
+                          isFull ? 'bg-red-400' : isJoinable ? 'bg-green-400' : 'bg-yellow-400'
+                        }`}
+                        style={{ width: `${(room.currentPlayers / room.maxPlayers) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* 액션 버튼 */}
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleJoinRoom(room);
+                    }}
+                    className="w-full h-12 text-lg font-semibold"
+                    variant={isJoinable ? 'primary' : 'secondary'}
+                    disabled={!isJoinable}
+                  >
+                    {isJoinable ? (
+                      <span className="flex items-center justify-center space-x-2">
+                        <span>🚀</span>
+                        <span className="font-korean">바로 참가</span>
+                      </span>
+                    ) : isFull ? (
+                      <span className="flex items-center justify-center space-x-2">
+                        <span>😞</span>
+                        <span className="font-korean">방이 가득참</span>
+                      </span>
+                    ) : isPlaying ? (
+                      <span className="flex items-center justify-center space-x-2">
+                        <span>🎮</span>
+                        <span className="font-korean">게임 진행중</span>
+                      </span>
+                    ) : (
+                      <span className="font-korean">참가 불가</span>
+                    )}
+                  </Button>
+                </div>
+              );
+            })}
           </div>
         )}
-      </Card.Body>
+      </div>
       
       {/* 비밀번호 입력 모달 */}
       {showPasswordModal.isOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-6 w-full max-w-md shadow-2xl">
-            <h3 className="text-lg font-semibold text-white mb-4 font-korean">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900/95 backdrop-blur-md border border-white/20 rounded-2xl p-8 w-full max-w-md shadow-2xl">
+            <h3 className="text-2xl font-bold text-white mb-4 font-korean text-center">
               🔒 비밀방 입장
             </h3>
-            <p className="text-white/80 mb-4 font-korean">
-              "<span className="font-medium">{showPasswordModal.roomName}</span>" 방은 비밀번호가 필요합니다.
+            <p className="text-white/80 mb-6 font-korean text-center">
+              "<span className="font-semibold text-purple-300">{showPasswordModal.roomName}</span>" 방의 비밀번호를 입력하세요
             </p>
             
             <form onSubmit={(e) => {
@@ -355,13 +318,13 @@ const GameRoomList: React.FC<GameRoomListProps> = ({ onJoinRoom, onCreateRoom })
                 joinRoomWithPassword(showPasswordModal.roomId, showPasswordModal.roomName, passwordInput.trim());
               }
             }}>
-              <div className="mb-4">
+              <div className="mb-6">
                 <input
                   type="password"
                   value={passwordInput}
                   onChange={(e) => setPasswordInput(e.target.value)}
-                  placeholder="비밀번호를 입력하세요"
-                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white placeholder-white/50 backdrop-blur-sm font-korean"
+                  placeholder="비밀번호 입력"
+                  className="w-full px-4 py-4 bg-white/10 border border-white/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white placeholder-white/50 backdrop-blur-sm font-korean text-center text-lg"
                   autoFocus
                   maxLength={20}
                 />
@@ -375,24 +338,24 @@ const GameRoomList: React.FC<GameRoomListProps> = ({ onJoinRoom, onCreateRoom })
                     setPasswordInput('');
                   }}
                   variant="secondary"
-                  className="flex-1"
+                  className="flex-1 py-3 font-korean"
                 >
                   취소
                 </Button>
                 <Button
                   type="submit"
                   variant="primary"
-                  className="flex-1"
+                  className="flex-1 py-3 font-korean bg-gradient-to-r from-purple-600 to-pink-600"
                   disabled={!passwordInput.trim()}
                 >
-                  입장
+                  🚀 입장하기
                 </Button>
               </div>
             </form>
           </div>
         </div>
       )}
-    </Card>
+    </div>
   );
 };
 

@@ -77,7 +77,7 @@ const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="새 게임 방 만들기" size="md">
+    <Modal isOpen={isOpen} onClose={handleClose} title="🎮 새 게임 방 만들기" size="md">
       <form onSubmit={handleSubmit} className="space-y-6">
         <Input
           label="방 이름"
@@ -190,22 +190,37 @@ const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
           </div>
         </div>
 
-        <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg p-4">
-          <h4 className="font-medium text-white mb-2 font-korean">🎯 게임 규칙</h4>
-          <ul className="text-sm text-white/80 space-y-1 font-korean">
-            <li>• 한국어 끝말잇기 게임</li>
-            <li>• 제한시간 30초 안에 단어 입력</li>
-            <li>• 사전에 등록된 단어만 인정</li>
-            <li>• 이미 사용된 단어는 사용 불가</li>
-          </ul>
+        <div className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 backdrop-blur-sm border border-purple-400/30 rounded-xl p-4">
+          <div className="flex items-center mb-3">
+            <span className="text-2xl mr-2">🎯</span>
+            <h4 className="font-semibold text-white font-korean">게임 규칙</h4>
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-sm text-white/90">
+            <div className="flex items-center space-x-2">
+              <span>✅</span>
+              <span className="font-korean">한국어 끝말잇기</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <span>⏱️</span>
+              <span className="font-korean">30초 제한시간</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <span>📚</span>
+              <span className="font-korean">사전 등록 단어</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <span>🙅</span>
+              <span className="font-korean">단어 중복 금지</span>
+            </div>
+          </div>
         </div>
 
-        <div className="flex gap-3 pt-4">
+        <div className="flex gap-3 pt-6">
           <Button
             type="button"
             onClick={handleClose}
             variant="secondary"
-            className="flex-1"
+            className="flex-1 py-3"
             disabled={isLoading}
           >
             취소
@@ -213,11 +228,11 @@ const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
           <Button
             type="submit"
             variant="primary"
-            className="flex-1"
+            className="flex-1 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 font-korean"
             loading={isLoading}
             disabled={!roomName.trim() || isLoading}
           >
-            {isLoading ? '생성 중...' : '방 만들기'}
+            {isLoading ? '🔄 생성 중...' : '🎉 방 만들기'}
           </Button>
         </div>
       </form>

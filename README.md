@@ -9,16 +9,20 @@
 git clone <repository-url>
 cd kkua
 
-# 환경 설정
-cp backend/.env.example backend/.env
+# 데이터베이스 시작
+docker-compose up -d db redis
 
-# Docker 배포 (원클릭)
-./deploy.sh
+# 백엔드 시작 (터미널 1)
+cd backend
+python -m uvicorn main:app --reload
+
+# 프론트엔드 시작 (터미널 2)
+cd frontend
+npm run dev
 
 # 서비스 확인
-# 프론트엔드: http://localhost:3000
+# 프론트엔드: http://localhost:5173
 # 백엔드: http://localhost:8000
-# API 문서: http://localhost:8000/docs
 ```
 
 ## 💻 개발 환경
@@ -29,17 +33,17 @@ cp backend/.env.example backend/.env
 
 ### 주요 명령어
 ```bash
-# 서비스 시작
-./deploy.sh
+# 데이터베이스만 시작
+docker-compose up -d db redis
 
-# 서비스 중지  
-./stop.sh
+# 백엔드 개발 서버
+cd backend && python -m uvicorn main:app --reload
 
-# 로그 확인
-docker-compose logs -f
+# 프론트엔드 개발 서버
+cd frontend && npm run dev
 
-# 테스트 실행
-docker-compose run --rm backend-test
+# 빌드 테스트
+npm run build
 ```
 
 ## 🏗 기술 스택

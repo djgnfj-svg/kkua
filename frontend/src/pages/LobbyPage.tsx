@@ -77,55 +77,40 @@ const LobbyPage: React.FC = () => {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative z-10">
-        <div className="mb-12 text-center animate-slide-up">
-          <h2 className="text-4xl font-bold bg-gradient-to-r from-white to-purple-200 bg-clip-text text-transparent mb-4 font-korean">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
+        <div className="mb-8 text-center animate-slide-up">
+          <h2 className="text-3xl font-bold bg-gradient-to-r from-white to-purple-200 bg-clip-text text-transparent mb-2 font-korean">
             🎮 게임 로비
           </h2>
-          <p className="text-xl text-white/80 font-korean">
-            친구들과 함께 한국어 끝말잇기를 즐겨보세요!
+          <p className="text-lg text-white/80 font-korean">
+            방을 만들거나 참가해서 끝말잇기를 시작하세요!
           </p>
-          <div className="mt-4 w-24 h-1 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full mx-auto shadow-lg shadow-purple-500/50"></div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12 animate-scale-in" style={{ animationDelay: '0.2s' }}>
-          <div className="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 shadow-xl p-6 hover:scale-105 transition-all duration-300 hover:bg-white/20">
-            <div className="flex items-center">
-              <div className="p-4 rounded-2xl bg-gradient-to-br from-purple-500/20 to-purple-600/20 text-purple-300 shadow-inner border border-purple-400/30">
-                <span className="text-2xl">🏠</span>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-semibold text-white/70 font-korean">활성 방</p>
-                <p className="text-3xl font-bold text-white">-</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 shadow-xl p-6 hover:scale-105 transition-all duration-300 hover:bg-white/20">
-            <div className="flex items-center">
-              <div className="p-4 rounded-2xl bg-gradient-to-br from-green-500/20 to-green-600/20 text-green-300 shadow-inner border border-green-400/30">
-                <span className="text-2xl">👥</span>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-semibold text-white/70 font-korean">온라인 플레이어</p>
-                <p className="text-3xl font-bold text-white">-</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 shadow-xl p-6 hover:scale-105 transition-all duration-300 hover:bg-white/20">
-            <div className="flex items-center">
-              <div className="p-4 rounded-2xl bg-gradient-to-br from-orange-500/20 to-orange-600/20 text-orange-300 shadow-inner border border-orange-400/30">
-                <span className="text-2xl">🎯</span>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-semibold text-white/70 font-korean">진행중인 게임</p>
-                <p className="text-3xl font-bold text-white">-</p>
-              </div>
-            </div>
+        {/* 빠른 시작 버튼 */}
+        <div className="mb-8 text-center">
+          <Button
+            onClick={handleCreateRoom}
+            variant="primary"
+            size="lg"
+            className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white text-lg px-8 py-4 rounded-2xl shadow-xl shadow-purple-500/25 transform hover:scale-105 transition-all duration-300 font-korean"
+          >
+            ➕ 새 게임 방 만들기
+          </Button>
+          <p className="mt-2 text-white/60 text-sm font-korean">가장 빠른 시작 방법!</p>
+        </div>
+
+        {/* 게임 방법 간단 안내 */}
+        <div className="mb-8 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 p-6 text-center">
+          <h3 className="text-lg font-semibold text-white mb-3 font-korean">🎯 게임 방법</h3>
+          <div className="flex flex-wrap justify-center gap-4 text-sm text-white/80">
+            <span className="bg-white/10 px-3 py-1 rounded-full font-korean">1️⃣ 방 참가</span>
+            <span className="bg-white/10 px-3 py-1 rounded-full font-korean">2️⃣ 끝말잇기</span>
+            <span className="bg-white/10 px-3 py-1 rounded-full font-korean">3️⃣ 30초 제한</span>
+            <span className="bg-white/10 px-3 py-1 rounded-full font-korean">4️⃣ 최후 1인</span>
           </div>
         </div>
+
 
         {/* Game Room List */}
         <GameRoomList
@@ -133,73 +118,6 @@ const LobbyPage: React.FC = () => {
           onCreateRoom={handleCreateRoom}
         />
 
-        {/* Quick Start Section */}
-        <div className="mt-12 bg-gradient-to-br from-primary-500 via-primary-600 to-secondary-600 rounded-3xl shadow-glow-lg text-white p-10 relative overflow-hidden animate-fade-in" style={{ animationDelay: '0.6s' }}>
-          {/* Background decoration */}
-          <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full transform translate-x-1/2 -translate-y-1/2"></div>
-          <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/10 rounded-full transform -translate-x-1/2 translate-y-1/2"></div>
-          
-          <div className="max-w-4xl relative z-10">
-            <div className="flex items-center mb-6">
-              <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center mr-4">
-                <span className="text-2xl">🚀</span>
-              </div>
-              <h3 className="text-3xl font-bold font-korean">빠른 시작 가이드</h3>
-            </div>
-            
-            <div className="grid md:grid-cols-2 gap-8">
-              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
-                <div className="flex items-center mb-4">
-                  <span className="text-2xl mr-3">🎯</span>
-                  <h4 className="text-xl font-semibold font-korean">게임 방법</h4>
-                </div>
-                <ul className="space-y-3 text-sm">
-                  <li className="flex items-center">
-                    <span className="w-2 h-2 bg-white/60 rounded-full mr-3"></span>
-                    <span className="font-korean">방을 만들거나 기존 방에 참가</span>
-                  </li>
-                  <li className="flex items-center">
-                    <span className="w-2 h-2 bg-white/60 rounded-full mr-3"></span>
-                    <span className="font-korean">차례대로 끝말잇기 단어 입력</span>
-                  </li>
-                  <li className="flex items-center">
-                    <span className="w-2 h-2 bg-white/60 rounded-full mr-3"></span>
-                    <span className="font-korean">30초 안에 답해야 함</span>
-                  </li>
-                  <li className="flex items-center">
-                    <span className="w-2 h-2 bg-white/60 rounded-full mr-3"></span>
-                    <span className="font-korean">마지막까지 살아남으면 승리!</span>
-                  </li>
-                </ul>
-              </div>
-              
-              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
-                <div className="flex items-center mb-4">
-                  <span className="text-2xl mr-3">💡</span>
-                  <h4 className="text-xl font-semibold font-korean">게임 팁</h4>
-                </div>
-                <ul className="space-y-3 text-sm">
-                  <li className="flex items-center">
-                    <span className="w-2 h-2 bg-white/60 rounded-full mr-3"></span>
-                    <span className="font-korean">어려운 끝말자로 끝나는 단어 사용</span>
-                  </li>
-                  <li className="flex items-center">
-                    <span className="w-2 h-2 bg-white/60 rounded-full mr-3"></span>
-                    <span className="font-korean">사전에 등록된 단어만 인정</span>
-                  </li>
-                  <li className="flex items-center">
-                    <span className="w-2 h-2 bg-white/60 rounded-full mr-3"></span>
-                    <span className="font-korean">이미 사용된 단어는 재사용 불가</span>
-                  </li>
-                  <li className="flex items-center">
-                    <span className="w-2 h-2 bg-white/60 rounded-full mr-3"></span>
-                    <span className="font-korean">한방단어(ㄴ, ㄹ 등)는 즉시 승리!</span>
-                  </li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </div>
       </main>
 
       {/* Create Room Modal */}

@@ -7,7 +7,6 @@ interface PlayerStats {
   nickname: string;
   score: number;
   words_submitted: number;
-  max_combo: number;
   items_used: number;
 }
 
@@ -86,7 +85,6 @@ export const GameReport: React.FC<GameReportProps> = ({
                 </div>
                 <div className="text-right text-sm text-gray-600">
                   <div>단어: {player.words_submitted}개</div>
-                  <div>콤보: {player.max_combo}</div>
                 </div>
               </div>
             ))}
@@ -97,7 +95,7 @@ export const GameReport: React.FC<GameReportProps> = ({
         {currentPlayerStats && (
           <div className="p-6 border-b">
             <h3 className="text-xl font-bold mb-4">📊 나의 게임 통계</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               <div className="bg-blue-50 p-4 rounded-lg text-center">
                 <div className="text-2xl font-bold text-blue-600">
                   {currentPlayerStats.score.toLocaleString()}
@@ -109,12 +107,6 @@ export const GameReport: React.FC<GameReportProps> = ({
                   {currentPlayerStats.words_submitted}
                 </div>
                 <div className="text-sm text-gray-600">제출한 단어</div>
-              </div>
-              <div className="bg-purple-50 p-4 rounded-lg text-center">
-                <div className="text-2xl font-bold text-purple-600">
-                  {currentPlayerStats.max_combo}
-                </div>
-                <div className="text-sm text-gray-600">최대 콤보</div>
               </div>
               <div className="bg-orange-50 p-4 rounded-lg text-center">
                 <div className="text-2xl font-bold text-orange-600">
