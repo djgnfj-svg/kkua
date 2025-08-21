@@ -1424,19 +1424,17 @@ class GameEventHandler:
                 }
             }, exclude_user=user_id)
             
-            # 게임 강제 종료
-            game_state.status = "finished"
-            game_state.ended_at = datetime.now(timezone.utc).isoformat()
-            await self.redis_manager.save_game_state(game_state)
-            
             # 타이머 정리
             await self.timer_service.cancel_room_timers(room_id)
+            
+            # Redis에서 게임 상태 직접 삭제
+            await self.redis_manager.delete_game_state(room_id)
             
             # 잠시 후 모든 플레이어를 로비로 이동
             asyncio.create_task(self._delayed_room_cleanup(room_id, 5))
             
-            logger.info(f"방장 게임 중 나가기로 인한 게임 종료: room_id={room_id}")
-            return True, "방장 나가기로 게임 종료"
+            logger.info(f"방장 게임 중 나가기로 인한 방 삭제: room_id={room_id}")
+            return False, "방장 나가기로 방 삭제"  # False를 반환하여 추가 처리 방지
             
         except Exception as e:
             logger.error(f"방장 게임 중 나가기 처리 오류: {e}")
@@ -1447,10 +1445,13 @@ class GameEventHandler:
         try:
             remaining_players = [p for p in game_state.players if p.user_id != user_id]
             
-            if remaining_players:
+            if len(remaining_players) > 0:
                 # 다음 플레이어를 새로운 방장으로 임명
                 new_host = remaining_players[0]
                 new_host.is_host = True
+                
+                # 나가는 플레이어를 게임 상태에서 제거 
+                game_state.remove_player(user_id)
                 
                 # 방장 변경 알림
                 await self.websocket_manager.broadcast_to_room(room_id, {
@@ -1467,10 +1468,25 @@ class GameEventHandler:
                 await self.redis_manager.save_game_state(game_state)
                 
                 logger.info(f"방장 변경: {nickname} -> {new_host.nickname}")
-                return True, f"방장 변경됨: {new_host.nickname}"
+                return False, f"방장 변경 및 플레이어 제거 완료"  # False로 중복 처리 방지
             else:
                 # 마지막 플레이어이므로 방 삭제
-                return True, "빈 방으로 삭제"
+                logger.info(f"방장이 마지막 플레이어로 나가므로 방 삭제: room_id={room_id}")
+                
+                # Redis에서 게임 상태 직접 삭제
+                await self.redis_manager.delete_game_state(room_id)
+                
+                # 방 해산 알림 (다른 사용자가 있다면)
+                await self.websocket_manager.broadcast_to_room(room_id, {
+                    "type": "room_disbanded",
+                    "data": {
+                        "room_id": room_id,
+                        "message": f"방장 {nickname}님이 나가서 방이 해산되었습니다.",
+                        "action": "redirect_to_lobby"
+                    }
+                }, exclude_user=user_id)
+                
+                return False, "방 삭제 완료"  # False를 반환하여 추가 처리 방지
                 
         except Exception as e:
             logger.error(f"방장 게임 전 나가기 처리 오류: {e}")
@@ -1498,17 +1514,18 @@ class GameEventHandler:
                         "action": "game_won"
                     }
                 }, exclude_user=user_id)
-            
-            # 게임 종료 처리
-            game_state.status = "finished"
-            game_state.ended_at = datetime.now(timezone.utc).isoformat()
-            await self.redis_manager.save_game_state(game_state)
+                
+                # 5초 후 승리자도 로비로 이동하므로 방 삭제
+                asyncio.create_task(self._delayed_room_deletion(room_id, 7))
+            else:
+                # 남은 플레이어가 없으면 즉시 방 삭제
+                await self.redis_manager.delete_game_state(room_id)
             
             # 타이머 정리
             await self.timer_service.cancel_room_timers(room_id)
             
-            logger.info(f"상대방 나가기로 인한 승리 처리: winner={remaining_player.nickname if remaining_player else 'None'}")
-            return True, "상대방 나가기로 승리"
+            logger.info(f"상대방 나가기로 인한 승리 처리 및 방 삭제 예약: winner={remaining_player.nickname if remaining_player else 'None'}")
+            return False, "상대방 나가기로 방 삭제 예약"  # False를 반환하여 중복 처리 방지
             
         except Exception as e:
             logger.error(f"마지막 상대 나가기 처리 오류: {e}")
@@ -1601,6 +1618,19 @@ class GameEventHandler:
             
         except Exception as e:
             logger.error(f"지연된 방 정리 오류: {e}")
+    
+    async def _delayed_room_deletion(self, room_id: str, delay_seconds: int):
+        """지연된 방 삭제"""
+        try:
+            await asyncio.sleep(delay_seconds)
+            
+            # Redis에서 방 완전 삭제
+            await self.redis_manager.delete_game_state(room_id)
+            
+            logger.info(f"지연된 방 삭제 완료: room_id={room_id}")
+            
+        except Exception as e:
+            logger.error(f"지연된 방 삭제 오류: {e}")
 
 
 # 전역 게임 핸들러 인스턴스

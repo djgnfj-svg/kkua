@@ -251,11 +251,7 @@ class WebSocketManager:
             
             should_continue, reason = await game_handler.handle_advanced_leave_room(room_id, user_id, nickname)
             
-            if not should_continue:
-                logger.info(f"방 나가기 처리 중단: {reason}")
-                return False
-            
-            # 기본 연결 정리
+            # 기본 연결 정리 (항상 수행)
             if user_id in self.user_rooms and self.user_rooms[user_id] == room_id:
                 del self.user_rooms[user_id]
             
@@ -269,7 +265,12 @@ class WebSocketManager:
             if connection:
                 connection.room_id = None
             
-            # Redis에서 플레이어 제거
+            if not should_continue:
+                # 방이 이미 삭제되었거나 특별 처리됨
+                logger.info(f"방 나가기 특별 처리 완료: {reason}")
+                return True
+            
+            # Redis에서 플레이어 제거 (방이 삭제되지 않은 경우만)
             await self.redis_manager.remove_player_from_game(room_id, user_id)
             
             logger.info(f"룸 나가기: user_id={user_id}, room_id={room_id}")

@@ -438,10 +438,17 @@ class RedisGameManager:
         """게임 상태 삭제"""
         try:
             key = self._get_game_key(room_id)
-            self.redis.delete(key)
+            timer_key = self._get_timer_key(room_id)
+            
+            # 게임 상태와 타이머 모두 삭제
+            result = self.redis.delete(key, timer_key)
+            
+            logger = logging.getLogger(__name__)
+            logger.info(f"방 삭제 완료: room_id={room_id}, 삭제된 키: {result}개")
             return True
         except Exception as e:
-            print(f"게임 상태 삭제 실패: {e}")
+            logger = logging.getLogger(__name__)
+            logger.error(f"게임 상태 삭제 실패: {e}")
             return False
 
     async def save_timer(self, room_id: str, timer: GameTimer) -> bool:
