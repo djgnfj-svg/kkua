@@ -33,10 +33,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with th
 - **Pydantic** - 데이터 검증
 
 ### 프론트엔드
-- **React** - UI 프레임워크
+- **React 19** - UI 프레임워크
+- **TypeScript** - 타입 안전성
+- **Vite** - 빌드 도구
 - **Zustand** - 상태 관리
 - **WebSocket** - 실시간 통신
 - **TailwindCSS** - 스타일링
+- **React Router** - 라우팅
 
 ### 배포
 - **Docker Compose** - 컨테이너 오케스트레이션
@@ -71,81 +74,89 @@ This file provides guidance to Claude Code (claude.ai/code) when working with th
 ```
 backend/
 ├── main.py                          # FastAPI 앱 진입점
+├── auth.py                          # JWT 인증 로직
+├── database.py                      # 데이터베이스 설정
+├── redis_models.py                  # Redis 모델
 ├── requirements.txt                 # Python 의존성
 ├── Dockerfile                       # Docker 설정
-├── .env                            # 환경 변수
+├── database_schema.sql              # 데이터베이스 스키마
 ├── models/                         # SQLAlchemy 모델
 │   ├── __init__.py
+│   ├── base.py
 │   ├── user_models.py
 │   ├── game_models.py
 │   ├── item_models.py
+│   ├── log_models.py
 │   └── dictionary_models.py
-├── repositories/                   # 데이터 접근 계층
+├── scripts/                        # 초기화 스크립트
 │   ├── __init__.py
-│   ├── user_repository.py
-│   ├── game_repository.py
-│   └── dictionary_repository.py
+│   ├── init_data.py
+│   ├── extended_words.py
+│   └── healthcheck.py
 ├── services/                       # 비즈니스 로직
 │   ├── __init__.py
 │   ├── game_engine.py
 │   ├── word_validator.py
-│   ├── item_system.py
+│   ├── item_service.py
 │   ├── timer_service.py
 │   ├── score_calculator.py
-│   ├── game_logger.py
-│   └── report_generator.py
-├── websocket/                      # WebSocket 관련
-│   ├── __init__.py
-│   ├── connection_manager.py
-│   ├── message_router.py
-│   └── game_handler.py
-├── schemas/                        # Pydantic 스키마
-│   ├── __init__.py
-│   ├── user_schemas.py
-│   ├── game_schemas.py
-│   └── websocket_schemas.py
-└── tests/                         # 테스트
+│   ├── analytics_service.py
+│   ├── cache_service.py
+│   └── game_mode_service.py
+└── websocket/                      # WebSocket 관련
     ├── __init__.py
-    ├── test_models.py
-    ├── test_services.py
-    └── test_websocket.py
+    ├── connection_manager.py
+    ├── message_router.py
+    ├── game_handler.py
+    └── websocket_endpoint.py
 ```
 
-### 프론트엔드 구조 (Phase 6에서 생성)
+### 프론트엔드 구조 (TypeScript + Vite)
 ```
 frontend/
 ├── public/
-│   ├── index.html
-│   └── favicon.ico
+│   └── vite.svg
 ├── src/
 │   ├── components/
-│   │   ├── Game/
-│   │   │   ├── GameBoard.js
-│   │   │   ├── WordInput.js
-│   │   │   ├── Timer.js
-│   │   │   ├── PlayerList.js
-│   │   │   ├── ItemPanel.js
-│   │   │   └── GameReport.js
-│   │   └── UI/
-│   │       ├── Loading.js
-│   │       └── ErrorBoundary.js
+│   │   ├── ChatPanel.tsx
+│   │   ├── CreateRoomModal.tsx
+│   │   ├── GameReport.tsx
+│   │   ├── GameRoomList.tsx
+│   │   ├── ItemPanel.tsx
+│   │   ├── LoginForm.tsx
+│   │   ├── Toast.tsx
+│   │   └── ui/
+│   │       ├── Button.tsx
+│   │       ├── Card.tsx
+│   │       ├── ErrorBoundary.tsx
+│   │       ├── Input.tsx
+│   │       ├── Loading.tsx
+│   │       ├── Modal.tsx
+│   │       └── Skeleton.tsx
 │   ├── hooks/
-│   │   ├── useGameWebSocket.js
-│   │   ├── useGameState.js
-│   │   ├── useTimer.js
-│   │   └── useItems.js
+│   │   ├── useNativeWebSocket.ts
+│   │   ├── useNavigationProtection.ts
+│   │   ├── usePersistedState.ts
+│   │   └── useWebSocket.ts
+│   ├── pages/
+│   │   ├── GameRoomPage.tsx
+│   │   ├── LobbyPage.tsx
+│   │   └── LoginPage.tsx
 │   ├── stores/
-│   │   ├── gameStore.js
-│   │   ├── userStore.js
-│   │   └── uiStore.js
+│   │   ├── useGameStore.ts
+│   │   ├── useUiStore.ts
+│   │   └── useUserStore.ts
+│   ├── types/
+│   │   └── game.ts
 │   ├── utils/
-│   │   ├── websocket.js
-│   │   ├── gameUtils.js
-│   │   └── validation.js
-│   ├── App.js
-│   ├── index.js
-│   └── index.css
+│   │   ├── api.ts
+│   │   └── tabCommunication.ts
+│   ├── App.tsx
+│   ├── Router.tsx
+│   └── main.tsx
 ├── package.json
+├── vite.config.ts
+├── tsconfig.json
 ├── tailwind.config.js
 └── Dockerfile
 ```
@@ -227,13 +238,18 @@ cd frontend
 npm install
 ```
 
-### Docker 개발 환경
+### ⚠️ 개발 환경 옵션
+
+#### Option 1: Docker 개발 환경 (권장)
 ```bash
 # 전체 서비스 시작
 docker-compose up -d
 
-# 백엔드만 시작
+# 백엔드만 시작 (데이터베이스 포함)
 docker-compose up -d backend db redis
+
+# 프론트엔드만 시작 (profile 사용)
+docker-compose --profile frontend up -d frontend
 
 # 로그 확인
 docker-compose logs -f backend
@@ -242,6 +258,41 @@ docker-compose logs -f frontend
 # 서비스 중지
 docker-compose down
 ```
+
+#### Option 2: 혼합 개발 환경
+```bash
+# 데이터베이스만 Docker로 시작
+docker-compose up -d db redis
+
+# 백엔드 로컬 실행 (터미널 1)
+cd backend
+python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+# 프론트엔드 로컬 실행 (터미널 2) 
+cd frontend
+npm run dev
+```
+
+**참고:** README.md의 빠른 시작 가이드는 혼합 환경을 사용하므로 상황에 따라 선택
+
+### 배포 명령어
+```bash
+# 프로덕션 빌드 및 배포 (Lightsail)
+DB_PASSWORD=test docker-compose -f docker-compose.lightsail.yml build frontend
+
+# 프로덕션 환경 시작
+docker-compose -f docker-compose.lightsail.yml up -d
+
+# 시크릿 키 생성
+./generate-secrets.sh
+
+# 로그 확인 (프로덕션)
+docker-compose -f docker-compose.lightsail.yml logs -f
+```
+
+**배포 가이드 참고:**
+- `DEPLOYMENT_GUIDE.md` - AWS Lightsail 배포 상세 가이드
+- `LIGHTSAIL_DEPLOY.md` - Lightsail 특화 배포 가이드
 
 ### 데이터베이스
 ```bash
@@ -258,16 +309,31 @@ docker exec kkua-redis-1 redis-cli monitor
 docker exec kkua-redis-1 redis-cli FLUSHDB
 ```
 
-### 테스트
+### 테스트 및 빌드
 ```bash
 # 백엔드 테스트
 cd backend
-python -m pytest tests/ -v --cov=. --cov-report=html
+python -m pytest tests/ -v
 
-# 프론트엔드 테스트 (Phase 6에서)
+# 프론트엔드 린트 검사
 cd frontend
-npm test
-npm run test:coverage
+npm run lint
+
+# 프론트엔드 타입 체크
+cd frontend
+npx tsc -b
+
+# 프론트엔드 빌드 테스트
+cd frontend
+npm run build
+
+# 프론트엔드 개발 서버 시작
+cd frontend
+npm run dev
+
+# 프론트엔드 프리뷰 (빌드 결과)
+cd frontend  
+npm run preview
 ```
 
 ## 코딩 규칙
@@ -279,12 +345,14 @@ npm run test:coverage
 - **로깅**: 중요 이벤트 로그 기록
 - **문서화**: docstring 작성
 
-### 프론트엔드 (React)
+### 프론트엔드 (React + TypeScript)
 - **함수형 컴포넌트**: hooks 사용
-- **타입 안전성**: PropTypes 또는 TypeScript
+- **타입 안전성**: TypeScript 엄격 모드
 - **상태 관리**: Zustand 사용
 - **스타일링**: TailwindCSS 클래스 사용
 - **에러 처리**: ErrorBoundary 활용
+- **라우팅**: React Router 사용
+- **빌드 도구**: Vite 사용
 
 ### 공통 규칙
 - **보안**: 모든 사용자 입력 검증
@@ -311,14 +379,15 @@ ENVIRONMENT=development
 DEBUG=true
 
 # CORS
-CORS_ORIGINS=http://localhost:3000,http://localhost:8080
+CORS_ORIGINS=http://localhost:3000,http://localhost:5173
 ```
 
-### 프론트엔드
+### 프론트엔드 (Vite)
 ```bash
 # API 연결
-REACT_APP_API_URL=http://localhost:8000
-REACT_APP_WS_URL=ws://localhost:8000/ws
+VITE_API_URL=http://localhost:8000
+VITE_WS_URL=ws://localhost:8000
+VITE_DEBUG=true
 
 # 개발 설정
 CHOKIDAR_USEPOLLING=true
