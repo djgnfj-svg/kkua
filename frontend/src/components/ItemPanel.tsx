@@ -27,11 +27,11 @@ interface ItemPanelProps {
 }
 
 const rarityColors = {
-  common: 'bg-gray-100 border-gray-300 text-gray-800',
-  uncommon: 'bg-green-100 border-green-300 text-green-800', 
-  rare: 'bg-blue-100 border-blue-300 text-blue-800',
-  epic: 'bg-purple-100 border-purple-300 text-purple-800',
-  legendary: 'bg-yellow-100 border-yellow-300 text-yellow-800'
+  common: 'bg-gray-500/20 border-gray-400/30 text-gray-300',
+  uncommon: 'bg-green-500/20 border-green-400/30 text-green-300', 
+  rare: 'bg-blue-500/20 border-blue-400/30 text-blue-300',
+  epic: 'bg-purple-500/20 border-purple-400/30 text-purple-300',
+  legendary: 'bg-yellow-500/20 border-yellow-400/30 text-yellow-300'
 };
 
 const rarityIcons = {
@@ -144,71 +144,81 @@ export const ItemPanel: React.FC<ItemPanelProps> = ({
   };
 
   return (
-    <Card>
-      <Card.Header>
+    <div className="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 shadow-xl overflow-hidden">
+      <div className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 p-4 border-b border-white/20">
         <div className="flex items-center justify-between">
-          <h3 className="text-base sm:text-lg font-semibold">🎒 아이템</h3>
+          <div className="flex items-center space-x-3">
+            <span className="text-2xl">🎒</span>
+            <h3 className="text-lg font-bold text-white font-korean">아이템</h3>
+          </div>
           <Button
-            variant="secondary"
+            variant="glass"
             size="sm"
             onClick={loadInventory}
             disabled={loading}
+            className="text-white border-white/30 hover:bg-white/20"
           >
-            {loading ? '⟳' : '🔄'}
+            {loading ? <span className="animate-spin">⟳</span> : '🔄'}
           </Button>
         </div>
-      </Card.Header>
+      </div>
       
-      <Card.Body>
+      <div className="p-4">
         {loading ? (
-          <div className="text-center py-4 text-gray-500">
-            아이템 로딩 중...
+          <div className="text-center py-8">
+            <div className="animate-spin w-8 h-8 border-2 border-white/20 border-t-white rounded-full mx-auto mb-3"></div>
+            <p className="text-white/60 text-sm font-korean">아이템 로딩 중...</p>
           </div>
         ) : inventory.length === 0 ? (
-          <div className="text-center py-4 text-gray-500">
-            보유한 아이템이 없습니다
+          <div className="text-center py-8">
+            <span className="text-4xl mb-4 block">📦</span>
+            <p className="text-white/60 text-sm font-korean">보유한 아이템이 없습니다</p>
           </div>
         ) : (
-          <div className="space-y-2 max-h-56 sm:max-h-64 overflow-y-auto">
+          <div className="space-y-3 max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
             {inventory.map((item) => (
               <div
                 key={item.id}
-                className={`border rounded-lg p-2 sm:p-3 ${rarityColors[item.rarity as keyof typeof rarityColors] || 'bg-gray-50'}`}
+                className={`border rounded-xl p-4 transition-all duration-300 hover:scale-105 ${
+                  rarityColors[item.rarity as keyof typeof rarityColors] || 'bg-gray-500/20 border-gray-400/30 text-gray-300'
+                } backdrop-blur-sm`}
               >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center space-x-2">
-                    <span>{rarityIcons[item.rarity as keyof typeof rarityIcons] || '⚫'}</span>
-                    <span className="font-semibold text-xs sm:text-sm truncate">{item.name}</span>
-                    <span className="text-xs bg-white bg-opacity-50 px-1 sm:px-2 py-1 rounded-full flex-shrink-0">
-                      x{item.quantity}
-                    </span>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center space-x-3">
+                    <span className="text-lg">{rarityIcons[item.rarity as keyof typeof rarityIcons] || '⚫'}</span>
+                    <div className="flex-1">
+                      <span className="font-bold text-sm truncate block font-korean">{item.name}</span>
+                      <span className="text-xs px-2 py-1 bg-white/20 rounded-full font-medium">
+                        x{item.quantity}
+                      </span>
+                    </div>
                   </div>
                   
                   {item.quantity > 0 && (
                     <Button
                       size="sm"
-                      variant="primary"
+                      variant={item.cooldown_remaining && item.cooldown_remaining > 0 ? 'secondary' : 'primary'}
                       onClick={() => handleItemUse(item)}
                       disabled={
                         !isGameActive || 
                         (item.cooldown_remaining && item.cooldown_remaining > 0) ||
                         (!isMyTurn && item.effect_type !== 'freeze_opponent')
                       }
-                      className="px-2 py-1 text-xs"
+                      className="px-3 py-1 text-xs font-bold"
                     >
                       {item.cooldown_remaining && item.cooldown_remaining > 0 
                         ? `${item.cooldown_remaining}s` 
-                        : '사용'
+                        : '🚀 사용'
                       }
                     </Button>
                   )}
                 </div>
                 
-                <div className="text-xs opacity-80 mb-1">
+                <div className="text-xs mb-2 font-korean opacity-90">
                   {getItemEffectDescription(item)}
                 </div>
                 
-                <div className="text-xs opacity-60">
+                <div className="text-xs opacity-70 font-korean">
                   쿨다운: {item.cooldown_seconds}초
                 </div>
               </div>
@@ -217,12 +227,13 @@ export const ItemPanel: React.FC<ItemPanelProps> = ({
         )}
 
         {!isGameActive && inventory.length > 0 && (
-          <div className="mt-3 text-xs text-center text-gray-500 bg-yellow-50 p-2 rounded">
-            💡 게임 중에만 아이템을 사용할 수 있습니다
+          <div className="mt-4 text-xs text-center text-yellow-300 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 backdrop-blur-sm p-3 rounded-xl border border-yellow-400/30">
+            <span className="text-lg mr-2">💡</span>
+            <span className="font-korean">게임 중에만 아이템을 사용할 수 있습니다</span>
           </div>
         )}
-      </Card.Body>
-    </Card>
+      </div>
+    </div>
   );
 };
 

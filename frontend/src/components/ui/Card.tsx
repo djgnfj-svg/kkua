@@ -35,10 +35,10 @@ const Card: React.FC<CardProps> & {
   const baseClasses = 'rounded-2xl transition-all duration-300 ease-out';
   
   const variantClasses = {
-    default: 'bg-white shadow-lg border border-secondary-200/50 hover:shadow-xl',
-    glass: 'bg-white/80 backdrop-blur-md shadow-glass border border-white/30 hover:bg-white/90',
-    elevated: 'bg-white shadow-2xl border-0 hover:shadow-3xl transform hover:-translate-y-1',
-    gradient: 'bg-gradient-to-br from-white to-secondary-50 shadow-lg border border-secondary-200/30 hover:shadow-xl'
+    default: 'bg-white/10 backdrop-blur-md shadow-xl border border-white/20 hover:shadow-2xl',
+    glass: 'bg-white/10 backdrop-blur-md shadow-glass border border-white/20 hover:bg-white/20',
+    elevated: 'bg-white/10 backdrop-blur-md shadow-2xl border border-white/20 hover:shadow-3xl transform hover:-translate-y-1',
+    gradient: 'bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-md shadow-lg border border-white/20 hover:shadow-xl'
   };
   
   const hoverClasses = hover ? 'hover:scale-[1.02] cursor-pointer' : '';
@@ -58,7 +58,7 @@ const Card: React.FC<CardProps> & {
 };
 
 const CardHeader: React.FC<CardHeaderProps> = ({ children, className = '' }) => {
-  const baseClasses = 'px-6 py-5 border-b border-secondary-200/60';
+  const baseClasses = 'px-6 py-5 border-b border-white/20 bg-gradient-to-r from-purple-500/10 to-pink-500/10';
   const classes = [baseClasses, className].join(' ');
 
   return (
@@ -80,7 +80,7 @@ const CardBody: React.FC<CardBodyProps> = ({ children, className = '' }) => {
 };
 
 const CardFooter: React.FC<CardFooterProps> = ({ children, className = '' }) => {
-  const baseClasses = 'px-6 py-5 border-t border-secondary-200/60 bg-secondary-50/50 rounded-b-2xl';
+  const baseClasses = 'px-6 py-5 border-t border-white/20 bg-white/5 rounded-b-2xl';
   const classes = [baseClasses, className].join(' ');
 
   return (

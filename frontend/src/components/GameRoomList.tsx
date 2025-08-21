@@ -124,8 +124,8 @@ const GameRoomList: React.FC<GameRoomListProps> = ({ onJoinRoom, onCreateRoom })
       <Card.Header>
         <div className="flex justify-between items-center mb-4">
           <div>
-            <h2 className="text-xl font-semibold">게임 방 목록</h2>
-            <p className="text-gray-600 text-sm mt-1">
+            <h2 className="text-xl font-semibold text-white">게임 방 목록</h2>
+            <p className="text-white/70 text-sm mt-1">
               {user?.nickname}님, 게임 방을 선택하거나 새로 만드세요
             </p>
           </div>

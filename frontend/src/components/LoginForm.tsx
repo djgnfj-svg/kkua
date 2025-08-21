@@ -59,10 +59,10 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
     <Card className="w-full max-w-lg mx-auto" variant="glass" hover>
       <Card.Header>
         <div className="text-center">
-          <h2 className="text-3xl font-bold text-secondary-900 mb-3 font-korean">
+          <h2 className="text-3xl font-bold text-white mb-3 font-korean">
             게임 시작
           </h2>
-          <p className="text-secondary-600 font-korean">닉네임을 입력하고 게임에 참가하세요</p>
+          <p className="text-white/70 font-korean">닉네임을 입력하고 게임에 참가하세요</p>
         </div>
       </Card.Header>
 
@@ -100,17 +100,17 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
         </form>
 
         <div className="mt-8 text-center">
-          <div className="inline-flex items-center justify-center space-x-6 text-sm text-secondary-500 bg-secondary-50/50 rounded-2xl px-6 py-4 backdrop-blur-sm">
+          <div className="inline-flex items-center justify-center space-x-6 text-sm text-white/70 bg-white/10 rounded-2xl px-6 py-4 backdrop-blur-sm border border-white/20">
             <div className="flex items-center space-x-2">
               <span className="text-lg">🎯</span>
               <span className="font-korean">멀티플레이어</span>
             </div>
-            <div className="w-px h-4 bg-secondary-300"></div>
+            <div className="w-px h-4 bg-white/30"></div>
             <div className="flex items-center space-x-2">
               <span className="text-lg">⚡</span>
               <span className="font-korean">빠른 시작</span>
             </div>
-            <div className="w-px h-4 bg-secondary-300"></div>
+            <div className="w-px h-4 bg-white/30"></div>
             <div className="flex items-center space-x-2">
               <span className="text-lg">🚀</span>
               <span className="font-korean">회원가입 없음</span>
