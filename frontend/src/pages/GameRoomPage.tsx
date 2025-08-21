@@ -69,6 +69,23 @@ const GameRoomPage: React.FC = () => {
     message: string;
     isChecking: boolean;
   }>({ isValid: true, message: '', isChecking: false });
+  
+  // 시각적 효과 상태
+  const [visualEffects, setVisualEffects] = useState<{
+    wordSubmitEffect: 'none' | 'success' | 'error' | 'shake';
+    showScoreAnimation: boolean;
+    scoreAnimationValue: number;
+    comboEffect: 'none' | 'fire' | 'diamond' | 'lightning';
+    turnTransition: boolean;
+    gameEndCelebration: 'none' | 'victory' | 'game_over';
+  }>({ 
+    wordSubmitEffect: 'none', 
+    showScoreAnimation: false, 
+    scoreAnimationValue: 0,
+    comboEffect: 'none',
+    turnTransition: false,
+    gameEndCelebration: 'none'
+  });
 
   // 타이머 카운트다운 (서버 동기화)
   useEffect(() => {
@@ -315,6 +332,15 @@ const GameRoomPage: React.FC = () => {
     console.log('📝 Word submitted:', data);
     
     if (data.status === 'accepted') {
+      // 성공한 단어 제출 - 성공 애니메이션 효과
+      setVisualEffects(prev => ({ 
+        ...prev, 
+        wordSubmitEffect: 'success',
+        showScoreAnimation: true,
+        scoreAnimationValue: data.word.length * 10,
+        comboEffect: data.word.length >= 7 ? 'lightning' : data.word.length >= 5 ? 'diamond' : data.word.length >= 3 ? 'fire' : 'none'
+      }));
+      
       // 성공한 단어 제출
       setGameState(prev => ({
         ...prev,
@@ -324,6 +350,12 @@ const GameRoomPage: React.FC = () => {
         wordChain: [...(prev.wordChain || []), data.word],
         scores: { ...(prev.scores || {}), ...data.scores }
       }));
+      
+      // 턴 변경 애니메이션 트리거
+      setVisualEffects(prev => ({ ...prev, turnTransition: true }));
+      setTimeout(() => {
+        setVisualEffects(prev => ({ ...prev, turnTransition: false }));
+      }, 1500);
       
       // 점수 계산 표시 (글자 수 × 10)
       const wordLength = data.word.length;
@@ -338,6 +370,17 @@ const GameRoomPage: React.FC = () => {
         showToast.info(`다음 차례: ${nextPlayer.nickname}님 (${data.next_char}로 시작, ${remainingTime}초)`);
         addGameMessage(`⏰ ${nextPlayer.nickname}님의 차례 (${data.next_char}로 시작)`);
       }
+      
+      // 효과 초기화
+      setTimeout(() => {
+        setVisualEffects(prev => ({ 
+          ...prev, 
+          wordSubmitEffect: 'none',
+          showScoreAnimation: false,
+          comboEffect: 'none'
+        }));
+      }, 2000);
+      
     } else if (data.status === 'pending_validation') {
       showToast.info(`${data.nickname}님이 "${data.word}" 단어를 제출했습니다...`);
     }
@@ -347,6 +390,12 @@ const GameRoomPage: React.FC = () => {
     console.log('❌ Word submission failed:', data);
     showToast.error(data.reason || '단어 제출에 실패했습니다');
     addGameMessage(`❌ 단어 제출 실패: ${data.reason || '알 수 없는 오류'}`);
+    
+    // 에러 시각 효과 추가
+    setVisualEffects(prev => ({ ...prev, wordSubmitEffect: 'error' }));
+    setTimeout(() => {
+      setVisualEffects(prev => ({ ...prev, wordSubmitEffect: 'none' }));
+    }, 1000);
   }, [addGameMessage]);
   
   const handlePlayerReady = useCallback((data: any) => {
@@ -474,6 +523,9 @@ const GameRoomPage: React.FC = () => {
       finalRankings: data.final_rankings || []
     }));
     
+    // 승리 축하 효과 트리거
+    setVisualEffects(prev => ({ ...prev, gameEndCelebration: 'victory' }));
+    
     if (data.winner) {
       showToast.success(`🏆 ${data.winner.nickname}님이 최종 우승했습니다!`);
     }
@@ -482,6 +534,11 @@ const GameRoomPage: React.FC = () => {
     if (data.final_rankings && data.final_rankings.length > 0) {
       showToast.info('게임이 완료되었습니다! 최종 순위를 확인하세요.');
     }
+    
+    // 축하 효과 종료
+    setTimeout(() => {
+      setVisualEffects(prev => ({ ...prev, gameEndCelebration: 'none' }));
+    }, 5000);
     
     // 10초 후 순위 창 자동 닫기 및 게임 상태 완전 초기화
     setTimeout(() => {
@@ -541,12 +598,20 @@ const GameRoomPage: React.FC = () => {
       isPlaying: false 
     }));
     
+    // 게임 종료 효과 트리거
+    setVisualEffects(prev => ({ ...prev, gameEndCelebration: 'game_over' }));
+    
     // 게임 종료 메시지
     if (data.winner) {
       showToast.success(`🏆 ${data.winner}님이 승리했습니다!`);
     } else {
       showToast.info('게임이 종료되었습니다.');
     }
+    
+    // 효과 종료
+    setTimeout(() => {
+      setVisualEffects(prev => ({ ...prev, gameEndCelebration: 'none' }));
+    }, 3000);
     
     // 5초 후 로비로 이동
     setTimeout(() => {
@@ -921,8 +986,16 @@ const GameRoomPage: React.FC = () => {
   const handleSubmitWord = () => {
     if (!isConnected || !currentWord.trim()) return;
     
+    // 단어 제출 애니메이션 시작
+    setVisualEffects(prev => ({ ...prev, wordSubmitEffect: 'shake' }));
+    
     emit('submit_word', { room_id: roomId, word: currentWord.trim() });
     setCurrentWord('');
+    
+    // 애니메이션 초기화
+    setTimeout(() => {
+      setVisualEffects(prev => ({ ...prev, wordSubmitEffect: 'none' }));
+    }, 500);
   };
 
   const handleSendChat = (message: string) => {
@@ -1026,7 +1099,11 @@ const GameRoomPage: React.FC = () => {
                     </div>
                     {gameState.isPlaying && gameState.currentTurnUserId === String(user.id) && (
                       <div className="flex items-center space-x-4">
-                        <span className="text-white font-bold text-lg animate-pulse">
+                        <span className={`font-bold text-lg ${
+                          (gameState.remainingTime || 0) <= 10 
+                            ? 'text-red-300 animate-pulse text-xl drop-shadow-[0_0_10px_rgba(239,68,68,0.8)]' 
+                            : 'text-white animate-pulse'
+                        }`}>
                           ⏰ {gameState.remainingTime?.toFixed(1)}초
                         </span>
                         <div className="w-24 h-3 bg-white/20 rounded-full overflow-hidden backdrop-blur-sm">
@@ -1034,7 +1111,7 @@ const GameRoomPage: React.FC = () => {
                             className={`h-full rounded-full transition-all duration-100 ease-linear ${
                               (gameState.remainingTime || 0) > 20 ? 'bg-gradient-to-r from-green-400 to-green-500' :
                               (gameState.remainingTime || 0) > 10 ? 'bg-gradient-to-r from-yellow-400 to-orange-500' : 
-                              'bg-gradient-to-r from-red-400 to-red-600 animate-pulse'
+                              'bg-gradient-to-r from-red-400 to-red-600 animate-pulse drop-shadow-[0_0_8px_rgba(239,68,68,0.6)]'
                             }`}
                             style={{ 
                               width: `${Math.max(0, Math.min(100, ((gameState.remainingTime || 0) / 30) * 100))}%`,
@@ -1101,7 +1178,11 @@ const GameRoomPage: React.FC = () => {
                               </h4>
                             </div>
                             <div className="flex items-center space-x-2">
-                              <span className="text-green-300 font-bold text-lg animate-pulse">
+                              <span className={`font-bold text-lg animate-pulse ${
+                                (gameState.remainingTime || 0) <= 10 
+                                  ? 'text-red-300 text-xl drop-shadow-[0_0_10px_rgba(239,68,68,0.8)]' 
+                                  : 'text-green-300'
+                              }`}>
                                 {gameState.remainingTime?.toFixed(1)}초
                               </span>
                             </div>
@@ -1112,7 +1193,7 @@ const GameRoomPage: React.FC = () => {
                               className={`h-full rounded-full transition-all duration-100 ease-linear ${
                                 (gameState.remainingTime || 0) > 20 ? 'bg-gradient-to-r from-green-400 to-green-500' :
                                 (gameState.remainingTime || 0) > 10 ? 'bg-gradient-to-r from-yellow-400 to-orange-500' : 
-                                'bg-gradient-to-r from-red-400 to-red-600 animate-pulse'
+                                'bg-gradient-to-r from-red-400 to-red-600 animate-pulse drop-shadow-[0_0_8px_rgba(239,68,68,0.6)]'
                               }`}
                               style={{ 
                                 width: `${Math.max(0, Math.min(100, ((gameState.remainingTime || 0) / 30) * 100))}%`,
@@ -1120,6 +1201,76 @@ const GameRoomPage: React.FC = () => {
                               }}
                             />
                           </div>
+                          
+                          {/* 콤보 효과 오버레이 */}
+                          {visualEffects.comboEffect !== 'none' && (
+                            <div className="fixed inset-0 pointer-events-none z-50 flex items-center justify-center">
+                              <div className={`text-6xl font-bold animate-bounce ${
+                                visualEffects.comboEffect === 'lightning' ? 'text-yellow-300 drop-shadow-[0_0_15px_rgba(255,255,0,0.7)]' :
+                                visualEffects.comboEffect === 'diamond' ? 'text-blue-300 drop-shadow-[0_0_15px_rgba(59,130,246,0.7)]' :
+                                visualEffects.comboEffect === 'fire' ? 'text-red-400 drop-shadow-[0_0_15px_rgba(239,68,68,0.7)]' :
+                                ''
+                              }`}>
+                                {visualEffects.comboEffect === 'lightning' && '⚡'}
+                                {visualEffects.comboEffect === 'diamond' && '💎'}
+                                {visualEffects.comboEffect === 'fire' && '🔥'}
+                                <div className="text-2xl text-white mt-2 text-center">
+                                  {visualEffects.comboEffect === 'lightning' && '번개 콤보!'}
+                                  {visualEffects.comboEffect === 'diamond' && '다이아몬드 콤보!'}
+                                  {visualEffects.comboEffect === 'fire' && '화이어 콤보!'}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* 턴 변경 전환 애니메이션 */}
+                          {visualEffects.turnTransition && (
+                            <div className="fixed inset-0 pointer-events-none z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+                              <div className="text-center animate-bounce">
+                                <div className="text-5xl mb-4">🔄</div>
+                                <div className="text-3xl font-bold text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.8)]">
+                                  턴 변경!
+                                </div>
+                                <div className="text-lg text-blue-300 mt-2">
+                                  다음 플레이어의 차례입니다
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* 게임 종료 축하/종료 효과 */}
+                          {visualEffects.gameEndCelebration !== 'none' && (
+                            <div className="fixed inset-0 pointer-events-none z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                              <div className="text-center animate-bounce">
+                                {visualEffects.gameEndCelebration === 'victory' ? (
+                                  <>
+                                    <div className="text-8xl mb-4 animate-pulse">🎉</div>
+                                    <div className="text-4xl font-bold text-yellow-300 drop-shadow-[0_0_20px_rgba(255,255,0,0.8)] mb-2">
+                                      축하합니다!
+                                    </div>
+                                    <div className="text-2xl text-green-300">
+                                      게임 완료! 🏆
+                                    </div>
+                                    <div className="flex justify-center space-x-4 mt-4">
+                                      <span className="text-5xl animate-bounce" style={{animationDelay: '0.1s'}}>🎊</span>
+                                      <span className="text-5xl animate-bounce" style={{animationDelay: '0.2s'}}>🎈</span>
+                                      <span className="text-5xl animate-bounce" style={{animationDelay: '0.3s'}}>🎁</span>
+                                    </div>
+                                  </>
+                                ) : (
+                                  <>
+                                    <div className="text-6xl mb-4">🏁</div>
+                                    <div className="text-3xl font-bold text-gray-300 drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]">
+                                      게임 종료
+                                    </div>
+                                    <div className="text-lg text-blue-300 mt-2">
+                                      수고하셨습니다!
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          )}
                           
                           <div className="space-y-4">
                             <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3">
@@ -1135,6 +1286,11 @@ const GameRoomPage: React.FC = () => {
                                     !wordValidation.isValid && currentWord.trim() ? 'border-red-400/50 focus:ring-red-400 bg-red-500/10' :
                                     wordValidation.isValid && currentWord.trim() && wordValidation.message ? 'border-green-400/50 focus:ring-green-400 bg-green-500/10' :
                                     'border-white/30 focus:ring-green-400'
+                                  } ${
+                                    visualEffects.wordSubmitEffect === 'success' ? 'animate-pulse border-green-300 bg-green-500/20 ring-4 ring-green-400/30' :
+                                    visualEffects.wordSubmitEffect === 'error' ? 'animate-bounce border-red-400 bg-red-500/20 ring-4 ring-red-400/30' :
+                                    visualEffects.wordSubmitEffect === 'shake' ? 'animate-bounce border-yellow-400 bg-yellow-500/10' :
+                                    ''
                                   }`}
                                   disabled={!isConnected}
                                 />

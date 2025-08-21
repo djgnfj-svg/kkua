@@ -37,17 +37,15 @@ RUN groupadd -r kkua && useradd -r -g kkua kkua
 # 작업 디렉토리 설정
 WORKDIR /app
 
-# 애플리케이션 코드 복사 (선택적 파일만)
+# 애플리케이션 코드 복사 (실제 존재하는 파일들만)
 COPY --chown=kkua:kkua main.py .
-COPY --chown=kkua:kkua app_config.py .
+COPY --chown=kkua:kkua auth.py .
 COPY --chown=kkua:kkua database.py .
 COPY --chown=kkua:kkua redis_models.py .
+COPY --chown=kkua:kkua database_schema.sql .
 COPY --chown=kkua:kkua models/ ./models/
 COPY --chown=kkua:kkua services/ ./services/
-COPY --chown=kkua:kkua routers/ ./routers/
 COPY --chown=kkua:kkua websocket/ ./websocket/
-COPY --chown=kkua:kkua middleware/ ./middleware/
-COPY --chown=kkua:kkua config/ ./config/
 
 # 로그 디렉토리 생성
 RUN mkdir -p /app/logs && chown -R kkua:kkua /app/logs

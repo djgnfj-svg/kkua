@@ -56,7 +56,6 @@ class GameRules:
     word_repeat_penalty: bool = True   # 단어 반복 페널티
     difficulty_bonus: bool = True      # 난이도 보너스
     time_pressure_mode: bool = False   # 시간 압박 모드 (턴마다 시간 단축)
-    elimination_mode: bool = False     # 탈락 모드
     target_score: Optional[int] = None # 목표 점수 (도달 시 게임 종료)
     max_rounds: Optional[int] = None   # 최대 라운드 수
     
@@ -72,7 +71,6 @@ class GameRules:
             "word_repeat_penalty": self.word_repeat_penalty,
             "difficulty_bonus": self.difficulty_bonus,
             "time_pressure_mode": self.time_pressure_mode,
-            "elimination_mode": self.elimination_mode,
             "target_score": self.target_score,
             "max_rounds": self.max_rounds
         }
@@ -217,11 +215,10 @@ class GameModeService:
         modes["survival"] = GameModeConfig(
             mode_type=GameModeType.SURVIVAL,
             mode_name="서바이벌",
-            description="한 명이 남을 때까지 탈락전",
+            description="제한 시간 내 최고 점수 경쟁",
             min_players=4,
             max_players=10,
             rules=GameRules(
-                elimination_mode=True,
                 max_failed_attempts=1,
                 turn_time_limit=20
             ),
@@ -553,16 +550,7 @@ class GameModeService:
                 winner = max(game_state.players.values(), key=lambda p: p.score)
                 return True, "라운드 완료", {"winner": winner.user_id, "score": winner.score}
         
-        # 서바이벌 모드는 탈락 시스템 제거로 비활성화
-        if rules.elimination_mode:
-            # 점수 기반 승부로 변경
-            players = list(game_state.players.values())
-            if players:
-                winner = max(players, key=lambda p: p.score)
-                return True, "점수 승리", {
-                    "winner": winner.user_id,
-                    "score": winner.score
-                }
+        # 서바이벌 모드는 점수 기반 승부로 운영
         
         return False, "", None
     
