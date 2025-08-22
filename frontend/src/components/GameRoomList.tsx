@@ -33,6 +33,10 @@ const GameRoomList: React.FC<GameRoomListProps> = ({ onJoinRoom, onCreateRoom })
       setRefreshing(!showLoading);
       
       const response = await apiEndpoints.gameRooms.list();
+      console.log('방 목록 업데이트:', response.data?.length, '개 방');
+      if (response.data?.length > 0) {
+        console.log('방 목록 상세:', response.data.map((room: any) => `${room.name}: ${room.currentPlayers}/${room.maxPlayers}`));
+      }
       setRooms(response.data || []);
       setError(null);
     } catch (error: any) {

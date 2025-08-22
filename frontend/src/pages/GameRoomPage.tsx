@@ -5,7 +5,7 @@ import { useUserStore } from '../stores/useUserStore';
 import { useGameStore } from '../stores/useGameStore';
 import { useMobileOptimization } from '../hooks/useMobileOptimization';
 import { showToast } from '../components/Toast';
-// import { apiEndpoints } from '../utils/api';
+import { apiEndpoints } from '../utils/api';
 import { useNativeWebSocket } from '../hooks/useNativeWebSocket';
 import { useNavigationProtection } from '../hooks/useNavigationProtection';
 import GameReport from '../components/GameReport';
@@ -322,7 +322,7 @@ const GameRoomPage: React.FC = () => {
   }, []);
 
   // WebSocket 이벤트 리스너 설정 - useCallback으로 안정화
-  const handleRoomJoined = useCallback((data: any) => {
+  const handleRoomJoined = useCallback((_data: any) => {
     addGameMessage(`🎮 방에 입장하셨습니다! 게임을 준비하세요.`);
     // game_state_update 이벤트로 플레이어 목록이 업데이트될 예정
   }, [addGameMessage]);
@@ -411,7 +411,7 @@ const GameRoomPage: React.FC = () => {
   // 게임 관련 이벤트들
   const handleGameStarted = useCallback((data: any) => {
     const currentTurnUserIdStr = String(data.current_turn_user_id);
-    const isMyTurn = currentTurnUserIdStr === String(user?.id);
+    // const isMyTurn = currentTurnUserIdStr === String(user?.id);
     
     // 새 게임 시작 시 상태 완전 초기화
     setGameState({
@@ -510,7 +510,7 @@ const GameRoomPage: React.FC = () => {
   }, []);
 
   // 성공 응답 처리
-  const handleSuccess = useCallback((data: any) => {
+  const handleSuccess = useCallback((_data: any) => {
   }, []);
 
   // 게임 시작 카운트다운 핸들러
@@ -526,7 +526,7 @@ const GameRoomPage: React.FC = () => {
   }, []);
 
   // 연결 교체 핸들러 (중복 연결 감지)
-  const handleConnectionReplaced = useCallback((data: any) => {
+  const handleConnectionReplaced = useCallback((_data: any) => {
     
     addSystemMessage('⚠️ 다른 탭에서 접속하여 현재 연결이 종료됩니다');
     addSystemMessage('🔄 3초 후 로비로 이동합니다...');
@@ -1030,7 +1030,9 @@ const GameRoomPage: React.FC = () => {
       // REST API로 방 나가기 호출하여 유저 수 감소
       if (roomId) {
         try {
-          await apiEndpoints.gameRooms.leave(roomId);
+          console.log('방 나가기 API 호출 시작:', roomId);
+          const response = await apiEndpoints.gameRooms.leave(roomId);
+          console.log('방 나가기 API 호출 성공:', response.data);
         } catch (error) {
           console.error('방 나가기 API 호출 실패:', error);
         }
