@@ -103,7 +103,7 @@ const GameRoomPage: React.FC = () => {
     turnTimeLimit: 30,
     remainingTime: 30,
     currentRound: 1,
-    maxRounds: 5,
+    maxRounds: 3,
     showFinalRankings: false,
     finalRankings: []
   });
@@ -629,7 +629,7 @@ const GameRoomPage: React.FC = () => {
         turnTimeLimit: 30,
         remainingTime: 30,
         currentRound: 1,
-        maxRounds: 5,
+        maxRounds: 3,
         showFinalRankings: false,
         finalRankings: [],
         currentTurnUserId: undefined,
@@ -1584,7 +1584,7 @@ const GameRoomPage: React.FC = () => {
               turnTimeLimit: 30,
               remainingTime: 30,
               currentRound: 1,
-              maxRounds: 5,
+              maxRounds: 3,
               showFinalRankings: false,
               finalRankings: []
             });

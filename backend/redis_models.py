@@ -140,10 +140,10 @@ class GameState:
     players: List[GamePlayer] = None
     current_round: int = 1
     current_turn: int = 0
-    max_rounds: int = 5
+    max_rounds: int = 3
     turn_time_limit_ms: int = 30000  # 현재 턴의 시간 제한
     initial_turn_time_ms: int = 30000  # 첫 턴 초기 시간
-    turn_time_reduction_ms: int = 5000  # 매 턴마다 감소하는 시간
+    turn_time_reduction_percent: float = 10.0  # 매 턴마다 감소하는 퍼센트 (10%)
     min_turn_time_ms: int = 100  # 최소 턴 시간 (0.1초) - 원래대로
     total_turns: int = 0  # 전체 진행된 턴 수
     word_chain: WordChainState = None
@@ -205,13 +205,19 @@ class GameState:
         return self.turn_time_limit_ms / 1000.0
     
     def update_turn_time(self):
-        """턴 시간 업데이트 (5초씩 감소, 최소 0.1초)"""
+        """턴 시간 업데이트 (매 턴마다 퍼센트로 감소)"""
         old_time = self.turn_time_limit_ms / 1000.0
-        new_time = self.initial_turn_time_ms - (self.total_turns * self.turn_time_reduction_ms)
-        self.turn_time_limit_ms = max(self.min_turn_time_ms, new_time)
+        
+        # 퍼센트 방식으로 시간 감소 계산
+        # 매 턴마다 현재 시간의 turn_time_reduction_percent만큼 감소
+        reduction_factor = (100 - self.turn_time_reduction_percent) / 100
+        new_time = self.turn_time_limit_ms * reduction_factor
+        
+        # 최소 시간 제한 적용
+        self.turn_time_limit_ms = max(self.min_turn_time_ms, int(new_time))
         new_time_sec = self.turn_time_limit_ms / 1000.0
         
-        logger.debug(f"턴 시간 업데이트: R{self.current_round}T{self.total_turns} {old_time}초 → {new_time_sec}초")
+        logger.debug(f"턴 시간 업데이트: R{self.current_round}T{self.total_turns} {old_time}초 → {new_time_sec}초 ({self.turn_time_reduction_percent}% 감소)")
     
     def is_time_up(self) -> bool:
         """시간이 최소값에 도달했는지 확인"""
@@ -344,7 +350,7 @@ class GameState:
             "max_rounds": self.max_rounds,
             "turn_time_limit_ms": self.turn_time_limit_ms,
             "initial_turn_time_ms": self.initial_turn_time_ms,
-            "turn_time_reduction_ms": self.turn_time_reduction_ms,
+            "turn_time_reduction_percent": self.turn_time_reduction_percent,
             "min_turn_time_ms": self.min_turn_time_ms,
             "total_turns": self.total_turns,
             "word_chain": self.word_chain.to_dict(),
@@ -369,10 +375,10 @@ class GameState:
             players=players,
             current_round=data.get("current_round", 1),
             current_turn=data.get("current_turn", 0),
-            max_rounds=data.get("max_rounds", 5),
+            max_rounds=data.get("max_rounds", 3),
             turn_time_limit_ms=data.get("turn_time_limit_ms", 30000),
             initial_turn_time_ms=data.get("initial_turn_time_ms", 30000),
-            turn_time_reduction_ms=data.get("turn_time_reduction_ms", 5000),
+            turn_time_reduction_percent=data.get("turn_time_reduction_percent", 10.0),
             min_turn_time_ms=data.get("min_turn_time_ms", 100),
             total_turns=data.get("total_turns", 0),
             word_chain=word_chain,
