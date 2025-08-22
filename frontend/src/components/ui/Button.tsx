@@ -9,6 +9,7 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   loading?: boolean;
   glow?: boolean;
   children: React.ReactNode;
+  as?: 'button' | 'span';
 }
 
 const Button: React.FC<ButtonProps> = ({
@@ -19,6 +20,7 @@ const Button: React.FC<ButtonProps> = ({
   disabled,
   className = '',
   children,
+  as = 'button',
   ...props
 }) => {
   const baseClasses = 'inline-flex items-center justify-center font-medium rounded-xl transition-all duration-300 ease-out focus:outline-none focus:ring-2 focus:ring-offset-2 transform hover:scale-[1.02] active:scale-[0.98] backdrop-blur-xs';
@@ -54,8 +56,10 @@ const Button: React.FC<ButtonProps> = ({
     className
   ].join(' ');
 
+  const Component = as as any;
+  
   return (
-    <button
+    <Component
       className={classes}
       disabled={disabled || loading}
       {...props}
@@ -66,7 +70,7 @@ const Button: React.FC<ButtonProps> = ({
         </div>
       )}
       {children}
-    </button>
+    </Component>
   );
 };
 

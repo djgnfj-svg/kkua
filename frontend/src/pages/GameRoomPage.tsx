@@ -21,6 +21,24 @@ const GameRoomPage: React.FC = () => {
   const { currentRoom, setCurrentRoom, updateRoom, isLoading, setLoading } = useGameStore();
   const { isKeyboardOpen, orientation, handleInputFocus, handleTouchStart, isMobile } = useMobileOptimization();
   
+  // 임시 단어 뜻 (실제로는 백엔드 API 호출)
+  const mockWordDefinition = (word: string): string => {
+    const definitions: { [key: string]: string } = {
+      '사과': '빨갛고 둥근 과일',
+      '과일': '나무나 풀에서 나는 먹을 수 있는 열매',
+      '일요일': '한 주의 첫째 날',
+      '고양이': '집에서 기르는 작은 동물',
+      '김치': '한국의 전통 발효 음식',
+      '치킨': '닭고기 요리',
+      '컴퓨터': '자동으로 계산하는 기계',
+      '게임': '재미있게 노는 것',
+      '친구': '서로 좋아하는 사람',
+      '학교': '공부하는 곳',
+      '집': '사람이 사는 곳'
+    };
+    return definitions[word] || `${word}의 뜻`;
+  };
+  
   // 사운드 시스템
   const playSound = useCallback((type: 'type' | 'success' | 'error' | 'warning') => {
     try {
@@ -1428,12 +1446,21 @@ const GameRoomPage: React.FC = () => {
                                 id="word-validation-message"
                                 role="status"
                                 aria-live="polite"
-                                className={`text-sm px-2 py-1 rounded transition-colors ${
-                                  wordValidation.isChecking ? 'text-gray-600 bg-gray-100' :
-                                  !wordValidation.isValid ? 'text-red-600 bg-red-100' :
-                                  wordValidation.message ? 'text-green-600 bg-green-100' : ''
+                                className={`text-sm px-3 py-2 rounded-lg transition-all duration-300 ${
+                                  wordValidation.isChecking ? 'text-gray-600 bg-gray-100 animate-pulse' :
+                                  !wordValidation.isValid ? 'text-red-600 bg-red-100 border border-red-200' :
+                                  wordValidation.message ? 'text-green-600 bg-green-100 border border-green-200 animate-fade-in' : ''
                                 }`}>
-                                {wordValidation.isChecking ? '🔍 검증 중...' : wordValidation.message}
+                                <div className="flex flex-col space-y-1">
+                                  <div className="font-medium">
+                                    {wordValidation.isChecking ? '🔍 검증 중...' : wordValidation.message}
+                                  </div>
+                                  {wordValidation.isValid && wordValidation.definition && (
+                                    <div className="text-xs text-green-700 italic animate-slide-up">
+                                      📖 {wordValidation.definition}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             )}
                           </div>
