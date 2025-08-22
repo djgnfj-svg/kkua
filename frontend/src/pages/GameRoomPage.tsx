@@ -19,25 +19,8 @@ const GameRoomPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useUserStore();
   const { currentRoom, setCurrentRoom, updateRoom, isLoading, setLoading } = useGameStore();
-  const { isKeyboardOpen, orientation, handleInputFocus, handleTouchStart, isMobile } = useMobileOptimization();
+  const { handleInputFocus, isMobile } = useMobileOptimization();
   
-  // 임시 단어 뜻 (실제로는 백엔드 API 호출)
-  const mockWordDefinition = (word: string): string => {
-    const definitions: { [key: string]: string } = {
-      '사과': '빨갛고 둥근 과일',
-      '과일': '나무나 풀에서 나는 먹을 수 있는 열매',
-      '일요일': '한 주의 첫째 날',
-      '고양이': '집에서 기르는 작은 동물',
-      '김치': '한국의 전통 발효 음식',
-      '치킨': '닭고기 요리',
-      '컴퓨터': '자동으로 계산하는 기계',
-      '게임': '재미있게 노는 것',
-      '친구': '서로 좋아하는 사람',
-      '학교': '공부하는 곳',
-      '집': '사람이 사는 곳'
-    };
-    return definitions[word] || `${word}의 뜻`;
-  };
   
   // 사운드 시스템
   const playSound = useCallback((type: 'type' | 'success' | 'error' | 'warning') => {
@@ -1455,11 +1438,6 @@ const GameRoomPage: React.FC = () => {
                                   <div className="font-medium">
                                     {wordValidation.isChecking ? '🔍 검증 중...' : wordValidation.message}
                                   </div>
-                                  {wordValidation.isValid && wordValidation.definition && (
-                                    <div className="text-xs text-green-700 italic animate-slide-up">
-                                      📖 {wordValidation.definition}
-                                    </div>
-                                  )}
                                 </div>
                               </div>
                             )}

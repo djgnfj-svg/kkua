@@ -32,7 +32,7 @@ export const useNativeWebSocket = (options: UseNativeWebSocketOptions) => {
     reconnectInterval = 3000
   } = options;
 
-  const { isOnline, withErrorRecovery } = useNetworkRecovery({
+  useNetworkRecovery({
     onReconnected: () => {
       if (!state.isConnected && !state.isConnecting) {
         connect();
