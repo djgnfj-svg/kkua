@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
 JWT_SECRET = os.getenv("JWT_SECRET", "your-jwt-secret-change-in-production")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_HOURS = int(os.getenv("SESSION_TIMEOUT", "24")) // 3600
+ACCESS_TOKEN_EXPIRE_HOURS = 24  # 24시간으로 고정
 
 # 비밀번호 해싱 (게스트 계정이지만 향후 확장 대비)
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")

@@ -1,10 +1,8 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import LoginForm from '../components/LoginForm';
-import BackendTest from '../components/BackendTest';
 
 const LoginPage: React.FC = () => {
-  const [showBackendTest, setShowBackendTest] = useState(false);
   const navigate = useNavigate();
 
   const handleLoginSuccess = () => {
@@ -38,22 +36,6 @@ const LoginPage: React.FC = () => {
         <div className="animate-scale-in" style={{ animationDelay: '0.3s' }}>
           <LoginForm onSuccess={handleLoginSuccess} />
         </div>
-
-        {/* Development Tools */}
-        <div className="mt-12 text-center animate-fade-in" style={{ animationDelay: '0.6s' }}>
-          <button
-            onClick={() => setShowBackendTest(!showBackendTest)}
-            className="text-sm text-white/50 hover:text-purple-300 transition-colors duration-200 underline decoration-2 underline-offset-4 hover:decoration-purple-300 font-korean"
-          >
-            {showBackendTest ? '백엔드 테스트 숨기기' : '백엔드 테스트 보기'}
-          </button>
-        </div>
-
-        {showBackendTest && (
-          <div className="max-w-4xl mx-auto mt-8 animate-slide-up">
-            <BackendTest />
-          </div>
-        )}
       </div>
     </div>
   );
