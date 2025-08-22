@@ -1026,6 +1026,16 @@ const GameRoomPage: React.FC = () => {
       if (roomId && isConnected) {
         emit('leave_room', { room_id: roomId });
       }
+      
+      // REST API로 방 나가기 호출하여 유저 수 감소
+      if (roomId) {
+        try {
+          await apiEndpoints.gameRooms.leave(roomId);
+        } catch (error) {
+          console.error('방 나가기 API 호출 실패:', error);
+        }
+      }
+      
       navigateSafely('/lobby');
       addSystemMessage('🚺 방에서 나갔습니다');
     } catch (error) {
