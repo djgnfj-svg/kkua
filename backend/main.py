@@ -360,6 +360,73 @@ async def leave_gameroom(room_id: str):
     
     raise HTTPException(status_code=404, detail="방을 찾을 수 없습니다")
 
+@app.get("/gamerooms/{room_id}")
+async def get_gameroom(room_id: str):
+    """게임룸 정보 조회"""
+    try:
+        # 메모리에서 방 정보 찾기
+        for room in temporary_rooms:
+            if room["id"] == room_id:
+                # Redis에서 현재 플레이어 정보도 가져오기
+                try:
+                    from redis_models import RedisGameManager
+                    from database import get_redis
+                    redis_manager = RedisGameManager(get_redis())
+                    
+                    # Redis에서 게임 상태 가져오기
+                    game_state = await redis_manager.get_game_state(room_id)
+                    players = []
+                    
+                    if game_state and game_state.players:
+                        players = [
+                            {
+                                "user_id": player.user_id,
+                                "nickname": player.nickname,
+                                "is_host": player.is_host,
+                                "is_ready": player.is_ready,
+                                "score": player.score
+                            }
+                            for player in game_state.players.values()
+                        ]
+                    
+                    # 방 정보와 플레이어 정보 합치기
+                    room_data = {
+                        "id": room["id"],
+                        "name": room["name"],
+                        "max_players": room["maxPlayers"],
+                        "current_players": len(players) if players else room["currentPlayers"],
+                        "status": room["status"],
+                        "created_at": room["createdAt"],
+                        "players": players
+                    }
+                    
+                    logger.info(f"게임룸 정보 조회: {room_id} - {room['name']}")
+                    return room_data
+                    
+                except Exception as redis_error:
+                    logger.warning(f"Redis에서 플레이어 정보 가져오기 실패: {redis_error}")
+                    # Redis 오류 시 기본 방 정보만 반환
+                    return {
+                        "id": room["id"],
+                        "name": room["name"],
+                        "max_players": room["maxPlayers"],
+                        "current_players": room["currentPlayers"],
+                        "status": room["status"],
+                        "created_at": room["createdAt"],
+                        "players": []
+                    }
+        
+        raise HTTPException(status_code=404, detail="방을 찾을 수 없습니다")
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"게임룸 조회 실패: room_id={room_id}, error={e}")
+        raise HTTPException(
+            status_code=500,
+            detail="방 정보 조회 중 오류가 발생했습니다"
+        )
+
 # 아이템 관련 API
 @app.get("/users/{user_id}/inventory")
 async def get_user_inventory(user_id: int):

@@ -94,7 +94,8 @@ def insert_items(db: Session):
 
 def insert_korean_words(db: Session):
     """한국어 단어 데이터 삽입"""
-    from .extended_words import EXTENDED_KOREAN_WORDS
+    import csv
+    import os
     
     # 기본 단어 데이터
     words_data = [
@@ -196,8 +197,32 @@ def insert_korean_words(db: Session):
         {"word": "실제", "definition": "정말로 있는", "difficulty_level": 2, "frequency_score": 75, "word_type": "형용사"}
     ]
     
-    # 확장 단어 데이터 추가
-    words_data.extend(EXTENDED_KOREAN_WORDS)
+    # CSV 파일에서 확장 단어 데이터 읽기
+    csv_file_path = os.path.join(os.path.dirname(__file__), 'korean_words.csv')
+    
+    if os.path.exists(csv_file_path):
+        try:
+            with open(csv_file_path, 'r', encoding='utf-8') as csvfile:
+                reader = csv.DictReader(csvfile)
+                for row in reader:
+                    # CSV 파일의 컬럼명에 맞게 매핑
+                    word_entry = {
+                        "word": row.get('word', '').strip(),
+                        "definition": row.get('definition', '').strip(),
+                        "difficulty_level": int(row.get('difficulty', 1)),
+                        "frequency_score": int(row.get('frequency', 50)),
+                        "word_type": row.get('type', '명사').strip()
+                    }
+                    
+                    # 필수 필드가 있는 경우만 추가
+                    if word_entry["word"]:
+                        words_data.append(word_entry)
+            
+            logger.info(f"CSV에서 {len(words_data) - len([w for w in words_data if 'word' in w])} 개의 확장 단어를 추가로 로드했습니다")
+        except Exception as e:
+            logger.warning(f"CSV 파일 읽기 실패, 기본 단어만 사용: {e}")
+    else:
+        logger.info("CSV 파일이 없어 기본 단어만 사용합니다")
     
     # 중복 제거를 위한 단어 집합
     unique_words = {}

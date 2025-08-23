@@ -81,6 +81,7 @@ const GameRoomPage: React.FC = () => {
     currentTurnUserId?: string;
     currentChar?: string;
     wordChain: string[];
+    wordChainInfo?: Record<string, { definition: string; difficulty: number; }>; // 단어 뜻 정보 저장
     scores?: Record<string, number>;
     turnTimeLimit?: number;
     remainingTime?: number;
@@ -99,6 +100,7 @@ const GameRoomPage: React.FC = () => {
     isPlaying: false,
     isRoundTransition: false,
     wordChain: [],
+    wordChainInfo: {},
     scores: {},
     turnTimeLimit: 30,
     remainingTime: 30,
@@ -448,14 +450,30 @@ const GameRoomPage: React.FC = () => {
         currentChar: data.next_char || '',
         remainingTime: data.current_turn_remaining_time || prev.remainingTime,
         wordChain: [...(prev.wordChain || []), data.word],
+        wordChainInfo: {
+          ...(prev.wordChainInfo || {}),
+          [data.word]: {
+            definition: data.word_info?.definition || '',
+            difficulty: data.word_info?.difficulty || 1
+          }
+        },
         scores: { ...(prev.scores || {}), ...data.scores }
       }));
       
-      
-      // 점수 계산 표시 (글자 수 × 10)
+      // 단어 정보 표시 (뜻 포함)
       const wordLength = data.word.length;
-      const wordScore = wordLength * 10;
-      addGameMessage(`📝 ${data.nickname}님이 "${data.word}" 제출! (+${wordScore}점, ${wordLength}글자)`);
+      const wordScore = data.score_breakdown?.estimated_total || wordLength * 10;
+      const wordDefinition = data.word_info?.definition || '';
+      const difficulty = data.word_info?.difficulty || 1;
+      const difficultyText = difficulty === 1 ? '쉬움' : difficulty === 2 ? '보통' : '어려움';
+      
+      // 단어 뜻이 있는 경우 포함하여 메시지 생성
+      let wordMessage = `📝 ${data.nickname}님이 "${data.word}" 제출! (+${wordScore}점, ${wordLength}글자)`;
+      if (wordDefinition && wordDefinition !== `${data.word}의 뜻`) {
+        wordMessage += `\n💡 뜻: ${wordDefinition} (${difficultyText})`;
+      }
+      
+      addGameMessage(wordMessage);
       
       // 다음 플레이어 알림
       const nextPlayer = currentRoomRef.current?.players?.find(p => String(p.id) === String(data.current_turn_user_id));
@@ -969,31 +987,59 @@ const GameRoomPage: React.FC = () => {
     
     setLoading(true);
     try {
-      // 임시: 방 정보를 시뮬레이션
-      // 실제로는 API에서 방 정보를 가져와야 함
-      const mockRoom = {
-        id: roomId,
-        name: `게임룸 ${roomId.slice(-4)}`,
-        maxPlayers: 4,
-        currentPlayers: 1,
-        status: 'waiting' as const,
-        createdAt: new Date().toISOString(),
-        players: [
-          {
-            id: user?.id || '1',
-            nickname: user?.nickname || 'Unknown',
-            isHost: true,
-            isReady: false
-          }
-        ]
+      // 실제 API에서 방 정보 가져오기
+      const response = await apiEndpoints.gameRooms.get(roomId);
+      const roomData = response.data;
+      
+      // API 응답 구조에 맞게 데이터 변환
+      const room = {
+        id: roomData.id,
+        name: roomData.name,
+        maxPlayers: roomData.max_players,
+        currentPlayers: roomData.current_players,
+        status: roomData.status,
+        createdAt: roomData.created_at,
+        players: roomData.players?.map((player: any) => ({
+          id: String(player.user_id),
+          nickname: player.nickname,
+          isHost: player.is_host,
+          isReady: player.is_ready
+        })) || []
       };
       
-      setCurrentRoom(mockRoom);
-      addGameMessage('🏠 방 정보를 불러왔습니다');
-    } catch (error) {
+      setCurrentRoom(room);
+      addGameMessage(`🏠 "${room.name}" 방에 입장했습니다`);
+    } catch (error: any) {
       console.error('방 정보 로드 실패:', error);
-      setRoomNotFound(true);
-      addSystemMessage('❌ 방을 찾을 수 없습니다');
+      
+      // 404 에러인 경우 방이 존재하지 않음
+      if (error.response?.status === 404) {
+        setRoomNotFound(true);
+        addSystemMessage('❌ 방을 찾을 수 없습니다');
+        showToast.error('존재하지 않는 방입니다');
+      } else {
+        // 기타 에러의 경우 임시 방 정보로 대체
+        const fallbackRoom = {
+          id: roomId,
+          name: `게임룸 ${roomId.slice(-4)}`,
+          maxPlayers: 4,
+          currentPlayers: 1,
+          status: 'waiting' as const,
+          createdAt: new Date().toISOString(),
+          players: [
+            {
+              id: user?.id || '1',
+              nickname: user?.nickname || 'Unknown',
+              isHost: true,
+              isReady: false
+            }
+          ]
+        };
+        
+        setCurrentRoom(fallbackRoom);
+        addGameMessage('🏠 방 정보를 불러왔습니다 (기본 설정 적용)');
+        showToast.warning('방 정보를 일부 불러올 수 없어 기본 설정을 적용했습니다');
+      }
     } finally {
       setLoading(false);
     }
@@ -1213,22 +1259,42 @@ const GameRoomPage: React.FC = () => {
                           <span className="text-2xl">🔗</span>
                           <h4 className="font-bold text-white text-lg font-korean">단어 체인</h4>
                         </div>
-                        <div className="flex flex-wrap gap-3 max-h-40 overflow-y-auto scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
-                          {gameState.wordChain.map((word, index) => (
-                            <span 
-                              key={`${word}-${index}`}
-                              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-500 transform hover:scale-105 ${
-                                index === gameState.wordChain.length - 1 
-                                  ? 'bg-gradient-to-r from-green-400/20 to-emerald-500/20 text-green-300 border border-green-400/30 animate-pulse scale-110 shadow-lg shadow-green-400/20' 
-                                  : 'bg-gradient-to-r from-blue-400/20 to-purple-500/20 text-blue-300 border border-blue-400/30'
-                              }`}
-                              style={{
-                                animationDelay: `${index * 100}ms`
-                              }}
-                            >
-                              {word}
-                            </span>
-                          ))}
+                        <div className="flex flex-wrap gap-3 max-h-60 overflow-y-auto scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
+                          {gameState.wordChain.map((word, index) => {
+                            const wordInfo = gameState.wordChainInfo?.[word];
+                            const definition = wordInfo?.definition || '';
+                            const difficulty = wordInfo?.difficulty || 1;
+                            const difficultyText = difficulty === 1 ? '쉬움' : difficulty === 2 ? '보통' : '어려움';
+                            const difficultyColor = difficulty === 1 ? 'text-green-300' : difficulty === 2 ? 'text-yellow-300' : 'text-red-300';
+                            
+                            return (
+                              <div 
+                                key={`${word}-${index}`}
+                                className={`px-4 py-3 rounded-xl transition-all duration-500 transform hover:scale-105 ${
+                                  index === gameState.wordChain.length - 1 
+                                    ? 'bg-gradient-to-r from-green-400/20 to-emerald-500/20 border border-green-400/30 animate-pulse scale-110 shadow-lg shadow-green-400/20' 
+                                    : 'bg-gradient-to-r from-blue-400/20 to-purple-500/20 border border-blue-400/30'
+                                }`}
+                                style={{
+                                  animationDelay: `${index * 100}ms`
+                                }}
+                              >
+                                <div className={`font-bold text-lg ${
+                                  index === gameState.wordChain.length - 1 ? 'text-green-300' : 'text-blue-300'
+                                }`}>
+                                  {word}
+                                </div>
+                                {definition && definition !== `${word}의 뜻` && (
+                                  <div className="text-xs text-white/70 mt-1 leading-tight">
+                                    💡 {definition}
+                                  </div>
+                                )}
+                                <div className={`text-xs mt-1 ${difficultyColor}`}>
+                                  📊 {difficultyText}
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                         {gameState.currentChar && (
                           <div className="mt-4 p-4 bg-gradient-to-r from-purple-500/10 to-blue-500/10 rounded-xl border border-purple-400/20">
@@ -1239,7 +1305,7 @@ const GameRoomPage: React.FC = () => {
                         )}
                       </div>
 
-                      {/* 단어 입력 */}
+                      {/* 턴 상태 표시 */}
                       {gameState.isRoundTransition ? (
                         <div className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 backdrop-blur-sm rounded-2xl p-6 text-center border border-yellow-400/30">
                           <div className="flex items-center justify-center space-x-3">
@@ -1255,7 +1321,7 @@ const GameRoomPage: React.FC = () => {
                             <div className="flex items-center space-x-3">
                               <span className="text-2xl animate-bounce">🎯</span>
                               <h4 className="font-bold text-green-300 text-lg font-korean">
-                                내 차례입니다!
+                                내 차례입니다! 채팅으로 단어를 입력하세요
                               </h4>
                             </div>
                             <div className="flex items-center space-x-2">
@@ -1269,7 +1335,7 @@ const GameRoomPage: React.FC = () => {
                             </div>
                           </div>
                           
-                          <div className="w-full h-4 bg-white/10 rounded-full overflow-hidden mb-4 backdrop-blur-sm">
+                          <div className="w-full h-4 bg-white/10 rounded-full overflow-hidden backdrop-blur-sm">
                             <div 
                               className={`h-full rounded-full transition-all ease-out ${
                                 (gameState.remainingTime || 0) > 20 ? 'bg-gradient-to-r from-green-400 to-green-500' :
@@ -1284,140 +1350,17 @@ const GameRoomPage: React.FC = () => {
                               }}
                             />
                           </div>
-                          
-                          
-                          {/* 게임 종료 축하/종료 효과 */}
-                          {visualEffects.gameEndCelebration !== 'none' && (
-                            <div className="fixed inset-0 pointer-events-none z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-                              <div className="text-center animate-bounce">
-                                {visualEffects.gameEndCelebration === 'victory' ? (
-                                  <>
-                                    <div className="text-8xl mb-4 animate-pulse">🎉</div>
-                                    <div className="text-4xl font-bold text-yellow-300 drop-shadow-[0_0_20px_rgba(255,255,0,0.8)] mb-2">
-                                      축하합니다!
-                                    </div>
-                                    <div className="text-2xl text-green-300">
-                                      게임 완료! 🏆
-                                    </div>
-                                    <div className="flex justify-center space-x-4 mt-4">
-                                      <span className="text-5xl animate-bounce" style={{animationDelay: '0.1s'}}>🎊</span>
-                                      <span className="text-5xl animate-bounce" style={{animationDelay: '0.2s'}}>🎈</span>
-                                      <span className="text-5xl animate-bounce" style={{animationDelay: '0.3s'}}>🎁</span>
-                                    </div>
-                                  </>
-                                ) : (
-                                  <>
-                                    <div className="text-6xl mb-4">🏁</div>
-                                    <div className="text-3xl font-bold text-gray-300 drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]">
-                                      게임 종료
-                                    </div>
-                                    <div className="text-lg text-blue-300 mt-2">
-                                      수고하셨습니다!
-                                    </div>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                          
-                          <div className="space-y-4">
-                            <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3">
-                              <div className="flex-1 relative">
-                                <input
-                                  type="text"
-                                  value={currentWord}
-                                  onChange={(e) => handleWordChange(e.target.value)}
-                                  onKeyPress={(e) => e.key === 'Enter' && handleSubmitWord()}
-                                  onFocus={(e) => isMobile && handleInputFocus(e.target)}
-                                  placeholder={!currentWord ? (gameState.currentChar ? `${gameState.currentChar}로 시작하는 단어...` : '단어를 입력하세요...') : ''}
-                                  aria-label={gameState.currentChar ? `${gameState.currentChar}로 시작하는 끝말잇기 단어 입력` : '끝말잇기 단어 입력'}
-                                  aria-invalid={!wordValidation.isValid && currentWord.trim() ? 'true' : 'false'}
-                                  aria-describedby={wordValidation.message ? 'word-validation-message' : undefined}
-                                  autoComplete="off"
-                                  autoCapitalize="off"
-                                  spellCheck="false"
-                                  className={`w-full px-4 py-3 bg-white/10 backdrop-blur-sm border-2 rounded-xl focus:outline-none focus:ring-2 transition-all placeholder-white/60 text-lg font-korean ${
-                                    currentWord ? 'text-transparent' : 'text-white'
-                                  } ${
-                                    wordValidation.isChecking ? 'border-gray-400/50 focus:ring-gray-400' :
-                                    !wordValidation.isValid && currentWord.trim() ? 'border-red-400/50 focus:ring-red-400 bg-red-500/10' :
-                                    wordValidation.isValid && currentWord.trim() && wordValidation.message ? 'border-green-400/50 focus:ring-green-400 bg-green-500/10' :
-                                    'border-white/30 focus:ring-green-400'
-                                  } ${
-                                    visualEffects.wordSubmitEffect === 'success' ? 'animate-pulse border-green-300 bg-green-500/20 ring-4 ring-green-400/30' :
-                                    visualEffects.wordSubmitEffect === 'error' ? 'animate-bounce border-red-400 bg-red-500/20 ring-4 ring-red-400/30' :
-                                    visualEffects.wordSubmitEffect === 'shake' ? 'animate-bounce border-yellow-400 bg-yellow-500/10' :
-                                    ''
-                                  }`}
-                                  disabled={!isConnected}
-                                  style={{ caretColor: 'transparent' }}
-                                />
-                                
-                                {/* 타이핑 애니메이션 오버레이 */}
-                                <div className="absolute inset-0 px-4 py-3 pointer-events-none flex items-center text-lg font-korean">
-                                  <div className="flex">
-                                    {typingEffect.chars.map((charObj) => (
-                                      <span
-                                        key={charObj.id}
-                                        className={`text-white transition-all duration-200 ${
-                                          charObj.animated 
-                                            ? 'animate-bounce text-yellow-300 text-xl font-bold drop-shadow-lg scale-125 transform' 
-                                            : ''
-                                        }`}
-                                        style={{
-                                          textShadow: charObj.animated ? '0 0 10px rgba(255, 255, 0, 0.8)' : 'none'
-                                        }}
-                                      >
-                                        {charObj.char}
-                                      </span>
-                                    ))}
-                                    <span className="animate-pulse text-white/70 ml-1">|</span>
-                                  </div>
-                                </div>
-                                {wordValidation.isChecking && (
-                                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                                    <div className="animate-spin w-5 h-5 border-2 border-white/30 border-t-white rounded-full"></div>
-                                  </div>
-                                )}
-                              </div>
-                              <Button 
-                                onClick={handleSubmitWord}
-                                disabled={!isConnected || !currentWord.trim() || !wordValidation.isValid}
-                                variant={wordValidation.isValid && currentWord.trim() ? 'primary' : 'secondary'}
-                                size="lg"
-                                aria-label={`단어 "${currentWord}" 제출하기`}
-                                aria-describedby={wordValidation.message ? 'word-validation-message' : undefined}
-                                className="w-full sm:w-auto px-8 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold"
-                                glow
-                              >
-                                🚀 제출
-                              </Button>
-                            </div>
-                            {/* 실시간 검증 피드백 */}
-                            {currentWord.trim() && (
-                              <div 
-                                id="word-validation-message"
-                                role="status"
-                                aria-live="polite"
-                                className={`text-sm px-3 py-2 rounded-lg transition-all duration-300 ${
-                                  wordValidation.isChecking ? 'text-gray-600 bg-gray-100 animate-pulse' :
-                                  !wordValidation.isValid ? 'text-red-600 bg-red-100 border border-red-200' :
-                                  wordValidation.message ? 'text-green-600 bg-green-100 border border-green-200 animate-fade-in' : ''
-                                }`}>
-                                <div className="flex flex-col space-y-1">
-                                  <div className="font-medium">
-                                    {wordValidation.isChecking ? '🔍 검증 중...' : wordValidation.message}
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
                         </div>
                       ) : (
-                        <div className="bg-gray-50 rounded-lg p-4 text-center">
-                          <p className="text-gray-600">
-                            {currentRoom?.players?.find(p => String(p.id) === gameState.currentTurnUserId)?.nickname || '다른 플레이어'}님의 차례입니다...
-                          </p>
+                        <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 text-center border border-white/20">
+                          <div className="flex items-center justify-center space-x-3">
+                            <span className="text-2xl">⏳</span>
+                            <p className="text-white/80 font-korean">
+                              <strong className="text-blue-300">
+                                {currentRoom?.players?.find(p => String(p.id) === gameState.currentTurnUserId)?.nickname || '다른 플레이어'}
+                              </strong>님의 차례입니다
+                            </p>
+                          </div>
                         </div>
                       )}
 
@@ -1558,6 +1501,9 @@ const GameRoomPage: React.FC = () => {
                 isConnected={isConnected}
                 currentUserId={Number(user?.id) || 0}
                 onSendMessage={handleSendChat}
+                isMyTurn={gameState.currentTurnUserId === String(user?.id)}
+                currentChar={gameState.currentChar}
+                onSubmitWord={handleSubmitWord}
               />
             </div>
           </div>

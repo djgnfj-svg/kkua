@@ -15,13 +15,19 @@ interface ChatPanelProps {
   isConnected: boolean;
   currentUserId: number;
   onSendMessage: (message: string) => void;
+  isMyTurn?: boolean;
+  currentChar?: string;
+  onSubmitWord?: (word: string) => void;
 }
 
 export const ChatPanel: React.FC<ChatPanelProps> = ({
   messages,
   isConnected,
   currentUserId,
-  onSendMessage
+  onSendMessage,
+  isMyTurn = false,
+  currentChar = '',
+  onSubmitWord
 }) => {
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -46,7 +52,13 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   const handleSend = () => {
     if (!inputValue.trim() || !isConnected) return;
     
-    onSendMessage(inputValue.trim());
+    // 내 차례일 때는 단어 제출
+    if (isMyTurn && onSubmitWord) {
+      onSubmitWord(inputValue.trim());
+    } else {
+      onSendMessage(inputValue.trim());
+    }
+    
     setInputValue('');
     inputRef.current?.focus();
   };
@@ -82,7 +94,9 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     <Card>
       <Card.Header>
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-white font-korean">💬 채팅</h3>
+          <h3 className="text-lg font-semibold text-white font-korean">
+            {isMyTurn ? '🎯 단어 입력' : '💬 채팅'}
+          </h3>
           <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-400 shadow-lg shadow-green-400/50' : 'bg-red-400 shadow-lg shadow-red-400/50'} animate-pulse`} />
         </div>
       </Card.Header>
@@ -133,7 +147,17 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         </div>
 
         {/* 입력 영역 */}
-        <div className="p-4 border-t border-white/20 bg-white/5 backdrop-blur-sm">
+        <div className={`p-4 border-t border-white/20 backdrop-blur-sm ${
+          isMyTurn ? 'bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-green-400/30' : 'bg-white/5'
+        }`}>
+          {isMyTurn && currentChar && (
+            <div className="mb-3 text-center">
+              <span className="text-green-300 text-sm font-korean">
+                💡 <strong>"{currentChar}"</strong>로 시작하는 단어를 입력하세요!
+              </span>
+            </div>
+          )}
+          
           <div className="flex space-x-3">
             <input
               ref={inputRef}
@@ -141,8 +165,19 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder={isConnected ? "메시지를 입력하세요..." : "연결 끊김"}
-              className="flex-1 px-4 py-2 bg-white/10 border border-white/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white placeholder-white/50 text-sm backdrop-blur-sm font-korean"
+              placeholder={
+                isConnected ? 
+                  (isMyTurn ? 
+                    (currentChar ? `${currentChar}로 시작하는 단어...` : '단어를 입력하세요...') : 
+                    "메시지를 입력하세요..."
+                  ) : 
+                  "연결 끊김"
+              }
+              className={`flex-1 px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:border-transparent text-white placeholder-white/50 text-sm backdrop-blur-sm font-korean ${
+                isMyTurn 
+                  ? 'bg-green-500/20 border-green-400/30 focus:ring-green-400' 
+                  : 'bg-white/10 border-white/20 focus:ring-purple-500'
+              }`}
               disabled={!isConnected}
               maxLength={200}
             />
@@ -150,10 +185,14 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
               onClick={handleSend}
               disabled={!isConnected || !inputValue.trim()}
               size="sm"
-              variant="primary"
-              className="px-4 py-2"
+              variant={isMyTurn ? "primary" : "primary"}
+              className={`px-4 py-2 ${
+                isMyTurn 
+                  ? 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700' 
+                  : ''
+              }`}
             >
-              전송
+              {isMyTurn ? '🚀 제출' : '전송'}
             </Button>
           </div>
           
