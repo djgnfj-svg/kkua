@@ -228,12 +228,11 @@ frontend/
 
 ### 환경 설정
 ```bash
-# 백엔드 환경 설정
-cd backend
-cp .env.example .env
-# .env 파일에서 데이터베이스 URL, Redis URL 등 설정
+# 프로젝트 클론
+git clone https://github.com/YOUR_USERNAME/kkua.git
+cd kkua
 
-# 프론트엔드 환경 설정 (Phase 6에서)
+# 프론트엔드 의존성 설치
 cd frontend
 npm install
 ```
@@ -242,14 +241,14 @@ npm install
 
 #### Option 1: Docker 개발 환경 (권장)
 ```bash
-# 전체 서비스 시작
-docker-compose up -d
+# 전체 서비스 시작 (백엔드 + 프론트엔드 + DB + Redis)
+docker-compose up -d --build
 
 # 백엔드만 시작 (데이터베이스 포함)
 docker-compose up -d backend db redis
 
-# 프론트엔드만 시작 (profile 사용)
-docker-compose --profile frontend up -d frontend
+# 프론트엔드만 시작
+docker-compose up -d frontend
 
 # 로그 확인
 docker-compose logs -f backend
@@ -259,7 +258,7 @@ docker-compose logs -f frontend
 docker-compose down
 ```
 
-#### Option 2: 혼합 개발 환경
+#### Option 2: 혼합 개발 환경 (빠른 개발)
 ```bash
 # 데이터베이스만 Docker로 시작
 docker-compose up -d db redis
@@ -275,24 +274,24 @@ npm run dev
 
 **참고:** README.md의 빠른 시작 가이드는 혼합 환경을 사용하므로 상황에 따라 선택
 
-### 배포 명령어
+### EC2 원클릭 배포
 ```bash
-# 프로덕션 빌드 및 배포 (Lightsail)
-DB_PASSWORD=test docker-compose -f docker-compose.lightsail.yml build frontend
+# AWS EC2에서 전체 서비스 자동 배포
+curl -o deploy.sh https://raw.githubusercontent.com/YOUR_USERNAME/kkua/develop/deploy.sh && chmod +x deploy.sh && ./deploy.sh
 
-# 프로덕션 환경 시작
-docker-compose -f docker-compose.lightsail.yml up -d
+# 프로덕션 환경 시작 (로컬에서)
+docker-compose -f docker-compose.prod.yml up -d --build
 
 # 시크릿 키 생성
 ./generate-secrets.sh
 
 # 로그 확인 (프로덕션)
-docker-compose -f docker-compose.lightsail.yml logs -f
+docker-compose -f docker-compose.prod.yml logs -f
 ```
 
 **배포 가이드 참고:**
-- `DEPLOYMENT_GUIDE.md` - AWS Lightsail 배포 상세 가이드
-- `LIGHTSAIL_DEPLOY.md` - Lightsail 특화 배포 가이드
+- `EC2_DEPLOY.md` - AWS EC2 원클릭 배포 가이드
+- `README.md` - 전체 프로젝트 개요 및 빠른 시작 가이드
 
 ### 데이터베이스
 ```bash
@@ -314,6 +313,14 @@ docker exec kkua-redis-1 redis-cli FLUSHDB
 # 백엔드 테스트
 cd backend
 python -m pytest tests/ -v
+
+# 프론트엔드 테스트
+cd frontend
+npm run test
+
+# 프론트엔드 테스트 (UI 모드)
+cd frontend
+npm run test:ui
 
 # 프론트엔드 린트 검사
 cd frontend
@@ -428,6 +435,8 @@ CHOKIDAR_USEPOLLING=true
 2. **Redis 연결 오류**: Redis 서비스 상태 확인
 3. **데이터베이스 연결 실패**: DATABASE_URL 설정 확인
 4. **게임 상태 동기화 문제**: Redis 캐시 초기화 시도
+5. **단어 데이터 없음**: 단어 import 스크립트 실행
+6. **메모리 부족 (EC2)**: 스왑 메모리 설정 확인
 
 ### 로그 확인
 ```bash
@@ -439,6 +448,41 @@ docker exec kkua-redis-1 redis-cli monitor
 
 # 데이터베이스 쿼리 로그
 # PostgreSQL 설정에서 log_statement = 'all' 활성화
+
+# 컨테이너 상태 확인
+docker-compose ps
+
+# 시스템 리소스 확인
+htop
+docker stats
+
+# 단어 데이터 import (필요시)
+docker exec kkua-backend-1 python scripts/init_data.py
+```
+
+### 서비스 관리
+```bash
+# 서비스 상태 확인
+docker-compose ps
+
+# 서비스 재시작
+docker-compose restart backend
+docker-compose restart frontend
+
+# 서비스 완전 재빌드
+docker-compose up -d --build --force-recreate
+
+# 컨테이너 정리
+docker-compose down --volumes --remove-orphans
+docker system prune -f
+
+# 백엔드 개발 모드 (핫 리로드)
+cd backend
+python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+# 프론트엔드 개발 모드 (핫 리로드) 
+cd frontend
+npm run dev
 ```
 
 ## 중요 알림
@@ -454,7 +498,7 @@ docker exec kkua-redis-1 redis-cli monitor
 
 ## 다음 단계
 
-현재 상태: **프론트엔드 완성 및 전체 시스템 완료** (2025-08-20)
+현재 상태: **프론트엔드 완성 및 전체 시스템 완료** (2025-08-23)
 
 **🎉 완료된 작업들:**
 

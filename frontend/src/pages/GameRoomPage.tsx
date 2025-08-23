@@ -1154,348 +1154,294 @@ const GameRoomPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
-      {/* Background Effects */}
-      <div className="absolute inset-0 opacity-20 bg-gradient-to-br from-white/5 to-transparent"></div>
-      <div className="absolute top-0 left-0 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse"></div>
-      <div className="absolute bottom-0 right-0 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }}></div>
-      
-      {/* Header */}
-      <header className="relative z-10 bg-white/10 backdrop-blur-md border-b border-white/20 shadow-2xl">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-20">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
-                  <span className="text-white font-bold text-lg">🎮</span>
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold text-white font-korean truncate max-w-48 sm:max-w-none">
-                    {currentRoom?.name || `게임룸 ${roomId?.slice(-4)}`}
-                  </h1>
-                  <div className="flex items-center space-x-2 mt-1">
-                    {gameState.isPlaying && (
-                      <div className="px-3 py-1 bg-gradient-to-r from-purple-500/20 to-blue-500/20 backdrop-blur-sm text-purple-200 rounded-full text-xs font-medium border border-purple-400/30">
-                        라운드 {gameState.currentRound}/{gameState.maxRounds}
-                      </div>
-                    )}
-                    <div className={`px-3 py-1 rounded-full text-xs font-medium backdrop-blur-sm border ${
-                      isConnected 
-                        ? 'bg-green-500/20 text-green-300 border-green-400/30' 
-                        : 'bg-red-500/20 text-red-300 border-red-400/30'
-                    }`}>
-                      {isConnected ? '🟢 연결됨' : '🔴 연결 끊김'}
-                    </div>
-                  </div>
-                </div>
+    <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 relative">
+      {/* Header with user info */}
+      <header className="relative z-10 p-4">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-sm">🎮</span>
+              </div>
+              <div className="text-white">
+                <span className="text-sm font-medium">{user?.nickname || 'Player'}</span>
+                <div className={`inline-block ml-2 w-2 h-2 rounded-full ${isConnected ? 'bg-green-400' : 'bg-red-400'}`}></div>
               </div>
             </div>
-            <div className="flex items-center space-x-3">
-              <Button 
-                variant="glass" 
-                size="md" 
-                onClick={handleLeaveRoom}
-                className="text-white border-white/30 hover:bg-white/20"
-              >
-                🚪 방 나가기
-              </Button>
-            </div>
           </div>
+          <Button 
+            size="sm"
+            onClick={handleLeaveRoom}
+            className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg"
+          >
+            방나가기
+          </Button>
         </div>
       </header>
 
-      <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+      {/* Main content */}
+      <main className="px-4 pb-4">
         {isLoading ? (
           <div className="flex items-center justify-center min-h-[60vh]">
             <Loading size="xl" variant="dots" text="게임룸 로딩 중..." />
           </div>
         ) : (
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 lg:gap-8">
-            {/* 게임 영역 */}
-            <div className="xl:col-span-2">
-              <div className="bg-white/10 backdrop-blur-md rounded-3xl border border-white/20 shadow-2xl overflow-hidden">
-                <div className="bg-gradient-to-r from-purple-500/20 to-blue-500/20 p-6 border-b border-white/20">
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-3 h-3 rounded-full ${gameState.isPlaying ? 'bg-green-400 animate-pulse' : 'bg-yellow-400'}`}></div>
-                      <h2 className="text-xl font-bold text-white font-korean">
-                        {gameState.isPlaying ? '🎯 끝말잇기 게임' : '⏳ 게임 대기'}
-                      </h2>
+          <div className="max-w-4xl mx-auto space-y-4">
+            {/* Game waiting/playing indicator */}
+            <div className="text-center">
+              {gameState.isPlaying ? (
+                <div className="flex items-center justify-center space-x-2">
+                  <div className="w-3 h-3 bg-yellow-400 rounded-full animate-pulse"></div>
+                  <h1 className="text-2xl font-bold text-yellow-400">🎮 게임 대기 중...</h1>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center space-x-2">
+                  <div className="w-3 h-3 bg-gray-400 rounded-full"></div>
+                  <h1 className="text-2xl font-bold text-gray-400">게임 시작을 기다리고 있습니다</h1>
+                  <p className="text-gray-400 text-sm ml-4">
+                    😕 더 많은 친구들을 기다리고 있습니다 (현재: {gameState.remainingTime ? 1 : 0}/4)
+                  </p>
+                </div>
+              )}
+            </div>
+            
+            {/* Main game area */}
+            <div className="bg-purple-800/40 backdrop-blur-lg rounded-2xl border border-white/20 overflow-hidden">
+              {!gameState.isPlaying ? (
+                <div className="p-8 text-center">
+                  <div className="mb-6">
+                    <div className="w-24 h-24 bg-purple-600/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <span className="text-4xl">🎮</span>
                     </div>
-                    {gameState.isPlaying && gameState.currentTurnUserId === String(user.id) && (
-                      <div className="flex items-center space-x-4">
-                        <span className={`font-bold text-lg ${
-                          (gameState.remainingTime || 0) <= 10 
-                            ? 'text-red-300 animate-pulse text-xl drop-shadow-[0_0_10px_rgba(239,68,68,0.8)]' 
-                            : 'text-white animate-pulse'
-                        }`}>
-                          ⏰ {gameState.remainingTime?.toFixed(1)}초
-                        </span>
-                        <div className="w-24 h-3 bg-white/20 rounded-full overflow-hidden backdrop-blur-sm">
-                          <div 
-                            className={`h-full rounded-full ${
-                              (gameState.remainingTime || 0) > 20 ? 'bg-gradient-to-r from-green-400 to-green-500' :
-                              (gameState.remainingTime || 0) > 10 ? 'bg-gradient-to-r from-yellow-400 to-orange-500 animate-pulse' : 
-                              (gameState.remainingTime || 0) > 5 ? 'bg-gradient-to-r from-orange-400 to-red-500 animate-pulse drop-shadow-[0_0_8px_rgba(249,115,22,0.6)]' :
-                              (gameState.remainingTime || 0) > 3 ? 'bg-gradient-to-r from-red-500 to-red-700 animate-bounce drop-shadow-[0_0_12px_rgba(239,68,68,0.8)]' :
-                              'bg-gradient-to-r from-red-600 to-red-800 animate-ping drop-shadow-[0_0_20px_rgba(239,68,68,1)]'
-                            }`}
-                            style={{ 
-                              width: `${Math.max(0, Math.min(100, ((gameState.remainingTime || 0) / (gameState.turnTimeLimit || 30)) * 100))}%`,
-                              transition: `width ${(gameState.remainingTime || 0) > 10 ? '100ms' : (gameState.remainingTime || 0) > 5 ? '60ms' : (gameState.remainingTime || 0) > 3 ? '40ms' : '20ms'} linear`
-                            }}
-                          />
+                    <p className="text-white text-lg mb-2">게임 시작을 기다리고 있습니다</p>
+                    <p className="text-purple-200 text-sm">
+                      {(currentRoom?.players?.length || 0) < 2 
+                        ? `게임 시작을 위해 최소 2명의 플레이어가 필요합니다 (현재: ${currentRoom?.players?.length || 0}명)`
+                        : '모든 플레이어가 준비되면 게임을 시작할 수 있습니다'
+                      }
+                    </p>
+                  </div>
+                  
+                  {/* Game controls for waiting state */}
+                  <div className="space-y-4">
+                    <Button 
+                      onClick={handleReadyToggle}
+                      disabled={!isConnected}
+                      className={`px-8 py-3 rounded-lg font-medium ${
+                        currentRoom?.players?.find(p => p.id === user.id)?.isReady 
+                          ? 'bg-gray-600 text-gray-300' 
+                          : 'bg-green-600 hover:bg-green-700 text-white'
+                      }`}
+                    >
+                      {currentRoom?.players?.find(p => p.id === user.id)?.isReady ? '준비 취소' : '✅ 준비'}
+                    </Button>
+                    
+                    {currentRoom?.players?.find(p => p.id === user.id)?.isHost && (
+                      <Button 
+                        onClick={handleStartGame}
+                        disabled={
+                          !isConnected || 
+                          !currentRoom?.players?.every(p => p.isReady) ||
+                          (currentRoom?.players?.length || 0) < 2
+                        }
+                        className="ml-4 bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        게임 시작
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="p-6">
+                  {/* Game playing state - word chain and game info */}
+                  <div className="space-y-4">
+                    {/* Current turn indicator */}
+                    {gameState.isRoundTransition ? (
+                      <div className="text-center py-6">
+                        <div className="flex items-center justify-center space-x-3">
+                          <span className="text-3xl animate-spin">🔄</span>
+                          <p className="text-yellow-200 font-bold text-lg">라운드 전환 중입니다...</p>
+                        </div>
+                      </div>
+                    ) : gameState.currentTurnUserId === String(user.id) ? (
+                      <div className="bg-green-500/20 rounded-xl p-4 border border-green-400/30">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <span className="text-2xl animate-bounce">🎯</span>
+                            <h4 className="font-bold text-green-300 text-lg">내 차례입니다!</h4>
+                          </div>
+                          {gameState.remainingTime && (
+                            <div className="flex items-center space-x-2">
+                              <span className={`font-bold text-lg ${
+                                (gameState.remainingTime || 0) <= 10 
+                                  ? 'text-red-300 animate-pulse' 
+                                  : 'text-green-300'
+                              }`}>
+                                ⏰ {gameState.remainingTime?.toFixed(1)}초
+                              </span>
+                              <div className="w-20 h-2 bg-white/20 rounded-full overflow-hidden">
+                                <div 
+                                  className={`h-full rounded-full transition-all ${
+                                    (gameState.remainingTime || 0) > 20 ? 'bg-green-500' :
+                                    (gameState.remainingTime || 0) > 10 ? 'bg-yellow-500' : 
+                                    'bg-red-500 animate-pulse'
+                                  }`}
+                                  style={{ 
+                                    width: `${Math.max(0, Math.min(100, ((gameState.remainingTime || 0) / (gameState.turnTimeLimit || 30)) * 100))}%`
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-purple-500/20 rounded-xl p-4 border border-purple-400/30 text-center">
+                        <p className="text-white/80">
+                          <strong className="text-blue-300">
+                            {currentRoom?.players?.find(p => String(p.id) === gameState.currentTurnUserId)?.nickname || '다른 플레이어'}
+                          </strong>님의 차례입니다
+                        </p>
+                      </div>
+                    )}
+                    
+                    {/* Word chain display */}
+                    {gameState.wordChain.length > 0 && (
+                      <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                        <div className="flex items-center space-x-2 mb-3">
+                          <span className="text-xl">🔗</span>
+                          <h4 className="font-bold text-white">단어 체인</h4>
+                        </div>
+                        <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                          {gameState.wordChain.map((word, index) => (
+                            <div 
+                              key={`${word}-${index}`}
+                              className={`px-3 py-1 rounded-lg text-sm font-medium ${
+                                index === gameState.wordChain.length - 1 
+                                  ? 'bg-green-500/30 text-green-300 border border-green-400/40' 
+                                  : 'bg-blue-500/30 text-blue-300 border border-blue-400/40'
+                              }`}
+                            >
+                              {word}
+                            </div>
+                          ))}
+                        </div>
+                        {gameState.currentChar && (
+                          <div className="mt-3 p-3 bg-purple-500/20 rounded-lg border border-purple-400/30">
+                            <p className="text-purple-200 text-sm">
+                              다음 단어는 <strong className="text-purple-300">"{gameState.currentChar}"</strong>로 시작해야 합니다
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Scores display */}
+                    {gameState.scores && Object.keys(gameState.scores).length > 0 && (
+                      <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                        <h4 className="font-bold text-white mb-2">점수</h4>
+                        <div className="grid grid-cols-2 gap-2">
+                          {Object.entries(gameState.scores).map(([userId, score]) => {
+                            const player = currentRoom?.players?.find(p => p.id === userId);
+                            return (
+                              <div key={userId} className="flex justify-between text-sm">
+                                <span className="text-white/80">{player?.nickname || `Player ${userId}`}</span>
+                                <span className="font-bold text-white">{score}점</span>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     )}
                   </div>
                 </div>
-                <div className="p-6">
-                  {gameState.isPlaying ? (
-                    <div className="space-y-6">
-                      {/* 단어 체인 */}
-                      <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10">
-                        <div className="flex items-center space-x-2 mb-4">
-                          <span className="text-2xl">🔗</span>
-                          <h4 className="font-bold text-white text-lg font-korean">단어 체인</h4>
-                        </div>
-                        <div className="flex flex-wrap gap-3 max-h-60 overflow-y-auto scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
-                          {gameState.wordChain.map((word, index) => {
-                            const wordInfo = gameState.wordChainInfo?.[word];
-                            const definition = wordInfo?.definition || '';
-                            const difficulty = wordInfo?.difficulty || 1;
-                            const difficultyText = difficulty === 1 ? '쉬움' : difficulty === 2 ? '보통' : '어려움';
-                            const difficultyColor = difficulty === 1 ? 'text-green-300' : difficulty === 2 ? 'text-yellow-300' : 'text-red-300';
-                            
-                            return (
-                              <div 
-                                key={`${word}-${index}`}
-                                className={`px-4 py-3 rounded-xl transition-all duration-500 transform hover:scale-105 ${
-                                  index === gameState.wordChain.length - 1 
-                                    ? 'bg-gradient-to-r from-green-400/20 to-emerald-500/20 border border-green-400/30 animate-pulse scale-110 shadow-lg shadow-green-400/20' 
-                                    : 'bg-gradient-to-r from-blue-400/20 to-purple-500/20 border border-blue-400/30'
-                                }`}
-                                style={{
-                                  animationDelay: `${index * 100}ms`
-                                }}
-                              >
-                                <div className={`font-bold text-lg ${
-                                  index === gameState.wordChain.length - 1 ? 'text-green-300' : 'text-blue-300'
-                                }`}>
-                                  {word}
-                                </div>
-                                {definition && definition !== `${word}의 뜻` && (
-                                  <div className="text-xs text-white/70 mt-1 leading-tight">
-                                    💡 {definition}
-                                  </div>
-                                )}
-                                <div className={`text-xs mt-1 ${difficultyColor}`}>
-                                  📊 {difficultyText}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                        {gameState.currentChar && (
-                          <div className="mt-4 p-4 bg-gradient-to-r from-purple-500/10 to-blue-500/10 rounded-xl border border-purple-400/20">
-                            <p className="text-purple-200 text-sm font-korean">
-                            다음 단어는 <strong className="text-purple-300">"{gameState.currentChar}"</strong>로 시작해야 합니다
-                          </p>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* 턴 상태 표시 */}
-                      {gameState.isRoundTransition ? (
-                        <div className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 backdrop-blur-sm rounded-2xl p-6 text-center border border-yellow-400/30">
-                          <div className="flex items-center justify-center space-x-3">
-                            <span className="text-3xl animate-spin">🔄</span>
-                            <p className="text-yellow-200 font-bold text-lg font-korean">
-                              라운드 전환 중입니다...
-                            </p>
-                          </div>
-                        </div>
-                      ) : gameState.currentTurnUserId === String(user.id) ? (
-                        <div className="bg-gradient-to-br from-green-500/20 to-emerald-500/20 backdrop-blur-sm rounded-2xl p-6 border border-green-400/30 shadow-lg shadow-green-400/10">
-                          <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center space-x-3">
-                              <span className="text-2xl animate-bounce">🎯</span>
-                              <h4 className="font-bold text-green-300 text-lg font-korean">
-                                내 차례입니다! 채팅으로 단어를 입력하세요
-                              </h4>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <span className={`font-bold text-lg animate-pulse ${
-                                (gameState.remainingTime || 0) <= 10 
-                                  ? 'text-red-300 text-xl drop-shadow-[0_0_10px_rgba(239,68,68,0.8)]' 
-                                  : 'text-green-300'
-                              }`}>
-                                {gameState.remainingTime?.toFixed(1)}초
-                              </span>
-                            </div>
-                          </div>
-                          
-                          <div className="w-full h-4 bg-white/10 rounded-full overflow-hidden backdrop-blur-sm">
-                            <div 
-                              className={`h-full rounded-full transition-all ease-out ${
-                                (gameState.remainingTime || 0) > 20 ? 'bg-gradient-to-r from-green-400 to-green-500' :
-                                (gameState.remainingTime || 0) > 10 ? 'bg-gradient-to-r from-yellow-400 to-orange-500' : 
-                                (gameState.remainingTime || 0) > 5 ? 'bg-gradient-to-r from-orange-400 to-red-500 animate-pulse drop-shadow-[0_0_8px_rgba(249,115,22,0.6)]' :
-                                (gameState.remainingTime || 0) > 3 ? 'bg-gradient-to-r from-red-500 to-red-700 animate-bounce drop-shadow-[0_0_12px_rgba(239,68,68,0.8)]' :
-                                'bg-gradient-to-r from-red-600 to-red-800 animate-ping drop-shadow-[0_0_20px_rgba(239,68,68,1)]'
-                              }`}
-                              style={{ 
-                                width: `${Math.max(0, Math.min(100, ((gameState.remainingTime || 0) / (gameState.turnTimeLimit || 30)) * 100))}%`,
-                                transition: `width ${(gameState.remainingTime || 0) > 10 ? '100ms' : (gameState.remainingTime || 0) > 5 ? '60ms' : (gameState.remainingTime || 0) > 3 ? '40ms' : '20ms'} linear`
-                              }}
-                            />
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 text-center border border-white/20">
-                          <div className="flex items-center justify-center space-x-3">
-                            <span className="text-2xl">⏳</span>
-                            <p className="text-white/80 font-korean">
-                              <strong className="text-blue-300">
-                                {currentRoom?.players?.find(p => String(p.id) === gameState.currentTurnUserId)?.nickname || '다른 플레이어'}
-                              </strong>님의 차례입니다
-                            </p>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* 점수 */}
-                      {gameState.scores && Object.keys(gameState.scores).length > 0 && (
-                        <div className="bg-green-50 rounded-lg p-4">
-                          <h4 className="font-medium text-green-900 mb-2">점수</h4>
-                          <div className="grid grid-cols-2 gap-2">
-                            {Object.entries(gameState.scores).map(([userId, score]) => {
-                              const player = currentRoom?.players?.find(p => p.id === userId);
-                              return (
-                                <div key={userId} className="flex justify-between">
-                                  <span>{player?.nickname || `Player ${userId}`}</span>
-                                  <span className="font-bold">{score}점</span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8">
-                      <p className="text-gray-600 mb-4">
-                        {(currentRoom?.players?.length || 0) < 2 
-                          ? `게임 시작을 위해 최소 2명의 플레이어가 필요합니다 (현재: ${currentRoom?.players?.length || 0}명)`
-                          : '모든 플레이어가 준비되면 게임을 시작할 수 있습니다'
-                        }
-                      </p>
-                      <div className="space-x-2">
-                        <Button 
-                          variant="secondary"
-                          onClick={handleReadyToggle}
-                          disabled={!isConnected}
-                        >
-                          {currentRoom?.players?.find(p => p.id === user.id)?.isReady ? '준비 취소' : '준비 완료'}
-                        </Button>
-                        {currentRoom?.players?.find(p => p.id === user.id)?.isHost && (
-                          <Button 
-                            onClick={handleStartGame}
-                            disabled={
-                              !isConnected || 
-                              !currentRoom?.players?.every(p => p.isReady) ||
-                              (currentRoom?.players?.length || 0) < 2
-                            }
-                          >
-                            게임 시작
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
+              )}
             </div>
 
-            {/* 사이드바 */}
-            <div className="space-y-6">
-              {/* 플레이어 목록 */}
-              <div className="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 shadow-xl overflow-hidden">
-                <div className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 p-4 border-b border-white/20">
-                  <div className="flex items-center space-x-3">
-                    <span className="text-2xl">👥</span>
-                    <h3 className="text-lg font-bold text-white font-korean">
-                      플레이어 ({currentRoom?.currentPlayers || 0}/{currentRoom?.maxPlayers || 4})
+            {/* Bottom tabs - Players and Chat */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              {/* Players tab */}
+              <div className="bg-purple-800/40 backdrop-blur-lg rounded-2xl border border-white/20 overflow-hidden">
+                <div className="bg-purple-700/40 p-4 border-b border-white/20">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-lg">👥</span>
+                    <h3 className="text-white font-bold">
+                      재밌 ({currentRoom?.currentPlayers || 0}/4)
                     </h3>
                   </div>
                 </div>
-                <div className="p-4">
+                <div className="p-4 max-h-48 overflow-y-auto">
                   <div className="space-y-3">
                     {currentRoom?.players?.map((player) => (
                       <div 
                         key={player.id} 
-                        className={`flex items-center justify-between p-4 rounded-xl transition-all duration-300 ${
+                        className={`flex items-center justify-between p-3 rounded-lg ${
                           player.id === user.id 
-                            ? 'bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-400/30 shadow-lg' 
-                            : 'bg-white/5 border border-white/10 hover:bg-white/10'
+                            ? 'bg-blue-500/20 border border-blue-400/30' 
+                            : 'bg-white/5 border border-white/10'
                         }`}
                       >
                         <div className="flex items-center space-x-3">
-                          <div className={`w-4 h-4 rounded-full transition-all duration-300 ${
-                            player.isReady 
-                              ? 'bg-green-400 shadow-lg shadow-green-400/50 animate-pulse' 
-                              : 'bg-gray-400'
+                          <div className={`w-3 h-3 rounded-full ${
+                            player.isReady ? 'bg-green-400' : 'bg-red-400'
                           }`} />
-                          <span className={`font-medium font-korean ${
-                            player.id === user.id ? 'text-blue-300' : 'text-white'
-                          }`}>
+                          <span className="text-white text-sm font-medium">
                             {player.nickname}
                             {player.id === user.id && ' (나)'}
                           </span>
                         </div>
                         <div className="flex items-center space-x-2">
                           {player.isHost && (
-                            <span className="px-3 py-1 bg-gradient-to-r from-yellow-400/20 to-orange-500/20 text-yellow-300 text-xs rounded-full border border-yellow-400/30 font-medium">
-                              👑 방장
+                            <span className="px-2 py-1 bg-yellow-500/20 text-yellow-300 text-xs rounded">
+                              방장
                             </span>
                           )}
                           {gameState.isPlaying && gameState.currentTurnUserId === player.id && (
-                            <span className="px-3 py-1 bg-gradient-to-r from-green-400/20 to-emerald-500/20 text-green-300 text-xs rounded-full border border-green-400/30 font-medium animate-pulse">
-                              🎯 턴
+                            <span className="px-2 py-1 bg-green-500/20 text-green-300 text-xs rounded">
+                              턴
                             </span>
                           )}
                         </div>
                       </div>
                     )) || (
-                      <div className="text-center py-8">
-                        <div className="animate-spin w-8 h-8 border-2 border-white/20 border-t-white rounded-full mx-auto mb-3"></div>
-                        <p className="text-white/60 text-sm font-korean">
-                          플레이어 정보를 불러오는 중...
-                        </p>
+                      <div className="text-center py-4">
+                        <p className="text-white/60 text-sm">플레이어 로딩 중...</p>
                       </div>
                     )}
                   </div>
                 </div>
               </div>
 
-              {/* 아이템 패널 */}
-              <ItemPanel
-                userId={Number(user?.id) || 0}
-                roomId={roomId}
-                isGameActive={gameState.isPlaying}
-                isMyTurn={gameState.currentTurnUserId === String(user?.id)}
-                onItemUse={(itemId, targetUserId) => {
-                  if (isConnected) {
-                    emit('use_item', {
-                      room_id: roomId,
-                      item_id: itemId,
-                      target_user_id: targetUserId
-                    });
-                  }
-                }}
-              />
+              {/* Chat tab */}
+              <div className="bg-purple-800/40 backdrop-blur-lg rounded-2xl border border-white/20 overflow-hidden">
+                <div className="bg-purple-700/40 p-4 border-b border-white/20">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-lg">💬</span>
+                    <h3 className="text-white font-bold">아이템</h3>
+                  </div>
+                </div>
+                <div className="p-4">
+                  <ItemPanel
+                    userId={Number(user?.id) || 0}
+                    roomId={roomId}
+                    isGameActive={gameState.isPlaying}
+                    isMyTurn={gameState.currentTurnUserId === String(user?.id)}
+                    onItemUse={(itemId, targetUserId) => {
+                      if (isConnected) {
+                        emit('use_item', {
+                          room_id: roomId,
+                          item_id: itemId,
+                          target_user_id: targetUserId
+                        });
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
 
-              {/* 채팅 패널 */}
+            {/* Chat Panel - Full width at bottom */}
+            <div className="mt-4">
               <ChatPanel
                 messages={chatMessages}
                 isConnected={isConnected}
@@ -1508,22 +1454,9 @@ const GameRoomPage: React.FC = () => {
             </div>
           </div>
         )}
-
-        {/* 새로고침 안내 */}
-        <div className="mt-8 bg-gradient-to-r from-green-500/20 to-emerald-500/20 backdrop-blur-sm rounded-2xl p-6 border border-green-400/30">
-          <div className="flex items-center space-x-3 mb-2">
-            <span className="text-2xl">✅</span>
-            <h4 className="font-bold text-green-300 text-lg font-korean">상태 유지 확인</h4>
-          </div>
-          <p className="text-green-200 text-sm font-korean">
-            이제 새로고침을 해도 현재 방 상태가 유지됩니다! URL에 방 ID가 포함되어 있어 
-            브라우저를 닫고 다시 열어도 같은 방으로 돌아올 수 있습니다.
-          </p>
-        </div>
-      </main>
-      
-      {/* 게임 리포트 */}
-      {gameState.showFinalRankings && gameState.finalRankings && gameState.finalRankings.length > 0 && (
+        
+        {/* 게임 리포트 */}
+        {gameState.showFinalRankings && gameState.finalRankings && gameState.finalRankings.length > 0 && (
         <GameReport
           finalRankings={gameState.finalRankings}
           currentUserId={Number(user?.id) || 0}
@@ -1555,15 +1488,16 @@ const GameRoomPage: React.FC = () => {
             navigateSafely('/lobby');
           }}
         />
-      )}
+        )}
 
-      {/* 중복 연결 모달 */}
-      <DuplicateConnectionModal
-        isOpen={showDuplicateModal}
-        message={duplicateMessage}
-        onContinue={handleDuplicateConnectionContinue}
-        onCancel={handleDuplicateConnectionCancel}
-      />
+        {/* 중복 연결 모달 */}
+        <DuplicateConnectionModal
+          isOpen={showDuplicateModal}
+          message={duplicateMessage}
+          onContinue={handleDuplicateConnectionContinue}
+          onCancel={handleDuplicateConnectionCancel}
+        />
+      </main>
     </div>
   );
 };
