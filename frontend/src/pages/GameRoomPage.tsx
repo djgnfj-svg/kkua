@@ -19,7 +19,8 @@ const GameRoomPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useUserStore();
   const { currentRoom, setCurrentRoom, updateRoom, isLoading, setLoading } = useGameStore();
-  const { handleInputFocus, isMobile } = useMobileOptimization();
+  const { isMobile } = useMobileOptimization();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   
   
   // 사운드 시스템
@@ -136,10 +137,11 @@ const GameRoomPage: React.FC = () => {
     wordSubmitEffect: 'none', 
     gameEndCelebration: 'none'
   });
+  
 
-  // 타이머 카운트다운 (부드러운 연속 애니메이션)
+  // 타이머 카운트다운 (부드러운 연속 애니메이션) - 모든 플레이어에게 표시
   useEffect(() => {
-    if (!gameState.isPlaying || gameState.currentTurnUserId !== user?.id) return;
+    if (!gameState.isPlaying) return;
     
     // 100ms마다 더 부드러운 애니메이션
     const interval = setInterval(() => {
@@ -147,8 +149,8 @@ const GameRoomPage: React.FC = () => {
         const decrementRate = (prev.remainingTime || 0) > 5 ? 0.1 : (prev.remainingTime || 0) > 3 ? 0.15 : 0.25; // 시간이 적을수록 더 빠르게
         const newTime = Math.max(0.1, (prev.remainingTime || 30) - decrementRate);
         
-        // 경고음 재생 (5초 남았을 때 - 한 번만)
-        if (Math.floor(newTime) === 5 && Math.floor(prev.remainingTime || 30) === 6) {
+        // 경고음 재생 (5초 남았을 때 - 내 차례일 때만)
+        if (Math.floor(newTime) === 5 && Math.floor(prev.remainingTime || 30) === 6 && prev.currentTurnUserId === String(user?.id)) {
           playSound('warning');
         }
         
@@ -157,7 +159,7 @@ const GameRoomPage: React.FC = () => {
     }, 100); // 100ms 간격으로 부드러운 애니메이션
     
     return () => clearInterval(interval);
-  }, [gameState.isPlaying, gameState.currentTurnUserId, user?.id, playSound]);
+  }, [gameState.isPlaying, playSound]);
 
   // 실시간 단어 검증
   useEffect(() => {
@@ -1108,13 +1110,20 @@ const GameRoomPage: React.FC = () => {
     emit('start_game', { room_id: roomId });
   };
 
-  const handleSubmitWord = () => {
-    if (!isConnected || !currentWord.trim()) return;
+  const handleSubmitWord = (word?: string) => {
+    const wordToSubmit = word || currentWord.trim();
+    console.log('🚀 handleSubmitWord 호출됨:', { word, currentWord, wordToSubmit, isConnected, roomId });
+    
+    if (!isConnected || !wordToSubmit) {
+      console.log('❌ 제출 조건 실패:', { isConnected, wordToSubmit });
+      return;
+    }
     
     // 단어 제출 애니메이션 시작
     setVisualEffects(prev => ({ ...prev, wordSubmitEffect: 'shake' }));
     
-    emit('submit_word', { room_id: roomId, word: currentWord.trim() });
+    console.log('📤 WebSocket으로 단어 전송:', { room_id: roomId, word: wordToSubmit });
+    emit('submit_word', { room_id: roomId, word: wordToSubmit });
     setCurrentWord('');
     
     // 애니메이션 초기화
@@ -1187,74 +1196,28 @@ const GameRoomPage: React.FC = () => {
           </div>
         ) : (
           <div className="max-w-4xl mx-auto space-y-4">
-            {/* Game waiting/playing indicator */}
-            <div className="text-center">
-              {gameState.isPlaying ? (
-                <div className="flex items-center justify-center space-x-2">
-                  <div className="w-3 h-3 bg-yellow-400 rounded-full animate-pulse"></div>
-                  <h1 className="text-2xl font-bold text-yellow-400">🎮 게임 대기 중...</h1>
-                </div>
-              ) : (
-                <div className="flex items-center justify-center space-x-2">
-                  <div className="w-3 h-3 bg-gray-400 rounded-full"></div>
-                  <h1 className="text-2xl font-bold text-gray-400">게임 시작을 기다리고 있습니다</h1>
-                  <p className="text-gray-400 text-sm ml-4">
-                    😕 더 많은 친구들을 기다리고 있습니다 (현재: {gameState.remainingTime ? 1 : 0}/4)
-                  </p>
-                </div>
-              )}
-            </div>
-            
-            {/* Main game area */}
-            <div className="bg-purple-800/40 backdrop-blur-lg rounded-2xl border border-white/20 overflow-hidden">
-              {!gameState.isPlaying ? (
-                <div className="p-8 text-center">
-                  <div className="mb-6">
-                    <div className="w-24 h-24 bg-purple-600/30 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <span className="text-4xl">🎮</span>
-                    </div>
-                    <p className="text-white text-lg mb-2">게임 시작을 기다리고 있습니다</p>
-                    <p className="text-purple-200 text-sm">
-                      {(currentRoom?.players?.length || 0) < 2 
-                        ? `게임 시작을 위해 최소 2명의 플레이어가 필요합니다 (현재: ${currentRoom?.players?.length || 0}명)`
-                        : '모든 플레이어가 준비되면 게임을 시작할 수 있습니다'
-                      }
-                    </p>
-                  </div>
-                  
-                  {/* Game controls for waiting state */}
-                  <div className="space-y-4">
-                    <Button 
-                      onClick={handleReadyToggle}
-                      disabled={!isConnected}
-                      className={`px-8 py-3 rounded-lg font-medium ${
-                        currentRoom?.players?.find(p => p.id === user.id)?.isReady 
-                          ? 'bg-gray-600 text-gray-300' 
-                          : 'bg-green-600 hover:bg-green-700 text-white'
-                      }`}
-                    >
-                      {currentRoom?.players?.find(p => p.id === user.id)?.isReady ? '준비 취소' : '✅ 준비'}
-                    </Button>
-                    
-                    {currentRoom?.players?.find(p => p.id === user.id)?.isHost && (
-                      <Button 
-                        onClick={handleStartGame}
-                        disabled={
-                          !isConnected || 
-                          !currentRoom?.players?.every(p => p.isReady) ||
-                          (currentRoom?.players?.length || 0) < 2
-                        }
-                        className="ml-4 bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        게임 시작
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ) : (
+            {/* Game status and round info - always show when game state exists */}
+            {(gameState.isPlaying || (gameState.currentRound && gameState.currentRound > 1)) && (
+              <div className="bg-purple-800/40 backdrop-blur-lg rounded-2xl border border-white/20 overflow-hidden">
                 <div className="p-6">
-                  {/* Game playing state - word chain and game info */}
                   <div className="space-y-4">
+                    {/* Round indicator */}
+                    <div className="text-center">
+                      <h2 className="text-white font-bold text-xl">
+                        라운드 {gameState.currentRound || 1} / {gameState.maxRounds || 3}
+                      </h2>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Main game area - show during gameplay */}
+            {gameState.isPlaying && (
+            <div className="bg-purple-800/40 backdrop-blur-lg rounded-2xl border border-white/20 overflow-hidden">
+              <div className="p-6">
+                {/* Game playing state - word chain and game info */}
+                <div className="space-y-4">
                     {/* Current turn indicator */}
                     {gameState.isRoundTransition ? (
                       <div className="text-center py-6">
@@ -1296,12 +1259,40 @@ const GameRoomPage: React.FC = () => {
                         </div>
                       </div>
                     ) : (
-                      <div className="bg-purple-500/20 rounded-xl p-4 border border-purple-400/30 text-center">
-                        <p className="text-white/80">
-                          <strong className="text-blue-300">
-                            {currentRoom?.players?.find(p => String(p.id) === gameState.currentTurnUserId)?.nickname || '다른 플레이어'}
-                          </strong>님의 차례입니다
-                        </p>
+                      <div className="bg-purple-500/20 rounded-xl p-4 border border-purple-400/30">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <span className="text-2xl">⏳</span>
+                            <p className="text-white/80">
+                              <strong className="text-blue-300">
+                                {currentRoom?.players?.find(p => String(p.id) === gameState.currentTurnUserId)?.nickname || '다른 플레이어'}
+                              </strong>님의 차례입니다
+                            </p>
+                          </div>
+                          {gameState.remainingTime && (
+                            <div className="flex items-center space-x-2">
+                              <span className={`font-bold text-lg ${
+                                (gameState.remainingTime || 0) <= 10 
+                                  ? 'text-red-300 animate-pulse' 
+                                  : 'text-purple-300'
+                              }`}>
+                                ⏰ {gameState.remainingTime?.toFixed(1)}초
+                              </span>
+                              <div className="w-20 h-2 bg-white/20 rounded-full overflow-hidden">
+                                <div 
+                                  className={`h-full rounded-full transition-all ${
+                                    (gameState.remainingTime || 0) > 20 ? 'bg-green-500' :
+                                    (gameState.remainingTime || 0) > 10 ? 'bg-yellow-500' : 
+                                    'bg-red-500 animate-pulse'
+                                  }`}
+                                  style={{ 
+                                    width: `${Math.max(0, Math.min(100, ((gameState.remainingTime || 0) / (gameState.turnTimeLimit || 30)) * 100))}%`
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
                     
@@ -1355,8 +1346,8 @@ const GameRoomPage: React.FC = () => {
                     )}
                   </div>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* Bottom tabs - Players and Chat */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
@@ -1366,7 +1357,7 @@ const GameRoomPage: React.FC = () => {
                   <div className="flex items-center space-x-2">
                     <span className="text-lg">👥</span>
                     <h3 className="text-white font-bold">
-                      재밌 ({currentRoom?.currentPlayers || 0}/4)
+                      플레이어 ({currentRoom?.currentPlayers || 0}/4)
                     </h3>
                   </div>
                 </div>
@@ -1375,19 +1366,24 @@ const GameRoomPage: React.FC = () => {
                     {currentRoom?.players?.map((player) => (
                       <div 
                         key={player.id} 
-                        className={`flex items-center justify-between p-3 rounded-lg ${
-                          player.id === user.id 
-                            ? 'bg-blue-500/20 border border-blue-400/30' 
-                            : 'bg-white/5 border border-white/10'
+                        className={`flex items-center justify-between p-3 rounded-lg transition-all duration-300 ${
+                          player.isReady
+                            ? 'bg-green-500/30 border border-green-400/50 shadow-lg shadow-green-400/20'
+                            : player.id === user.id 
+                              ? 'bg-blue-500/20 border border-blue-400/30' 
+                              : 'bg-white/5 border border-white/10'
                         }`}
                       >
                         <div className="flex items-center space-x-3">
-                          <div className={`w-3 h-3 rounded-full ${
-                            player.isReady ? 'bg-green-400' : 'bg-red-400'
+                          <span className={`w-3 h-3 rounded-full ${
+                            player.isReady ? 'bg-green-300 animate-pulse' : 'bg-red-400'
                           }`} />
-                          <span className="text-white text-sm font-medium">
+                          <span className={`text-sm font-medium ${
+                            player.isReady ? 'text-green-200' : 'text-white'
+                          }`}>
                             {player.nickname}
                             {player.id === user.id && ' (나)'}
+                            {player.isReady && ' ✅'}
                           </span>
                         </div>
                         <div className="flex items-center space-x-2">
@@ -1409,6 +1405,45 @@ const GameRoomPage: React.FC = () => {
                       </div>
                     )}
                   </div>
+                  
+                  {/* Game controls when not playing */}
+                  {!gameState.isPlaying && (
+                    <div className="p-4 border-t border-white/10">
+                      <div className="flex flex-col space-y-3">
+                        <Button 
+                          onClick={handleReadyToggle}
+                          disabled={!isConnected}
+                          className={`w-full py-3 rounded-lg font-medium transition-all ${
+                            currentRoom?.players?.find(p => p.id === user.id)?.isReady 
+                              ? 'bg-gray-600 hover:bg-gray-700 text-gray-300' 
+                              : 'bg-green-600 hover:bg-green-700 text-white shadow-lg'
+                          }`}
+                        >
+                          {currentRoom?.players?.find(p => p.id === user.id)?.isReady ? '준비 취소' : '✅ 준비 완료'}
+                        </Button>
+                        
+                        {currentRoom?.players?.find(p => p.id === user.id)?.isHost && (
+                          <Button 
+                            onClick={handleStartGame}
+                            disabled={
+                              !isConnected || 
+                              !currentRoom?.players?.every(p => p.isReady) ||
+                              (currentRoom?.players?.length || 0) < 2
+                            }
+                            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                          >
+                            🎮 게임 시작
+                          </Button>
+                        )}
+                        
+                        {(currentRoom?.players?.length || 0) < 2 && (
+                          <p className="text-center text-purple-200 text-xs">
+                            최소 2명이 필요합니다 (현재 {currentRoom?.players?.length || 0}명)
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 

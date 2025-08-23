@@ -54,8 +54,10 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     
     // 내 차례일 때는 단어 제출
     if (isMyTurn && onSubmitWord) {
+      console.log('🎯 내 차례: 단어 제출 -', inputValue.trim());
       onSubmitWord(inputValue.trim());
     } else {
+      console.log('💬 채팅 전송 -', inputValue.trim());
       onSendMessage(inputValue.trim());
     }
     
