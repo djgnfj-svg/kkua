@@ -1168,8 +1168,8 @@ const GameRoomPage: React.FC = () => {
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">🎮</span>
+              <div className="px-3 py-1 bg-white/20 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-sm">{currentRoom?.name || '게임룸'}</span>
               </div>
               <div className="text-white">
                 <span className="text-sm font-medium">{user?.nickname || 'Player'}</span>
