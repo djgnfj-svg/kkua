@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Button, Card, Loading } from '../components/ui';
+import { Button, Card, Loading, WordCard, PlayerCard } from '../components/ui';
 import { useUserStore } from '../stores/useUserStore';
 import { useGameStore } from '../stores/useGameStore';
 import { useMobileOptimization } from '../hooks/useMobileOptimization';
@@ -9,7 +9,6 @@ import { apiEndpoints } from '../utils/api';
 import { useNativeWebSocket } from '../hooks/useNativeWebSocket';
 import { useNavigationProtection } from '../hooks/useNavigationProtection';
 import GameReport from '../components/GameReport';
-import ItemPanel from '../components/ItemPanel';
 import ChatPanel from '../components/ChatPanel';
 import DuplicateConnectionModal from '../components/DuplicateConnectionModal';
 import { getTabCommunicationManager } from '../utils/tabCommunication';
@@ -1163,9 +1162,9 @@ const GameRoomPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 relative">
+    <div className="h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 relative flex flex-col">
       {/* Header with user info */}
-      <header className="relative z-10 p-4">
+      <header className="relative z-10 p-3 flex-shrink-0">
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
@@ -1189,35 +1188,28 @@ const GameRoomPage: React.FC = () => {
       </header>
 
       {/* Main content */}
-      <main className="px-4 pb-4">
+      <main className="flex-1 px-3 pb-3 overflow-y-auto">
         {isLoading ? (
-          <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="flex items-center justify-center h-full">
             <Loading size="xl" variant="dots" text="게임룸 로딩 중..." />
           </div>
         ) : (
-          <div className="max-w-4xl mx-auto space-y-4">
-            {/* Game status and round info - always show when game state exists */}
-            {(gameState.isPlaying || (gameState.currentRound && gameState.currentRound > 1)) && (
-              <div className="bg-purple-800/40 backdrop-blur-lg rounded-2xl border border-white/20 overflow-hidden">
-                <div className="p-6">
-                  <div className="space-y-4">
-                    {/* Round indicator */}
-                    <div className="text-center">
-                      <h2 className="text-white font-bold text-xl">
-                        라운드 {gameState.currentRound || 1} / {gameState.maxRounds || 3}
-                      </h2>
-                    </div>
+          <div className="max-w-4xl mx-auto space-y-3">
+            {/* Game Board - Word chains and game state */}
+            <div className="bg-purple-800/40 backdrop-blur-lg rounded-xl border border-white/20 min-h-[200px]">
+              <div className="p-4">
+                {/* Round info */}
+                {(gameState.isPlaying || (gameState.currentRound && gameState.currentRound > 1)) && (
+                  <div className="text-center mb-4">
+                    <h2 className="text-white font-bold text-lg">
+                      라운드 {gameState.currentRound || 1} / {gameState.maxRounds || 3}
+                    </h2>
                   </div>
-                </div>
-              </div>
-            )}
-            
-            {/* Main game area - show during gameplay */}
-            {gameState.isPlaying && (
-            <div className="bg-purple-800/40 backdrop-blur-lg rounded-2xl border border-white/20 overflow-hidden">
-              <div className="p-6">
-                {/* Game playing state - word chain and game info */}
-                <div className="space-y-4">
+                )}
+
+                {/* Game state display */}
+                {gameState.isPlaying ? (
+                  <div className="space-y-4">
                     {/* Current turn indicator */}
                     {gameState.isRoundTransition ? (
                       <div className="text-center py-6">
@@ -1296,32 +1288,43 @@ const GameRoomPage: React.FC = () => {
                       </div>
                     )}
                     
-                    {/* Word chain display */}
+                    {/* Word chain display with floating cards */}
                     {gameState.wordChain.length > 0 && (
                       <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-                        <div className="flex items-center space-x-2 mb-3">
+                        <div className="flex items-center space-x-2 mb-4">
                           <span className="text-xl">🔗</span>
                           <h4 className="font-bold text-white">단어 체인</h4>
+                          <span className="text-white/60 text-sm">({gameState.wordChain.length}개)</span>
                         </div>
-                        <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
-                          {gameState.wordChain.map((word, index) => (
-                            <div 
-                              key={`${word}-${index}`}
-                              className={`px-3 py-1 rounded-lg text-sm font-medium ${
-                                index === gameState.wordChain.length - 1 
-                                  ? 'bg-green-500/30 text-green-300 border border-green-400/40' 
-                                  : 'bg-blue-500/30 text-blue-300 border border-blue-400/40'
-                              }`}
-                            >
-                              {word}
-                            </div>
-                          ))}
+                        
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-64 overflow-y-auto">
+                          {gameState.wordChain.map((word, index) => {
+                            const wordInfo = gameState.wordChainInfo?.[word];
+                            const isLatest = index === gameState.wordChain.length - 1;
+                            
+                            return (
+                              <WordCard
+                                key={`${word}-${index}`}
+                                word={word}
+                                definition={wordInfo?.definition}
+                                difficulty={wordInfo?.difficulty || 1}
+                                score={word.length * 10}
+                                isLatest={isLatest}
+                                index={index}
+                              />
+                            );
+                          })}
                         </div>
+                        
                         {gameState.currentChar && (
-                          <div className="mt-3 p-3 bg-purple-500/20 rounded-lg border border-purple-400/30">
-                            <p className="text-purple-200 text-sm">
-                              다음 단어는 <strong className="text-purple-300">"{gameState.currentChar}"</strong>로 시작해야 합니다
-                            </p>
+                          <div className="mt-4 p-4 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-xl border border-purple-400/30 backdrop-blur-sm">
+                            <div className="flex items-center justify-center space-x-2">
+                              <span className="text-2xl animate-bounce">🎯</span>
+                              <p className="text-purple-200 text-center">
+                                다음 단어는 <strong className="text-purple-300 text-lg font-bold animate-pulse">"{gameState.currentChar}"</strong>로 시작해야 합니다
+                              </p>
+                              <span className="text-2xl animate-bounce" style={{animationDelay: '0.2s'}}>🎯</span>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -1345,15 +1348,30 @@ const GameRoomPage: React.FC = () => {
                       </div>
                     )}
                   </div>
-                </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="mb-4">
+                      <div className="w-16 h-16 bg-purple-600/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span className="text-3xl">🎮</span>
+                      </div>
+                      <h3 className="text-white text-xl font-bold mb-2">끝말잇기 게임</h3>
+                      <p className="text-purple-200 text-sm">
+                        {(currentRoom?.players?.length || 0) < 2 
+                          ? `게임 시작을 위해 최소 2명의 플레이어가 필요합니다`
+                          : '모든 플레이어가 준비되면 게임을 시작할 수 있습니다'
+                        }
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
 
             {/* Bottom tabs - Players and Chat */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {/* Players tab */}
-              <div className="bg-purple-800/40 backdrop-blur-lg rounded-2xl border border-white/20 overflow-hidden">
-                <div className="bg-purple-700/40 p-4 border-b border-white/20">
+              <div className="bg-purple-800/40 backdrop-blur-lg rounded-xl border border-white/20 overflow-hidden">
+                <div className="bg-purple-700/40 p-3 border-b border-white/20">
                   <div className="flex items-center space-x-2">
                     <span className="text-lg">👥</span>
                     <h3 className="text-white font-bold">
@@ -1361,54 +1379,39 @@ const GameRoomPage: React.FC = () => {
                     </h3>
                   </div>
                 </div>
-                <div className="p-4 max-h-48 overflow-y-auto">
+                <div className="p-3">
                   <div className="space-y-3">
-                    {currentRoom?.players?.map((player) => (
-                      <div 
-                        key={player.id} 
-                        className={`flex items-center justify-between p-3 rounded-lg transition-all duration-300 ${
-                          player.isReady
-                            ? 'bg-green-500/30 border border-green-400/50 shadow-lg shadow-green-400/20'
-                            : player.id === user.id 
-                              ? 'bg-blue-500/20 border border-blue-400/30' 
-                              : 'bg-white/5 border border-white/10'
-                        }`}
-                      >
-                        <div className="flex items-center space-x-3">
-                          <span className={`w-3 h-3 rounded-full ${
-                            player.isReady ? 'bg-green-300 animate-pulse' : 'bg-red-400'
-                          }`} />
-                          <span className={`text-sm font-medium ${
-                            player.isReady ? 'text-green-200' : 'text-white'
-                          }`}>
-                            {player.nickname}
-                            {player.id === user.id && ' (나)'}
-                            {player.isReady && ' ✅'}
-                          </span>
+                    {currentRoom?.players?.map((player) => {
+                      const isCurrentTurn = gameState.isPlaying && gameState.currentTurnUserId === player.id;
+                      const playerScore = gameState.scores?.[player.id];
+                      
+                      return (
+                        <PlayerCard
+                          key={player.id}
+                          id={player.id}
+                          nickname={player.nickname}
+                          isHost={player.isHost}
+                          isReady={player.isReady}
+                          isCurrentTurn={isCurrentTurn}
+                          isMe={player.id === user.id}
+                          score={playerScore}
+                          isConnected={true}
+                        />
+                      );
+                    }) || (
+                      <div className="text-center py-8">
+                        <div className="animate-pulse space-y-3">
+                          <div className="h-16 bg-white/10 rounded-xl"></div>
+                          <div className="h-16 bg-white/5 rounded-xl"></div>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          {player.isHost && (
-                            <span className="px-2 py-1 bg-yellow-500/20 text-yellow-300 text-xs rounded">
-                              방장
-                            </span>
-                          )}
-                          {gameState.isPlaying && gameState.currentTurnUserId === player.id && (
-                            <span className="px-2 py-1 bg-green-500/20 text-green-300 text-xs rounded">
-                              턴
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    )) || (
-                      <div className="text-center py-4">
-                        <p className="text-white/60 text-sm">플레이어 로딩 중...</p>
+                        <p className="text-white/60 text-sm mt-3">플레이어 로딩 중...</p>
                       </div>
                     )}
                   </div>
                   
                   {/* Game controls when not playing */}
                   {!gameState.isPlaying && (
-                    <div className="p-4 border-t border-white/10">
+                    <div className="p-3 border-t border-white/10">
                       <div className="flex flex-col space-y-3">
                         <Button 
                           onClick={handleReadyToggle}
@@ -1446,37 +1449,8 @@ const GameRoomPage: React.FC = () => {
                   )}
                 </div>
               </div>
-
-              {/* Chat tab */}
-              <div className="bg-purple-800/40 backdrop-blur-lg rounded-2xl border border-white/20 overflow-hidden">
-                <div className="bg-purple-700/40 p-4 border-b border-white/20">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-lg">💬</span>
-                    <h3 className="text-white font-bold">아이템</h3>
-                  </div>
-                </div>
-                <div className="p-4">
-                  <ItemPanel
-                    userId={Number(user?.id) || 0}
-                    roomId={roomId}
-                    isGameActive={gameState.isPlaying}
-                    isMyTurn={gameState.currentTurnUserId === String(user?.id)}
-                    onItemUse={(itemId, targetUserId) => {
-                      if (isConnected) {
-                        emit('use_item', {
-                          room_id: roomId,
-                          item_id: itemId,
-                          target_user_id: targetUserId
-                        });
-                      }
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Chat Panel - Full width at bottom */}
-            <div className="mt-4">
+              
+              {/* Chat Panel */}
               <ChatPanel
                 messages={chatMessages}
                 isConnected={isConnected}
