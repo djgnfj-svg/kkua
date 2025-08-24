@@ -90,6 +90,7 @@ class WordChainState:
     used_words: set = None
     current_char: str = ""
     last_word: str = ""
+    combo_count: int = 0  # 콤보 카운트 추가
     
     def __post_init__(self):
         if self.words is None:
@@ -103,7 +104,13 @@ class WordChainState:
         self.used_words.add(word.lower())
         self.last_word = word
         self.current_char = word[-1] if word else ""
+        self.combo_count += 1  # 콤보 카운트 증가
 
+    @property
+    def last_char(self) -> str:
+        """마지막 글자 (current_char과 동일)"""
+        return self.current_char
+    
     def is_word_used(self, word: str) -> bool:
         """단어 중복 사용 확인"""
         return word.lower() in self.used_words

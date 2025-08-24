@@ -942,51 +942,24 @@ class GameEventHandler:
                 })
                 return False
             
-            # 단어 길이 검증
-            if len(word) < 2:
+            # 게임 엔진의 완전한 단어 검증 사용
+            success, message, word_info, score_breakdown = await self.game_engine.submit_word(
+                room_id, user_id, word
+            )
+            
+            if not success:
                 await self.websocket_manager.send_to_user(user_id, {
                     "type": "word_submission_failed",
-                    "data": {"reason": "단어는 최소 2글자 이상이어야 합니다"}
+                    "data": {"reason": message}
                 })
                 return False
             
-            # 끝말잇기 규칙 검증
-            if not game_state.word_chain.is_valid_chain(word):
-                await self.websocket_manager.send_to_user(user_id, {
-                    "type": "word_submission_failed",
-                    "data": {"reason": f"'{game_state.word_chain.current_char}'(으)로 시작하는 단어를 입력하세요"}
-                })
-                return False
-            
-            # 중복 단어 검증
-            if game_state.word_chain.is_word_used(word):
-                await self.websocket_manager.send_to_user(user_id, {
-                    "type": "word_submission_failed",
-                    "data": {"reason": "이미 사용된 단어입니다"}
-                })
-                return False
-            
-            # 단어 추가
-            game_state.word_chain.add_word(word)
-            current_player.words_submitted += 1
-            
-            # 글자 수 기반 점수 계산 (기본 글자당 10점)
-            word_length = len(word)
-            word_score = word_length * 10
-            current_player.score += word_score
-            
-            logger.info(f"점수 추가: {word} ({word_length}글자) = {word_score}점")
-            
-            # 턴 시간 시스템으로 변경됨 - 이 부분은 더 이상 필요 없음
-            
-            # 다음 턴으로 이동
-            game_state.next_turn()
-            
-            # 게임 상태 저장
-            await self.redis_manager.save_game_state(game_state)
+            # 게임 엔진에서 이미 모든 처리 완료됨
+            # 업데이트된 게임 상태 다시 조회
+            updated_game_state = await self.redis_manager.get_game_state(room_id)
+            next_player = updated_game_state.get_current_player() if updated_game_state else None
             
             # 다음 플레이어 타이머 시작
-            next_player = game_state.get_current_player()
             if next_player:
                 await self._start_turn_timer(room_id, next_player.user_id)
 
@@ -998,13 +971,14 @@ class GameEventHandler:
                     "nickname": current_player.nickname,
                     "word": word,
                     "status": "accepted",
-                    "next_char": game_state.word_chain.current_char,
+                    "next_char": updated_game_state.word_chain.current_char if updated_game_state else word[-1],
                     "current_turn_user_id": next_player.user_id if next_player else None,
                     "current_turn_nickname": next_player.nickname if next_player else None,
-                    "current_turn_time_limit": game_state.get_current_turn_time_seconds(),
-                    "current_turn_remaining_time": game_state.get_current_turn_time_seconds(),  # 프론트엔드 호환성
-                    "word_chain": game_state.word_chain.words[-5:] if len(game_state.word_chain.words) > 0 else [],
-                    "scores": {p.user_id: p.score for p in game_state.players},
+                    "current_turn_time_limit": updated_game_state.get_current_turn_time_seconds() if updated_game_state else 30,
+                    "current_turn_remaining_time": updated_game_state.get_current_turn_time_seconds() if updated_game_state else 30,
+                    "word_info": {"definition": word_info.definition, "difficulty": word_info.difficulty} if word_info else {"definition": f"{word}의 뜻", "difficulty": 1},
+                    "score_breakdown": score_breakdown if score_breakdown else {"estimated_total": len(word) * 10},
+                    "scores": {str(p.user_id): p.score for p in updated_game_state.players} if updated_game_state else {},
                 }
             })
             

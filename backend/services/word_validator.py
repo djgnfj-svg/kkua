@@ -60,7 +60,7 @@ class WordValidator:
         
         # 설정
         self.min_word_length = 2
-        self.max_word_length = 10
+        self.max_word_length = 50  # 최대 길이 제한 완화
         self.cache_ttl = 3600  # 1시간
         
         # 금지된 단어 패턴 (욕설, 비속어)
@@ -79,25 +79,33 @@ class WordValidator:
     async def validate_word(self, word: str, word_chain: WordChainState, used_words: Set[str]) -> ValidationResponse:
         """단어 종합 검증"""
         try:
+            logger.info(f"단어 검증 시작: word={word}, chain_length={len(word_chain.words)}, used_words_count={len(used_words)}")
+            
             # 1. 기본 검증
             basic_result = self._validate_basic_rules(word)
+            logger.info(f"기본 검증 결과: {basic_result.result.value}, message={basic_result.message}")
             if basic_result.result != ValidationResult.VALID:
                 return basic_result
             
             # 2. 끝말잇기 규칙 검증
             chain_result = self._validate_chain_rule(word, word_chain)
+            logger.info(f"끝말잇기 검증 결과: {chain_result.result.value}, message={chain_result.message}")
             if chain_result.result != ValidationResult.VALID:
                 return chain_result
             
             # 3. 중복 사용 검증
             if word in used_words:
+                logger.info(f"중복 검증 실패: {word} is already used")
                 return ValidationResponse(
                     result=ValidationResult.ALREADY_USED,
                     message="이미 사용된 단어입니다"
                 )
+            logger.info(f"중복 검증 통과: {word}")
             
             # 4. 사전 검증 (캐시 우선)
+            logger.info(f"사전 검증 시작: {word}")
             word_info = await self._get_word_info(word)
+            logger.info(f"사전 검증 결과: word_info={word_info is not None}, is_valid={word_info.is_valid if word_info else None}")
             if not word_info or not word_info.is_valid:
                 return ValidationResponse(
                     result=ValidationResult.INVALID_WORD,
@@ -105,7 +113,9 @@ class WordValidator:
                 )
             
             # 5. 점수 정보 계산
+            logger.info(f"점수 계산 시작: {word}")
             score_info = self._calculate_score_info(word_info, word_chain)
+            logger.info(f"검증 완료: {word} - 모든 검증 통과")
             
             return ValidationResponse(
                 result=ValidationResult.VALID,
@@ -115,10 +125,10 @@ class WordValidator:
             )
             
         except Exception as e:
-            logger.error(f"단어 검증 중 오류: {e}")
+            logger.error(f"단어 검증 중 오류: {e}", exc_info=True)
             return ValidationResponse(
                 result=ValidationResult.INVALID_WORD,
-                message="단어 검증 중 오류가 발생했습니다"
+                message=f"단어 검증 중 오류가 발생했습니다: {str(e)}"
             )
     
     def _validate_basic_rules(self, word: str) -> ValidationResponse:
@@ -188,18 +198,28 @@ class WordValidator:
                 return WordInfo(**word_data)
             
             # 데이터베이스에서 조회
-            db = next(get_db())
-            result = db.execute(
-                select(KoreanDictionary).where(KoreanDictionary.word == word)
-            )
-            dict_entry = result.scalar_one_or_none()
+            db = None
+            try:
+                db = next(get_db())
+                result = db.execute(
+                    select(KoreanDictionary).where(KoreanDictionary.word == word)
+                )
+                dict_entry = result.scalar_one_or_none()
+            except Exception as e:
+                logger.error(f"데이터베이스 조회 오류: {word} - {e}")
+                if db:
+                    db.rollback()
+                return None
+            finally:
+                if db:
+                    db.close()
             
             if dict_entry:
                 word_info = WordInfo(
                     word=dict_entry.word,
                     definition=dict_entry.definition or "",
-                    difficulty=dict_entry.difficulty,
-                    frequency_score=dict_entry.frequency_score,
+                    difficulty=dict_entry.difficulty_level or 1,
+                    frequency_score=dict_entry.frequency_score or 0,
                     first_char=dict_entry.first_char,
                     last_char=dict_entry.last_char,
                     length=len(dict_entry.word),
@@ -389,8 +409,8 @@ class WordValidator:
                 word_info = WordInfo(
                     word=dict_entry.word,
                     definition=dict_entry.definition or "",
-                    difficulty=dict_entry.difficulty,
-                    frequency_score=dict_entry.frequency_score,
+                    difficulty=dict_entry.difficulty_level or 1,
+                    frequency_score=dict_entry.frequency_score or 0,
                     first_char=dict_entry.first_char,
                     last_char=dict_entry.last_char,
                     length=len(dict_entry.word),

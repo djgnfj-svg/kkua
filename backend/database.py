@@ -14,8 +14,10 @@ REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 # PostgreSQL 엔진 생성
 engine = create_engine(
     DATABASE_URL,
-    poolclass=StaticPool,
+    pool_size=20,          # 연결 풀 크기 증가
+    max_overflow=30,       # 최대 오버플로우 연결 수
     pool_pre_ping=True,
+    pool_recycle=3600,     # 1시간마다 연결 재생성
     echo=os.getenv("DEBUG", "false").lower() == "true"
 )
 

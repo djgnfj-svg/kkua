@@ -49,7 +49,7 @@ class GameRules:
     turn_time_limit: int = 30          # 턴 제한 시간 (초)
     max_failed_attempts: int = 3       # 최대 실패 허용 횟수
     min_word_length: int = 2           # 최소 단어 길이
-    max_word_length: int = 10          # 최대 단어 길이
+    max_word_length: int = 50          # 최대 단어 길이
     allow_items: bool = True           # 아이템 사용 허용
     combo_multiplier_limit: float = 3.0  # 최대 콤보 배수
     score_multiplier_limit: float = 5.0  # 최대 점수 배수

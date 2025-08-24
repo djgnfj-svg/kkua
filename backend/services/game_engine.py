@@ -13,6 +13,7 @@ from redis_models import RedisGameManager, GameState, GamePlayer, WordChainState
 from database import get_redis, get_db
 from models.game_models import GameRoom, GameSession
 from models.user_models import User
+from services.word_validator import ValidationResult
 from sqlalchemy import select
 
 logger = logging.getLogger(__name__)
@@ -47,7 +48,7 @@ class GameConfig:
     max_rounds: int = 3  # 3라운드로 변경
     turn_timeout_seconds: int = 30
     min_word_length: int = 2
-    max_word_length: int = 10
+    max_word_length: int = 50
     auto_start_delay: int = 5  # 모든 플레이어 준비 완료 후 자동 시작 딜레이
 
 
@@ -61,6 +62,10 @@ class GameEngine:
         # 활성 게임 추적
         self.active_games: Dict[str, GameState] = {}
         self.game_timers: Dict[str, asyncio.Task] = {}
+        
+        # 단어 검증기 초기화
+        from services.word_validator import WordValidator
+        self.word_validator = WordValidator()
         
         # 게임 모드 서비스 지연 로딩 (순환 import 방지)
         self._game_mode_service = None
@@ -567,31 +572,34 @@ class GameEngine:
             if not current_player or current_player.user_id != user_id:
                 return False, "현재 당신의 차례가 아닙니다", None, None
             
-            # 단어 유효성 검사 (임시로 간단히 처리)
-            if len(word.strip()) < 2:
-                return False, "2글자 이상의 단어를 입력해주세요", None, None
+            # 단어 유효성 검사 - WordValidator 사용
+            word_to_validate = word.strip()
+            used_words_set = set(game_state.word_chain.used_words)
             
-            # 끝말잇기 규칙 확인
-            if game_state.word_chain.words:
-                last_char = game_state.word_chain.current_char
-                if word[0] != last_char:
-                    return False, f"'{last_char}'로 시작하는 단어를 입력해주세요", None, None
+            validation_result = await self.word_validator.validate_word(
+                word_to_validate, 
+                game_state.word_chain, 
+                used_words_set
+            )
+            
+            if validation_result.result != ValidationResult.VALID:
+                return False, validation_result.message, None, None
             
             # 단어 체인에 추가
-            game_state.word_chain.words.append(word)
-            game_state.word_chain.used_words.append(word)
-            game_state.word_chain.last_word = word
-            game_state.word_chain.current_char = word[-1]  # 마지막 글자
+            game_state.word_chain.add_word(word_to_validate)
             
             # 플레이어 점수 및 통계 업데이트
             current_player.words_submitted += 1
             
-            # 글자 수 기반 점수 계산 (기본 글자당 10점)
-            word_length = len(word)
-            word_score = word_length * 10
+            # 검증된 단어 정보로 점수 계산
+            if validation_result.word_info and validation_result.score_info:
+                word_score = validation_result.score_info.get("estimated_total", len(word_to_validate) * 10)
+            else:
+                word_score = len(word_to_validate) * 10
+            
             current_player.score += word_score
             
-            logger.info(f"점수 추가: {word} ({word_length}글자) = {word_score}점")
+            logger.info(f"점수 추가: {word_to_validate} ({len(word_to_validate)}글자) = {word_score}점")
             
             # 턴 시간 시스템으로 변경됨 - 개별 플레이어 시간 관리 제거
             
@@ -601,13 +609,13 @@ class GameEngine:
             # 게임 상태 저장
             await self.redis_manager.save_game_state(game_state)
             
-            logger.info(f"단어 제출 성공: room_id={room_id}, user_id={user_id}, word={word}, next_turn={game_state.current_turn}")
+            logger.info(f"단어 제출 성공: room_id={room_id}, user_id={user_id}, word={word_to_validate}, next_turn={game_state.current_turn}")
             
-            return True, "단어 제출 성공", None, None
+            return True, "단어 제출 성공", validation_result.word_info, validation_result.score_info
             
         except Exception as e:
-            logger.error(f"단어 제출 중 오류: {e}")
-            return False, "단어 제출 처리 중 오류가 발생했습니다", None, None
+            logger.error(f"단어 제출 중 오류: {e}", exc_info=True)
+            return False, f"단어 제출 처리 중 오류가 발생했습니다: {str(e)}", None, None
 
 
 # 전역 게임 엔진 인스턴스
