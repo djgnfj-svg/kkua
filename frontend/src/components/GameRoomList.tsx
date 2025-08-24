@@ -231,15 +231,15 @@ const GameRoomList: React.FC<GameRoomListProps> = ({ onJoinRoom, onCreateRoom })
                 >
                   {/* 방 헤더 */}
                   <div className="flex justify-between items-start mb-4">
-                    <div className="flex items-center space-x-2 flex-1">
-                      <h3 className="font-bold text-xl text-white font-korean truncate">
+                    <div className="flex items-center space-x-2 flex-1 min-w-0">
+                      <h3 className="font-bold text-xl text-white font-korean truncate max-w-[200px]" title={room.name}>
                         {room.name}
                       </h3>
                       {((room as any).hasPassword || (room as any).isPrivate) && (
-                        <span className="text-yellow-400" title="비밀방">🔒</span>
+                        <span className="text-yellow-400 flex-shrink-0" title="비밀방">🔒</span>
                       )}
                     </div>
-                    <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getStatusColor(room.status)}`}>
+                    <span className={`px-3 py-1 rounded-full text-sm font-semibold flex-shrink-0 ${getStatusColor(room.status)}`}>
                       {getStatusText(room.status)}
                     </span>
                   </div>

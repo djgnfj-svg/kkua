@@ -51,8 +51,7 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
 
   return (
     <div className={`
-      relative p-4 rounded-xl border-2 transition-all duration-300 
-      transform hover:scale-105 hover:shadow-xl
+      relative p-3 rounded-lg border-2
       ${getCardStyle()}
     `}>
       {/* 현재 턴 효과 */}
@@ -66,15 +65,15 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
         </>
       )}
 
-      <div className="relative flex items-center space-x-3">
+      <div className="relative flex items-center space-x-2">
         {/* 아바타 */}
         <div className={`
-          w-12 h-12 bg-gradient-to-br ${getAvatarBg()} 
+          w-10 h-10 bg-gradient-to-br ${getAvatarBg()} 
           rounded-full flex items-center justify-center
-          shadow-lg ring-2 ring-white/20
+          shadow-md ring-1 ring-white/20
           ${isCurrentTurn ? 'animate-bounce' : ''}
         `}>
-          <span className="text-white font-bold text-lg">
+          <span className="text-white font-bold text-base">
             {getStatusIcon()}
           </span>
         </div>
@@ -90,19 +89,6 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
               {isMe && ' (나)'}
             </span>
             
-            {/* 상태 배지들 */}
-            <div className="flex items-center space-x-1">
-              {isHost && (
-                <span className="px-2 py-0.5 bg-yellow-500/20 text-yellow-300 text-xs rounded-full border border-yellow-400/30">
-                  방장
-                </span>
-              )}
-              {isCurrentTurn && (
-                <span className="px-2 py-0.5 bg-green-500/30 text-green-200 text-xs rounded-full border border-green-400/40 animate-pulse">
-                  턴
-                </span>
-              )}
-            </div>
           </div>
 
           {/* 점수 및 상태 */}
@@ -129,12 +115,6 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
         </div>
       </div>
 
-      {/* 호버 글로우 효과 */}
-      <div className={`
-        absolute inset-0 bg-gradient-to-br ${getAvatarBg()} 
-        opacity-0 hover:opacity-10 rounded-xl transition-opacity duration-300
-        -z-10 blur-xl
-      `}></div>
     </div>
   );
 };

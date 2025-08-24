@@ -4,7 +4,6 @@ import { Button, Card, Loading, WordCard, PlayerCard } from '../components/ui';
 import { useUserStore } from '../stores/useUserStore';
 import { useGameStore } from '../stores/useGameStore';
 import { useMobileOptimization } from '../hooks/useMobileOptimization';
-import { showToast } from '../components/Toast';
 import { apiEndpoints } from '../utils/api';
 import { useNativeWebSocket } from '../hooks/useNativeWebSocket';
 import { useNavigationProtection } from '../hooks/useNavigationProtection';
@@ -525,8 +524,8 @@ const GameRoomPage: React.FC = () => {
   // 에러 처리
   const handleError = useCallback((data: any) => {
     console.error('🚫 WebSocket error:', data);
-    showToast.error(data.error || '연결 오류가 발생했습니다');
-  }, []);
+    addSystemMessage(`❌ ${data.error || '연결 오류가 발생했습니다'}`);
+  }, [addSystemMessage]);
 
   // 성공 응답 처리
   const handleSuccess = useCallback((_data: any) => {
@@ -535,14 +534,14 @@ const GameRoomPage: React.FC = () => {
   // 게임 시작 카운트다운 핸들러
   const handleGameStartingCountdown = useCallback((data: any) => {
     
-    showToast.info(data.message || `게임 시작까지 ${data.countdown}초...`);
-  }, []);
+    addGameMessage(data.message || `🕰️ 게임 시작까지 ${data.countdown}초...`);
+  }, [addGameMessage]);
 
   // 게임 시작 실패 핸들러
   const handleGameStartFailed = useCallback((data: any) => {
     
-    showToast.error(data.reason || '게임 시작에 실패했습니다');
-  }, []);
+    addSystemMessage(`❌ ${data.reason || '게임 시작에 실패했습니다'}`);
+  }, [addSystemMessage]);
 
   // 연결 교체 핸들러 (중복 연결 감지)
   const handleConnectionReplaced = useCallback((_data: any) => {
@@ -1017,7 +1016,7 @@ const GameRoomPage: React.FC = () => {
       if (error.response?.status === 404) {
         setRoomNotFound(true);
         addSystemMessage('❌ 방을 찾을 수 없습니다');
-        showToast.error('존재하지 않는 방입니다');
+        // 에러 메시지는 이미 addSystemMessage로 출력됨
       } else {
         // 기타 에러의 경우 임시 방 정보로 대체
         const fallbackRoom = {
@@ -1039,7 +1038,7 @@ const GameRoomPage: React.FC = () => {
         
         setCurrentRoom(fallbackRoom);
         addGameMessage('🏠 방 정보를 불러왔습니다 (기본 설정 적용)');
-        showToast.warning('방 정보를 일부 불러올 수 없어 기본 설정을 적용했습니다');
+        // 경고 메시지는 이미 addGameMessage로 출력됨
       }
     } finally {
       setLoading(false);
@@ -1194,13 +1193,13 @@ const GameRoomPage: React.FC = () => {
             <Loading size="xl" variant="dots" text="게임룸 로딩 중..." />
           </div>
         ) : (
-          <div className="max-w-4xl mx-auto space-y-3">
+          <div className="max-w-4xl mx-auto space-y-2">
             {/* Game Board - Word chains and game state */}
-            <div className="bg-purple-800/40 backdrop-blur-lg rounded-xl border border-white/20 min-h-[200px] lg:min-h-[280px]">
-              <div className="p-4">
+            <div className="bg-purple-800/40 backdrop-blur-lg rounded-lg border border-white/20 min-h-[160px] lg:min-h-[200px]">
+              <div className="p-3">
                 {/* Round info */}
                 {(gameState.isPlaying || (gameState.currentRound && gameState.currentRound > 1)) && (
-                  <div className="text-center mb-4">
+                  <div className="text-center mb-3">
                     <h2 className="text-white font-bold text-lg">
                       라운드 {gameState.currentRound || 1} / {gameState.maxRounds || 3}
                     </h2>
@@ -1209,144 +1208,145 @@ const GameRoomPage: React.FC = () => {
 
                 {/* Game state display */}
                 {gameState.isPlaying ? (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {/* Current turn indicator */}
                     {gameState.isRoundTransition ? (
-                      <div className="text-center py-6">
+                      <div className="text-center py-4">
                         <div className="flex items-center justify-center space-x-3">
                           <span className="text-3xl animate-spin">🔄</span>
                           <p className="text-yellow-200 font-bold text-lg">라운드 전환 중입니다...</p>
                         </div>
                       </div>
                     ) : gameState.currentTurnUserId === String(user.id) ? (
-                      <div className="bg-green-500/20 rounded-xl p-4 border border-green-400/30">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
+                      <>
+                        <div className="bg-green-500/20 rounded-lg p-3 border border-green-400/30">
+                          <div className="flex items-center justify-center space-x-3">
                             <span className="text-2xl animate-bounce">🎯</span>
                             <h4 className="font-bold text-green-300 text-lg">내 차례입니다!</h4>
-                          </div>
-                          {gameState.remainingTime && (
-                            <div className="flex items-center space-x-2">
-                              <span className={`font-bold text-lg ${
+                            {gameState.remainingTime && (
+                              <span className={`font-bold text-xl ${
                                 (gameState.remainingTime || 0) <= 10 
                                   ? 'text-red-300 animate-pulse' 
                                   : 'text-green-300'
                               }`}>
                                 ⏰ {gameState.remainingTime?.toFixed(1)}초
                               </span>
-                              <div className="w-20 h-2 bg-white/20 rounded-full overflow-hidden">
-                                <div 
-                                  className={`h-full rounded-full transition-all ${
-                                    (gameState.remainingTime || 0) > 20 ? 'bg-green-500' :
-                                    (gameState.remainingTime || 0) > 10 ? 'bg-yellow-500' : 
-                                    'bg-red-500 animate-pulse'
-                                  }`}
-                                  style={{ 
-                                    width: `${Math.max(0, Math.min(100, ((gameState.remainingTime || 0) / (gameState.turnTimeLimit || 30)) * 100))}%`
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          )}
+                            )}
+                          </div>
                         </div>
-                      </div>
+                        
+                        {/* Progress bar - separate row */}
+                        {gameState.remainingTime && (
+                          <div className="w-full h-6 bg-white/20 rounded-full overflow-hidden">
+                            <div 
+                              className={`h-full rounded-full transition-all ${
+                                (gameState.remainingTime || 0) > 20 ? 'bg-green-500' :
+                                (gameState.remainingTime || 0) > 10 ? 'bg-yellow-500' : 
+                                'bg-red-500 animate-pulse'
+                              }`}
+                              style={{ 
+                                width: `${Math.max(0, Math.min(100, ((gameState.remainingTime || 0) / (gameState.turnTimeLimit || 30)) * 100))}%`
+                              }}
+                            />
+                          </div>
+                        )}
+                      </>
                     ) : (
-                      <div className="bg-purple-500/20 rounded-xl p-4 border border-purple-400/30">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
+                      <>
+                        <div className="bg-purple-500/20 rounded-lg p-3 border border-purple-400/30">
+                          <div className="flex items-center justify-center space-x-3">
                             <span className="text-2xl">⏳</span>
                             <p className="text-white/80">
                               <strong className="text-blue-300">
                                 {currentRoom?.players?.find(p => String(p.id) === gameState.currentTurnUserId)?.nickname || '다른 플레이어'}
                               </strong>님의 차례입니다
                             </p>
-                          </div>
-                          {gameState.remainingTime && (
-                            <div className="flex items-center space-x-2">
-                              <span className={`font-bold text-lg ${
+                            {gameState.remainingTime && (
+                              <span className={`font-bold text-xl ${
                                 (gameState.remainingTime || 0) <= 10 
                                   ? 'text-red-300 animate-pulse' 
                                   : 'text-purple-300'
                               }`}>
                                 ⏰ {gameState.remainingTime?.toFixed(1)}초
                               </span>
-                              <div className="w-20 h-2 bg-white/20 rounded-full overflow-hidden">
-                                <div 
-                                  className={`h-full rounded-full transition-all ${
-                                    (gameState.remainingTime || 0) > 20 ? 'bg-green-500' :
-                                    (gameState.remainingTime || 0) > 10 ? 'bg-yellow-500' : 
-                                    'bg-red-500 animate-pulse'
-                                  }`}
-                                  style={{ 
-                                    width: `${Math.max(0, Math.min(100, ((gameState.remainingTime || 0) / (gameState.turnTimeLimit || 30)) * 100))}%`
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Word chain display with floating cards */}
-                    {gameState.wordChain.length > 0 && (
-                      <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-                        <div className="flex items-center space-x-2 mb-4">
-                          <span className="text-xl">🔗</span>
-                          <h4 className="font-bold text-white">단어 체인</h4>
-                          <span className="text-white/60 text-sm">({gameState.wordChain.length}개)</span>
+                            )}
+                          </div>
                         </div>
                         
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-64 overflow-y-auto">
-                          {gameState.wordChain.map((word, index) => {
-                            const wordInfo = gameState.wordChainInfo?.[word];
-                            const isLatest = index === gameState.wordChain.length - 1;
-                            
-                            return (
-                              <WordCard
-                                key={`${word}-${index}`}
-                                word={word}
-                                definition={wordInfo?.definition}
-                                difficulty={wordInfo?.difficulty || 1}
-                                score={word.length * 10}
-                                isLatest={isLatest}
-                                index={index}
-                              />
-                            );
-                          })}
-                        </div>
-                        
-                        {gameState.currentChar && (
-                          <div className="mt-4 p-4 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-xl border border-purple-400/30 backdrop-blur-sm">
-                            <div className="flex items-center justify-center space-x-2">
-                              <span className="text-2xl animate-bounce">🎯</span>
-                              <p className="text-purple-200 text-center">
-                                다음 단어는 <strong className="text-purple-300 text-lg font-bold animate-pulse">"{gameState.currentChar}"</strong>로 시작해야 합니다
-                              </p>
-                              <span className="text-2xl animate-bounce" style={{animationDelay: '0.2s'}}>🎯</span>
-                            </div>
+                        {/* Progress bar - separate row */}
+                        {gameState.remainingTime && (
+                          <div className="w-full h-6 bg-white/20 rounded-full overflow-hidden">
+                            <div 
+                              className={`h-full rounded-full transition-all ${
+                                (gameState.remainingTime || 0) > 20 ? 'bg-green-500' :
+                                (gameState.remainingTime || 0) > 10 ? 'bg-yellow-500' : 
+                                'bg-red-500 animate-pulse'
+                              }`}
+                              style={{ 
+                                width: `${Math.max(0, Math.min(100, ((gameState.remainingTime || 0) / (gameState.turnTimeLimit || 30)) * 100))}%`
+                              }}
+                            />
                           </div>
                         )}
-                      </div>
+                      </>
                     )}
                     
-                    {/* Scores display */}
-                    {gameState.scores && Object.keys(gameState.scores).length > 0 && (
-                      <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-                        <h4 className="font-bold text-white mb-2">점수</h4>
-                        <div className="grid grid-cols-2 gap-2">
-                          {Object.entries(gameState.scores).map(([userId, score]) => {
-                            const player = currentRoom?.players?.find(p => p.id === userId);
+                    {/* Word chain display with floating cards - Always shown */}
+                    <div className="bg-white/5 rounded-lg p-3 border border-white/10">
+                      <div className="flex items-center space-x-2 mb-3">
+                        <span className="text-xl">🔗</span>
+                        <h4 className="font-bold text-white">단어 체인</h4>
+                        <span className="text-white/60 text-sm">({gameState.wordChain.length}개)</span>
+                      </div>
+                      
+                      {gameState.wordChain.length > 0 ? (
+                        <div className="h-24 flex space-x-3 overflow-hidden">
+                          {[...gameState.wordChain].reverse().map((word, reverseIndex) => {
+                            const originalIndex = gameState.wordChain.length - 1 - reverseIndex;
+                            const wordInfo = gameState.wordChainInfo?.[word];
+                            const isLatest = reverseIndex === 0; // 첫 번째(맨 왼쪽)가 최신 단어
+                            
                             return (
-                              <div key={userId} className="flex justify-between text-sm">
-                                <span className="text-white/80">{player?.nickname || `Player ${userId}`}</span>
-                                <span className="font-bold text-white">{score}점</span>
+                              <div key={`${word}-${originalIndex}`} className="flex-shrink-0">
+                                <WordCard
+                                  word={word}
+                                  definition={wordInfo?.definition}
+                                  difficulty={wordInfo?.difficulty || 1}
+                                  score={word.length * 10}
+                                  isLatest={isLatest}
+                                  index={originalIndex}
+                                />
                               </div>
                             );
                           })}
                         </div>
-                      </div>
-                    )}
+                      ) : (
+                        <div className="h-24 flex items-center justify-center">
+                          <div className="text-center">
+                            <div className="w-12 h-12 bg-purple-600/20 rounded-full flex items-center justify-center mx-auto mb-2">
+                              <span className="text-2xl">🎯</span>
+                            </div>
+                            <p className="text-white/60 text-xs">
+                              {gameState.isPlaying 
+                                ? '첫 단어를 입력하세요'
+                                : '단어들이 여기에 표시됩니다'
+                              }
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {gameState.currentChar && (
+                        <div className="mt-2 p-2 bg-gradient-to-r from-purple-500/15 to-pink-500/15 rounded-md border border-purple-400/20 backdrop-blur-sm">
+                          <div className="flex items-center justify-center space-x-1">
+                            <span className="text-lg">🎯</span>
+                            <span className="text-purple-200 text-sm">
+                              <strong className="text-purple-300 text-base font-bold">"{gameState.currentChar}"</strong>로 시작
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ) : (
                   <div className="text-center py-8">
@@ -1368,10 +1368,10 @@ const GameRoomPage: React.FC = () => {
             </div>
 
             {/* 3-Layer Structure: Players and Chat stacked vertically */}
-            <div className="space-y-3">
+            <div className="space-y-2">
               {/* Players tab */}
-              <div className="bg-purple-800/40 backdrop-blur-lg rounded-xl border border-white/20 overflow-hidden">
-                <div className="bg-purple-700/40 p-3 border-b border-white/20">
+              <div className="bg-purple-800/40 backdrop-blur-lg rounded-lg border border-white/20 overflow-hidden">
+                <div className="bg-purple-700/40 p-2 border-b border-white/20">
                   <div className="flex items-center space-x-2">
                     <span className="text-lg">👥</span>
                     <h3 className="text-white font-bold">
@@ -1379,27 +1379,28 @@ const GameRoomPage: React.FC = () => {
                     </h3>
                   </div>
                 </div>
-                <div className="p-3 max-h-64 overflow-y-auto">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3">
+                <div className="p-2 relative">
+                  <div className="flex space-x-3 overflow-x-auto pb-1 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-transparent hover:scrollbar-thumb-white/20">
                     {currentRoom?.players?.map((player) => {
                       const isCurrentTurn = gameState.isPlaying && gameState.currentTurnUserId === player.id;
                       const playerScore = gameState.scores?.[player.id];
                       
                       return (
-                        <PlayerCard
-                          key={player.id}
-                          id={player.id}
-                          nickname={player.nickname}
-                          isHost={player.isHost}
-                          isReady={player.isReady}
-                          isCurrentTurn={isCurrentTurn}
-                          isMe={player.id === user.id}
-                          score={playerScore}
-                          isConnected={true}
-                        />
+                        <div key={player.id} className="flex-shrink-0 w-56">
+                          <PlayerCard
+                            id={player.id}
+                            nickname={player.nickname}
+                            isHost={player.isHost}
+                            isReady={player.isReady}
+                            isCurrentTurn={isCurrentTurn}
+                            isMe={player.id === user.id}
+                            score={playerScore}
+                            isConnected={true}
+                          />
+                        </div>
                       );
                     }) || (
-                      <div className="text-center py-8">
+                      <div className="text-center py-8 w-full">
                         <div className="animate-pulse space-y-3">
                           <div className="h-16 bg-white/10 rounded-xl"></div>
                           <div className="h-16 bg-white/5 rounded-xl"></div>
@@ -1411,8 +1412,8 @@ const GameRoomPage: React.FC = () => {
                   
                   {/* Game controls when not playing */}
                   {!gameState.isPlaying && (
-                    <div className="p-3 border-t border-white/10">
-                      <div className="flex flex-col space-y-3">
+                    <div className="p-2 border-t border-white/10">
+                      <div className="flex flex-col space-y-2">
                         <Button 
                           onClick={handleReadyToggle}
                           disabled={!isConnected}

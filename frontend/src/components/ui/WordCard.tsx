@@ -37,7 +37,7 @@ export const WordCard: React.FC<WordCardProps> = ({
 
   return (
     <div 
-      className={`relative group transition-all duration-500 hover:scale-105 ${
+      className={`relative transition-all duration-300 ${
         isLatest ? 'animate-bounce-in' : ''
       }`}
       style={{
@@ -46,15 +46,13 @@ export const WordCard: React.FC<WordCardProps> = ({
     >
       <div className={`
         bg-gradient-to-br ${getDifficultyColor(difficulty)}
-        rounded-xl p-4 border-2 border-white/20 
-        shadow-xl hover:shadow-2xl
-        backdrop-blur-sm
-        transform transition-all duration-300
-        ${isLatest ? 'ring-2 ring-white/50 animate-pulse-slow' : ''}
+        rounded-lg p-2 border border-white/20 
+        shadow-lg backdrop-blur-sm
+        ${isLatest ? 'ring-1 ring-white/50 animate-pulse-slow' : ''}
       `}>
         {/* 단어 */}
-        <div className="text-center mb-2">
-          <h3 className="text-white font-bold text-lg drop-shadow-md">
+        <div className="text-center mb-1">
+          <h3 className="text-white font-bold text-base drop-shadow-md">
             {word}
           </h3>
           {score && (
@@ -67,8 +65,8 @@ export const WordCard: React.FC<WordCardProps> = ({
 
         {/* 뜻 (있는 경우) */}
         {definition && definition !== `${word}의 뜻` && (
-          <div className="bg-white/10 rounded-lg p-2 mb-2">
-            <p className="text-white/90 text-xs text-center">
+          <div className="bg-white/10 rounded p-1 mb-1">
+            <p className="text-white/90 text-xs text-center leading-tight">
               {definition}
             </p>
           </div>
@@ -96,12 +94,6 @@ export const WordCard: React.FC<WordCardProps> = ({
         )}
       </div>
 
-      {/* 호버 시 글로우 효과 */}
-      <div className={`
-        absolute inset-0 bg-gradient-to-br ${getDifficultyColor(difficulty)} 
-        opacity-0 group-hover:opacity-20 rounded-xl blur-xl transition-opacity duration-300
-        -z-10
-      `}></div>
     </div>
   );
 };
