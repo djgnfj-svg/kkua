@@ -1196,7 +1196,7 @@ const GameRoomPage: React.FC = () => {
         ) : (
           <div className="max-w-4xl mx-auto space-y-3">
             {/* Game Board - Word chains and game state */}
-            <div className="bg-purple-800/40 backdrop-blur-lg rounded-xl border border-white/20 min-h-[200px]">
+            <div className="bg-purple-800/40 backdrop-blur-lg rounded-xl border border-white/20 min-h-[200px] lg:min-h-[280px]">
               <div className="p-4">
                 {/* Round info */}
                 {(gameState.isPlaying || (gameState.currentRound && gameState.currentRound > 1)) && (
@@ -1367,8 +1367,8 @@ const GameRoomPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Bottom tabs - Players and Chat */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {/* 3-Layer Structure: Players and Chat stacked vertically */}
+            <div className="space-y-3">
               {/* Players tab */}
               <div className="bg-purple-800/40 backdrop-blur-lg rounded-xl border border-white/20 overflow-hidden">
                 <div className="bg-purple-700/40 p-3 border-b border-white/20">
@@ -1379,8 +1379,8 @@ const GameRoomPage: React.FC = () => {
                     </h3>
                   </div>
                 </div>
-                <div className="p-3">
-                  <div className="space-y-3">
+                <div className="p-3 max-h-64 overflow-y-auto">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3">
                     {currentRoom?.players?.map((player) => {
                       const isCurrentTurn = gameState.isPlaying && gameState.currentTurnUserId === player.id;
                       const playerScore = gameState.scores?.[player.id];

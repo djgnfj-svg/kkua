@@ -104,7 +104,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
       </div>
       
       {/* 메시지 영역 */}
-      <div className="h-48 overflow-y-auto p-3 space-y-3 bg-black/10 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
+      <div className="h-40 overflow-y-auto p-3 space-y-3 bg-black/10 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
           {messages.length === 0 ? (
             <div className="text-center text-white/60 text-sm py-8 font-korean">
               아직 채팅 메시지가 없습니다
