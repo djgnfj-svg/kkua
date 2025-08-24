@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Button, Card } from './ui';
+import { Button } from './ui';
 
 interface ChatMessage {
   id: string;
@@ -93,19 +93,18 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   };
 
   return (
-    <Card>
-      <Card.Header>
+    <div className="bg-purple-800/40 backdrop-blur-lg rounded-xl border border-white/20 overflow-hidden">
+      <div className="bg-purple-700/40 p-3 border-b border-white/20">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-white font-korean">
             {isMyTurn ? '🎯 단어 입력' : '💬 채팅'}
           </h3>
           <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-400 shadow-lg shadow-green-400/50' : 'bg-red-400 shadow-lg shadow-red-400/50'} animate-pulse`} />
         </div>
-      </Card.Header>
+      </div>
       
-      <Card.Body className="p-0">
-        {/* 메시지 영역 */}
-        <div className="h-48 overflow-y-auto p-3 space-y-3 bg-black/10 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
+      {/* 메시지 영역 */}
+      <div className="h-48 overflow-y-auto p-3 space-y-3 bg-black/10 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
           {messages.length === 0 ? (
             <div className="text-center text-white/60 text-sm py-8 font-korean">
               아직 채팅 메시지가 없습니다
@@ -148,17 +147,17 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
           <div ref={messagesEndRef} />
         </div>
 
-        {/* 입력 영역 */}
-        <div className={`p-4 border-t border-white/20 backdrop-blur-sm ${
-          isMyTurn ? 'bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-green-400/30' : 'bg-white/5'
-        }`}>
-          {isMyTurn && currentChar && (
-            <div className="mb-3 text-center">
-              <span className="text-green-300 text-sm font-korean">
-                💡 <strong>"{currentChar}"</strong>로 시작하는 단어를 입력하세요!
-              </span>
-            </div>
-          )}
+      {/* 입력 영역 */}
+      <div className={`p-3 border-t border-white/20 backdrop-blur-sm ${
+        isMyTurn ? 'bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-green-400/30' : 'bg-white/5'
+      }`}>
+        {isMyTurn && currentChar && (
+          <div className="mb-3 text-center">
+            <span className="text-green-300 text-sm font-korean">
+              💡 <strong>"{currentChar}"</strong>로 시작하는 단어를 입력하세요!
+            </span>
+          </div>
+        )}
           
           <div className="flex space-x-3">
             <input
@@ -204,12 +203,11 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
             </div>
           )}
           
-          <div className="mt-2 text-xs text-white/50 text-right">
-            {inputValue.length}/200
-          </div>
+        <div className="mt-2 text-xs text-white/50 text-right">
+          {inputValue.length}/200
         </div>
-      </Card.Body>
-    </Card>
+      </div>
+    </div>
   );
 };
 
