@@ -576,7 +576,7 @@ class RedisGameManager:
                 user_id=user_id,
                 nickname=nickname,
                 score=0,
-                status=PlayerStatus.WAITING.value,
+                status=PlayerStatus.READY.value if is_host else PlayerStatus.WAITING.value,  # 방장은 자동으로 준비 완료
                 is_host=is_host,
                 items=[]
             )

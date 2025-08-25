@@ -1414,24 +1414,33 @@ const GameRoomPage: React.FC = () => {
                   {!gameState.isPlaying && (
                     <div className="p-2 border-t border-white/10">
                       <div className="flex flex-col space-y-2">
-                        <Button 
-                          onClick={handleReadyToggle}
-                          disabled={!isConnected}
-                          className={`w-full py-3 rounded-lg font-medium transition-all ${
-                            currentRoom?.players?.find(p => p.id === user.id)?.isReady 
-                              ? 'bg-gray-600 hover:bg-gray-700 text-gray-300' 
-                              : 'bg-green-600 hover:bg-green-700 text-white shadow-lg'
-                          }`}
-                        >
-                          {currentRoom?.players?.find(p => p.id === user.id)?.isReady ? '준비 취소' : '✅ 준비 완료'}
-                        </Button>
+                        {(() => {
+                          const currentPlayer = currentRoom?.players?.find(p => p.id === user.id);
+                          const isHost = currentPlayer?.isHost;
+                          const isReady = currentPlayer?.isReady;
+                          
+                          // 방장이 아닌 경우에만 준비 버튼 표시
+                          return !isHost ? (
+                            <Button 
+                              onClick={handleReadyToggle}
+                              disabled={!isConnected}
+                              className={`w-full py-3 rounded-lg font-medium transition-all ${
+                                isReady 
+                                  ? 'bg-gray-600 hover:bg-gray-700 text-gray-300' 
+                                  : 'bg-green-600 hover:bg-green-700 text-white shadow-lg'
+                              }`}
+                            >
+                              {isReady ? '준비 취소' : '✅ 준비 완료'}
+                            </Button>
+                          ) : null;
+                        })()}
                         
                         {currentRoom?.players?.find(p => p.id === user.id)?.isHost && (
                           <Button 
                             onClick={handleStartGame}
                             disabled={
                               !isConnected || 
-                              !currentRoom?.players?.every(p => p.isReady) ||
+                              !currentRoom?.players?.every(p => p.isReady || p.isHost) ||
                               (currentRoom?.players?.length || 0) < 2
                             }
                             className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
