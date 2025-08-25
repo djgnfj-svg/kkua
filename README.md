@@ -24,32 +24,30 @@ Pure WebSocket 아키텍처로 재설계된 차세대 끝말잇기 게임입니�
 
 **AWS EC2 원클릭 배포**
 ```bash
-curl -o deploy.sh https://raw.githubusercontent.com/YOUR_USERNAME/kkua/develop/deploy.sh && chmod +x deploy.sh && ./deploy.sh
+curl -o ec2-install.sh https://raw.githubusercontent.com/djgnfj-svg/kkua/develop/ec2-install.sh && chmod +x ec2-install.sh && ./ec2-install.sh
 ```
 
 **자동으로 처리되는 것들:**
 - ✅ Docker & Docker Compose 설치
-- ✅ GitHub에서 프로젝트 클론
+- ✅ GitHub에서 프로젝트 클론 (Personal Access Token 지원)
 - ✅ 환경변수 자동 설정 (EC2 Public IP 감지)
 - ✅ 데이터베이스 초기화 (실제 끄투 단어 포함)
 - ✅ 서비스 시작 및 상태 확인
-- ✅ 스왑 메모리 설정 (메모리 부족 방지)
-- ✅ 자동 시작 서비스 등록
 
 **📋 EC2 인스턴스 요구사항:**
 - **AMI**: Ubuntu Server 22.04 LTS
 - **타입**: t3.small 권장 (t3.micro 최소)
 - **스토리지**: 20GB
-- **보안 그룹**: 포트 80, 443, 8000, 5173 오픈
+- **보안 그룹**: 포트 80, 443 오픈
 
-자세한 배포 가이드: [EC2_DEPLOY.md](./EC2_DEPLOY.md)
+자세한 배포 가이드: [docs/EC2_DEPLOY_GUIDE.md](./docs/EC2_DEPLOY_GUIDE.md)
 
 ## 💻 로컬 개발 환경
 
 ### 빠른 시작
 ```bash
 # 저장소 클론
-git clone https://github.com/YOUR_USERNAME/kkua.git
+git clone https://github.com/djgnfj-svg/kkua.git
 cd kkua
 
 # Docker Compose로 전체 서비스 시작
@@ -151,8 +149,10 @@ kkua/
 │   ├── src/components/ # UI 컴포넌트
 │   ├── src/stores/   # Zustand 스토어
 │   └── src/hooks/    # 커스텀 훅
-├── deploy.sh         # 자동 배포 스크립트
-└── EC2_DEPLOY.md     # 배포 가이드
+├── docs/             # 프로젝트 문서
+├── ec2-install.sh    # EC2 간단 설치 스크립트
+├── quick-deploy.sh   # 로컬 배포 스크립트
+└── CLAUDE.md         # 개발 가이드
 ```
 
 ### 주요 명령어
@@ -263,7 +263,7 @@ docker-compose logs frontend --tail=100
 **🎮 지금 바로 플레이해보세요!**
 
 ```bash
-curl -o deploy.sh https://raw.githubusercontent.com/YOUR_USERNAME/kkua/develop/deploy.sh && chmod +x deploy.sh && ./deploy.sh
+curl -o ec2-install.sh https://raw.githubusercontent.com/djgnfj-svg/kkua/develop/ec2-install.sh && chmod +x ec2-install.sh && ./ec2-install.sh
 ```
 
 **Happy Gaming! 끝말잇기의 재미를 경험해보세요! 🎉**

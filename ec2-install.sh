@@ -12,13 +12,17 @@ NC='\033[0m'
 echo -e "${BLUE}🚀 끄아(KKUA) V2 EC2 간단 설치${NC}"
 echo
 
-# GitHub 저장소 URL 입력
-echo -n -e "${YELLOW}GitHub 저장소 URL을 입력하세요: ${NC}"
-read GITHUB_URL
+# GitHub 설정
+GITHUB_URL="https://github.com/djgnfj-svg/kkua"
 
-if [[ -z "$GITHUB_URL" ]]; then
-    echo -e "${RED}❌ GitHub URL이 필요합니다${NC}"
-    exit 1
+# Private 저장소인 경우 토큰 입력
+echo -n -e "${YELLOW}GitHub Personal Access Token을 입력하세요 (Public이면 Enter): ${NC}"
+read -s GITHUB_TOKEN
+echo
+
+if [[ -n "$GITHUB_TOKEN" ]]; then
+    # URL에 토큰 포함
+    GITHUB_URL="https://$GITHUB_TOKEN@github.com/djgnfj-svg/kkua"
 fi
 
 echo -e "${BLUE}📦 시스템 업데이트 중...${NC}"
