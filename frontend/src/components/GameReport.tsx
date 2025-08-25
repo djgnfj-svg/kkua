@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button, Card } from './ui';
+import { Button } from './ui';
 
 interface PlayerStats {
   rank: number;
@@ -26,8 +26,8 @@ interface GameReportProps {
 export const GameReport: React.FC<GameReportProps> = ({
   finalRankings,
   currentUserId,
-  wordChain,
-  gameStats,
+  wordChain: _wordChain,
+  gameStats: _gameStats,
   onPlayAgain,
   onBackToLobby
 }) => {

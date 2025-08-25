@@ -95,6 +95,7 @@ const GameRoomPage: React.FC = () => {
       words_submitted: number;
       items_used: number;
     }>;
+    countdownMessage?: string; // 카운트다운 메시지 추가
   }>({
     isPlaying: false,
     isRoundTransition: false,
@@ -106,7 +107,8 @@ const GameRoomPage: React.FC = () => {
     currentRound: 1,
     maxRounds: 3,
     showFinalRankings: false,
-    finalRankings: []
+    finalRankings: [],
+    countdownMessage: undefined
   });
   const [currentWord, setCurrentWord] = useState('');
   const [typingEffect, setTypingEffect] = useState<{
@@ -436,8 +438,10 @@ const GameRoomPage: React.FC = () => {
       maxRounds: data.max_rounds || 5,
       scores: data.scores || {},
       wordChain: [], // 새 게임이므로 단어 체인 초기화
+      wordChainInfo: {},
       showFinalRankings: false, // 이전 게임 결과창 숨김
-      finalRankings: [] // 이전 게임 순위 데이터 초기화
+      finalRankings: [], // 이전 게임 순위 데이터 초기화
+      countdownMessage: undefined
     });
     addGameMessage(`🎮 게임이 시작되었습니다! ${data.current_turn_nickname}님의 차례입니다.`);
   }, [user?.id, addGameMessage]);
@@ -477,6 +481,7 @@ const GameRoomPage: React.FC = () => {
         currentTurnUserId: String(data.current_turn_user_id),
         currentChar: data.next_char || '',
         remainingTime: data.current_turn_remaining_time || prev.remainingTime,
+        countdownMessage: undefined,
         wordChain: [...(prev.wordChain || []), data.word],
         wordChainInfo: {
           ...(prev.wordChainInfo || {}),
@@ -574,7 +579,10 @@ const GameRoomPage: React.FC = () => {
 
   // 게임 시작 카운트다운 핸들러
   const handleGameStartingCountdown = useCallback((data: any) => {
-    
+    setGameState(prev => ({
+      ...prev,
+      countdownMessage: `🕰️ 게임 시작까지 ${data.countdown}초...`
+    }));
     addGameMessage(data.message || `🕰️ 게임 시작까지 ${data.countdown}초...`);
   }, [addGameMessage]);
 
@@ -598,7 +606,10 @@ const GameRoomPage: React.FC = () => {
 
   // 라운드 시작 카운트다운 핸들러
   const handleRoundStartingCountdown = useCallback((data: any) => {
-    
+    setGameState(prev => ({
+      ...prev,
+      countdownMessage: `⏰ 라운드 ${data.round} 시작까지 ${data.countdown}초...`
+    }));
     addGameMessage(`⏰ ${data.message || `라운드 ${data.round} 시작까지 ${data.countdown}초...`}`);
   }, [addGameMessage]);
 
@@ -642,6 +653,7 @@ const GameRoomPage: React.FC = () => {
       remainingTime: data.current_turn_time_limit || 30,
       turnTimeLimit: data.current_turn_time_limit || 30,
       wordChain: [], // 새 라운드이므로 단어 체인 초기화
+      countdownMessage: undefined,
       scores: { ...(prev.scores || {}), ...(data.scores || {}) }
     }));
     
@@ -1251,7 +1263,13 @@ const GameRoomPage: React.FC = () => {
                 {gameState.isPlaying ? (
                   <div className="space-y-3">
                     {/* Current turn indicator */}
-                    {gameState.isRoundTransition ? (
+                    {gameState.countdownMessage ? (
+                      <div className="bg-yellow-500/20 rounded-lg p-3 border border-yellow-400/30">
+                        <div className="flex items-center justify-center">
+                          <p className="text-yellow-200 font-bold text-lg">{gameState.countdownMessage}</p>
+                        </div>
+                      </div>
+                    ) : gameState.isRoundTransition ? (
                       <div className="text-center py-4">
                         <div className="flex items-center justify-center space-x-3">
                           <span className="text-3xl animate-spin">🔄</span>

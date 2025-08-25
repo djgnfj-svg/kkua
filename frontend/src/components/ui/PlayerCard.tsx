@@ -12,7 +12,7 @@ interface PlayerCardProps {
 }
 
 export const PlayerCard: React.FC<PlayerCardProps> = ({
-  id,
+  id: _id,
   nickname,
   isHost = false,
   isReady = false,
