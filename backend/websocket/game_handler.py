@@ -257,9 +257,16 @@ class GameEventHandler:
                 })
                 return False
             
-            # 모든 플레이어 준비 완료 확인
+            # 방장을 자동으로 준비 완료 상태로 설정
             from redis_models import PlayerStatus
-            not_ready_players = [p for p in game_state.players if p.status != PlayerStatus.READY.value]
+            host_player = next((p for p in game_state.players if p.is_host), None)
+            if host_player and host_player.status != PlayerStatus.READY.value:
+                host_player.status = PlayerStatus.READY.value
+                await self.redis_manager.save_game_state(game_state)
+            
+            # 방장 외 플레이어 준비 완료 확인
+            not_ready_players = [p for p in game_state.players 
+                               if p.status != PlayerStatus.READY.value and not p.is_host]
             if not_ready_players:
                 not_ready_names = [p.nickname for p in not_ready_players]
                 await self.websocket_manager.send_to_user(user_id, {
@@ -919,26 +926,38 @@ class GameEventHandler:
             # 게임 상태 조회
             game_state = await self.redis_manager.get_game_state(room_id)
             if not game_state:
-                await self.websocket_manager.send_to_user(user_id, {
+                await self.websocket_manager.broadcast_to_room(room_id, {
                     "type": "word_submission_failed",
-                    "data": {"reason": "게임 상태를 찾을 수 없습니다"}
+                    "data": {
+                        "user_id": user_id,
+                        "word": word,
+                        "reason": "게임 상태를 찾을 수 없습니다"
+                    }
                 })
                 return False
             
             # 게임이 진행 중인지 확인
             if game_state.status != "playing":
-                await self.websocket_manager.send_to_user(user_id, {
+                await self.websocket_manager.broadcast_to_room(room_id, {
                     "type": "word_submission_failed", 
-                    "data": {"reason": "게임이 진행 중이 아닙니다"}
+                    "data": {
+                        "user_id": user_id,
+                        "word": word,
+                        "reason": "게임이 진행 중이 아닙니다"
+                    }
                 })
                 return False
             
             # 현재 턴 플레이어인지 확인
             current_player = game_state.get_current_player()
             if not current_player or current_player.user_id != user_id:
-                await self.websocket_manager.send_to_user(user_id, {
+                await self.websocket_manager.broadcast_to_room(room_id, {
                     "type": "word_submission_failed",
-                    "data": {"reason": "당신의 턴이 아닙니다"}
+                    "data": {
+                        "user_id": user_id,
+                        "word": word,
+                        "reason": "당신의 턴이 아닙니다"
+                    }
                 })
                 return False
             
@@ -948,9 +967,14 @@ class GameEventHandler:
             )
             
             if not success:
-                await self.websocket_manager.send_to_user(user_id, {
+                # 실패한 단어를 모든 플레이어에게 브로드캐스트
+                await self.websocket_manager.broadcast_to_room(room_id, {
                     "type": "word_submission_failed",
-                    "data": {"reason": message}
+                    "data": {
+                        "user_id": user_id,
+                        "word": word,
+                        "reason": message
+                    }
                 })
                 return False
             
@@ -987,9 +1011,13 @@ class GameEventHandler:
             
         except Exception as e:
             logger.error(f"단어 제출 처리 중 오류: {e}")
-            await self.websocket_manager.send_to_user(user_id, {
+            await self.websocket_manager.broadcast_to_room(room_id, {
                 "type": "word_submission_failed",
-                "data": {"reason": "단어 처리 중 오류가 발생했습니다"}
+                "data": {
+                    "user_id": user_id,
+                    "word": word,
+                    "reason": "단어 처리 중 오류가 발생했습니다"
+                }
             })
             return False
     

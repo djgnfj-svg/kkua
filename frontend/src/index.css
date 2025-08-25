@@ -47,3 +47,54 @@ body {
     transform: translateY(0); 
   }
 }
+
+/* Word card character animations */
+.animate-bounce-in-char {
+  animation: bounceInChar 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  opacity: 0;
+  transform: translateY(-30px) scale(0.3);
+}
+
+.animate-bounce-in-score {
+  animation: bounceInScore 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  opacity: 0;
+  transform: scale(0);
+}
+
+@keyframes bounceInChar {
+  0% {
+    opacity: 0;
+    transform: translateY(-40px) scale(0.2) rotate(-15deg);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-8px) scale(1.3) rotate(8deg);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(2px) scale(0.9) rotate(-3deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(0deg);
+  }
+}
+
+@keyframes bounceInScore {
+  0% {
+    opacity: 0;
+    transform: scale(0) rotate(-360deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.4) rotate(-180deg);
+  }
+  80% {
+    opacity: 1;
+    transform: scale(0.8) rotate(-45deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}

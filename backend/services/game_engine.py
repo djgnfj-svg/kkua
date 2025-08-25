@@ -304,9 +304,15 @@ class GameEngine:
             if len(game_state.players) < min_players:
                 return False, f"최소 {min_players}명이 필요합니다"
             
-            # 모든 플레이어 준비 확인
-            if not all(p.status == "ready" for p in game_state.players):
-                return False, "모든 플레이어가 준비되지 않았습니다"
+            # 방장 외 플레이어 준비 확인 (방장은 항상 준비된 것으로 간주)
+            non_host_players_ready = all(
+                p.status == "ready" or p.is_host 
+                for p in game_state.players
+            )
+            if not non_host_players_ready:
+                not_ready_players = [p.nickname for p in game_state.players 
+                                   if p.status != "ready" and not p.is_host]
+                return False, f"다음 플레이어가 준비되지 않았습니다: {', '.join(not_ready_players)}"
             
             # 게임 모드 설정 확인
             mode_type = game_state.game_settings.get("mode_type", "classic")

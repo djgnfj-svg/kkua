@@ -51,7 +51,7 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
 
   return (
     <div className={`
-      relative p-3 rounded-lg border-2
+      relative p-4 rounded-lg border-2
       ${getCardStyle()}
     `}>
       {/* 현재 턴 효과 */}
@@ -66,14 +66,14 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
       )}
 
       <div className="relative flex items-center space-x-2">
-        {/* 아바타 */}
+        {/* 아바타/캐릭터 영역 */}
         <div className={`
-          w-10 h-10 bg-gradient-to-br ${getAvatarBg()} 
-          rounded-full flex items-center justify-center
+          w-14 h-14 bg-gradient-to-br ${getAvatarBg()} 
+          rounded-lg flex items-center justify-center
           shadow-md ring-1 ring-white/20
           ${isCurrentTurn ? 'animate-bounce' : ''}
         `}>
-          <span className="text-white font-bold text-base">
+          <span className="text-white font-bold text-lg">
             {getStatusIcon()}
           </span>
         </div>

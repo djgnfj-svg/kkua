@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useCallback } from 'react';
 
 interface WordCardProps {
   word: string;
@@ -17,6 +17,75 @@ export const WordCard: React.FC<WordCardProps> = ({
   isLatest = false,
   index 
 }) => {
+  // 글자별 소리 재생 함수
+  const playCharSound = useCallback((charIndex: number) => {
+    try {
+      // AudioContext 지원 여부 확인
+      if (!window.AudioContext && !(window as any).webkitAudioContext) {
+        return;
+      }
+
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      
+      // AudioContext 상태 확인 및 재개
+      if (audioContext.state === 'suspended') {
+        audioContext.resume().then(() => {
+          playActualSound(audioContext, charIndex);
+        }).catch(() => {
+          // 재개 실패시 조용히 무시
+        });
+      } else {
+        playActualSound(audioContext, charIndex);
+      }
+      
+    } catch (error) {
+      // 사운드 재생 실패시 무시
+    }
+  }, []);
+
+  const playActualSound = useCallback((audioContext: AudioContext, charIndex: number) => {
+    try {
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      // 글자별로 다른 음높이 (더 쾌적한 소리)
+      const baseFreq = 600 + (charIndex * 100);
+      oscillator.frequency.setValueAtTime(baseFreq, audioContext.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(baseFreq * 1.5, audioContext.currentTime + 0.05);
+      
+      gainNode.gain.setValueAtTime(0.05, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.08);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.08);
+      
+      // AudioContext 정리
+      setTimeout(() => {
+        try {
+          audioContext.close();
+        } catch (e) {
+          // 정리 실패시 무시
+        }
+      }, 200);
+      
+    } catch (error) {
+      // 실제 사운드 재생 실패시 무시
+    }
+  }, []);
+
+  // 최신 카드인 경우 글자별 소리 재생 - 단어 체인에만 적용
+  useEffect(() => {
+    if (isLatest) {
+      word.split('').forEach((_, charIndex) => {
+        setTimeout(() => {
+          playCharSound(charIndex);
+        }, index * 50 + charIndex * 80);
+      });
+    }
+  }, [isLatest, word, index, playCharSound]);
   const getDifficultyColor = (diff: number) => {
     switch (diff) {
       case 1: return 'from-green-400 to-emerald-500';
@@ -52,13 +121,43 @@ export const WordCard: React.FC<WordCardProps> = ({
       `}>
         {/* 단어 */}
         <div className="text-center mb-1">
-          <h3 className="text-white font-bold text-base drop-shadow-md">
-            {word}
+          <h3 className="text-white font-bold text-base drop-shadow-md flex justify-center">
+            {word.split('').map((char, charIndex) => (
+              <span
+                key={charIndex}
+                className={`inline-block transition-all duration-300 ${
+                  isLatest ? 'animate-bounce-in-char' : ''
+                }`}
+                style={{
+                  animationDelay: `${index * 50 + charIndex * 80}ms`
+                }}
+              >
+                {char}
+              </span>
+            ))}
           </h3>
           {score && (
             <div className="flex items-center justify-center space-x-1 mt-1">
-              <span className="text-white/90 text-sm">✨</span>
-              <span className="text-white font-medium text-sm">{score}점</span>
+              <span 
+                className={`text-white/90 text-sm transition-all duration-300 ${
+                  isLatest ? 'animate-bounce-in-score' : ''
+                }`}
+                style={{
+                  animationDelay: `${index * 50 + word.length * 80 + 100}ms`
+                }}
+              >
+                ✨
+              </span>
+              <span 
+                className={`text-white font-medium text-sm transition-all duration-300 ${
+                  isLatest ? 'animate-bounce-in-score' : ''
+                }`}
+                style={{
+                  animationDelay: `${index * 50 + word.length * 80 + 150}ms`
+                }}
+              >
+                {score}점
+              </span>
             </div>
           )}
         </div>

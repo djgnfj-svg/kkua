@@ -36,37 +36,37 @@ export const GameReport: React.FC<GameReportProps> = ({
   const isWinner = currentPlayerStats?.rank === 1;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
-      <Card className="w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] overflow-y-auto">
         {/* 헤더 */}
-        <div className="text-center p-4 sm:p-6 border-b">
-          <div className="text-2xl sm:text-3xl font-bold mb-2">
-            {isWinner ? '🏆 승리!' : '게임 완료!'}
+        <div className="text-center p-4 border-b border-gray-200">
+          <div className="text-xl font-bold mb-1">
+            {isWinner ? '🏆 승리!' : '🎮 게임 완료!'}
           </div>
-          <div className="text-base sm:text-lg text-gray-600">
-            {winner && `${winner.nickname}님이 최종 우승했습니다!`}
+          <div className="text-sm text-gray-600">
+            {winner && `${winner.nickname}님이 우승했습니다!`}
           </div>
         </div>
 
-        {/* 최종 순위 */}
-        <div className="p-4 sm:p-6 border-b">
-          <h3 className="text-lg sm:text-xl font-bold mb-4">🏆 최종 순위</h3>
+        {/* 최종 순위 (간단히) */}
+        <div className="p-4">
+          <h3 className="text-base font-bold mb-3 text-center">🏆 최종 순위</h3>
           <div className="space-y-2">
-            {finalRankings.map((player) => (
+            {finalRankings.slice(0, 3).map((player) => (
               <div
                 key={player.user_id}
-                className={`flex items-center justify-between p-3 rounded-lg ${
+                className={`flex items-center justify-between p-2 rounded-lg text-sm ${
                   player.user_id === currentUserId
-                    ? 'bg-blue-50 border-2 border-blue-200'
+                    ? 'bg-purple-100 border border-purple-300'
                     : 'bg-gray-50'
-                } ${player.rank === 1 ? 'bg-yellow-50 border-yellow-200' : ''}`}
+                } ${player.rank === 1 ? 'bg-yellow-100 border-yellow-300' : ''}`}
               >
-                <div className="flex items-center space-x-3">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
-                    player.rank === 1 ? 'bg-yellow-400 text-white' :
+                <div className="flex items-center space-x-2">
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                    player.rank === 1 ? 'bg-yellow-500 text-white' :
                     player.rank === 2 ? 'bg-gray-400 text-white' :
                     player.rank === 3 ? 'bg-orange-400 text-white' :
-                    'bg-gray-200 text-gray-600'
+                    'bg-gray-300 text-gray-600'
                   }`}>
                     {player.rank}
                   </div>
@@ -74,114 +74,71 @@ export const GameReport: React.FC<GameReportProps> = ({
                     <div className="font-semibold flex items-center">
                       {player.nickname}
                       {player.user_id === currentUserId && (
-                        <span className="ml-2 text-xs bg-blue-200 text-blue-800 px-2 py-1 rounded">나</span>
+                        <span className="ml-1 text-xs bg-purple-200 text-purple-800 px-1 py-0.5 rounded">나</span>
                       )}
-                      {player.rank === 1 && <span className="ml-2">👑</span>}
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      {player.score.toLocaleString()}점
+                      {player.rank === 1 && <span className="ml-1">👑</span>}
                     </div>
                   </div>
                 </div>
-                <div className="text-right text-sm text-gray-600">
-                  <div>단어: {player.words_submitted}개</div>
+                <div className="text-right text-xs text-gray-600">
+                  <div className="font-medium">{player.score}점</div>
+                  <div>{player.words_submitted}개 단어</div>
                 </div>
               </div>
             ))}
-          </div>
-        </div>
-
-        {/* 개인 통계 */}
-        {currentPlayerStats && (
-          <div className="p-6 border-b">
-            <h3 className="text-xl font-bold mb-4">📊 나의 게임 통계</h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <div className="bg-blue-50 p-4 rounded-lg text-center">
-                <div className="text-2xl font-bold text-blue-600">
-                  {currentPlayerStats.score.toLocaleString()}
-                </div>
-                <div className="text-sm text-gray-600">총 점수</div>
+            {finalRankings.length > 3 && (
+              <div className="text-center text-xs text-gray-500">
+                +{finalRankings.length - 3}명 더
               </div>
-              <div className="bg-green-50 p-4 rounded-lg text-center">
-                <div className="text-2xl font-bold text-green-600">
-                  {currentPlayerStats.words_submitted}
-                </div>
-                <div className="text-sm text-gray-600">제출한 단어</div>
-              </div>
-              <div className="bg-orange-50 p-4 rounded-lg text-center">
-                <div className="text-2xl font-bold text-orange-600">
-                  {currentPlayerStats.items_used}
-                </div>
-                <div className="text-sm text-gray-600">사용한 아이템</div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 단어 체인 */}
-        <div className="p-6 border-b">
-          <h3 className="text-xl font-bold mb-4">🔗 단어 체인</h3>
-          <div className="bg-gray-50 p-4 rounded-lg max-h-32 overflow-y-auto">
-            {wordChain.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {wordChain.map((word, index) => (
-                  <span
-                    key={index}
-                    className="bg-white px-3 py-1 rounded-full border text-sm"
-                  >
-                    {word}
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <div className="text-gray-500 text-center">제출된 단어가 없습니다</div>
             )}
           </div>
-          <div className="mt-2 text-sm text-gray-600 text-center">
-            총 {wordChain.length}개의 단어
-          </div>
         </div>
 
-        {/* 게임 정보 */}
-        {gameStats && (
-          <div className="p-6 border-b">
-            <h3 className="text-xl font-bold mb-4">ℹ️ 게임 정보</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-              <div>
-                <span className="font-semibold">총 라운드:</span> {gameStats.totalRounds}
+        {/* 내 통계 (간단히) */}
+        {currentPlayerStats && (
+          <div className="p-4 border-t border-gray-100">
+            <h3 className="text-base font-bold mb-2 text-center">📊 내 결과</h3>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="bg-blue-50 p-2 rounded-lg">
+                <div className="text-lg font-bold text-blue-600">
+                  {currentPlayerStats.score}
+                </div>
+                <div className="text-xs text-gray-600">점수</div>
               </div>
-              {gameStats.gameStart && (
-                <div>
-                  <span className="font-semibold">시작 시간:</span>{' '}
-                  {new Date(gameStats.gameStart).toLocaleTimeString()}
+              <div className="bg-green-50 p-2 rounded-lg">
+                <div className="text-lg font-bold text-green-600">
+                  {currentPlayerStats.words_submitted}
                 </div>
-              )}
-              {gameStats.gameEnd && (
-                <div>
-                  <span className="font-semibold">종료 시간:</span>{' '}
-                  {new Date(gameStats.gameEnd).toLocaleTimeString()}
+                <div className="text-xs text-gray-600">단어</div>
+              </div>
+              <div className="bg-orange-50 p-2 rounded-lg">
+                <div className="text-lg font-bold text-orange-600">
+                  {currentPlayerStats.rank}
                 </div>
-              )}
+                <div className="text-xs text-gray-600">등수</div>
+              </div>
             </div>
           </div>
         )}
 
         {/* 액션 버튼 */}
-        <div className="p-6 flex flex-col sm:flex-row gap-3 justify-center">
-          <Button
-            onClick={onPlayAgain}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2"
-          >
-            🎮 다시 하기
-          </Button>
-          <Button
-            onClick={onBackToLobby}
-            className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2"
-          >
-            🏠 로비로 돌아가기
-          </Button>
+        <div className="p-4 border-t border-gray-100">
+          <div className="space-y-2">
+            <Button
+              onClick={onPlayAgain}
+              className="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg text-sm font-medium"
+            >
+              🎮 다시 게임하기
+            </Button>
+            <Button
+              onClick={onBackToLobby}
+              className="w-full bg-gray-500 hover:bg-gray-600 text-white py-2 rounded-lg text-sm font-medium"
+            >
+              ✅ 확인
+            </Button>
+          </div>
         </div>
-      </Card>
+      </div>
     </div>
   );
 };
