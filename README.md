@@ -15,10 +15,14 @@ Pure WebSocket 아키텍처로 재설계된 차세대 끝말잇기 게임입니�
 - 📱 **모바일 반응형** - 모든 디바이스에서 최적화된 경험
 - 🔄 **자동 재연결** - 네트워크 끊김 시 자동 복구
 
-## 🚀 원클릭 배포 (EC2)
+## 🚀 빠른 배포
 
-AWS EC2에서 **단 한 줄의 명령어**로 전체 서비스를 배포할 수 있습니다:
+**로컬 배포 (권장)**
+```bash
+./quick-deploy.sh
+```
 
+**AWS EC2 원클릭 배포**
 ```bash
 curl -o deploy.sh https://raw.githubusercontent.com/YOUR_USERNAME/kkua/develop/deploy.sh && chmod +x deploy.sh && ./deploy.sh
 ```
