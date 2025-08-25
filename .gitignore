@@ -318,3 +318,11 @@ test_multi_user.py
 local_settings.py
 local_config.py
 config_local.py
+
+# Large data files and imports
+scripts/words_to_import.sql
+scripts/korean-words-*.txt
+scripts/kkutu_words.json
+*.sql
+korean-words*.txt
+kkutu_words.json
