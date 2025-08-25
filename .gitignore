@@ -306,6 +306,7 @@ test_*.py
 test_multi_user.py
 
 # MCP and Playwright
+*.mcp.json
 .mcp.json
 .playwright-mcp/
 
