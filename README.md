@@ -254,7 +254,7 @@ docker-compose logs frontend --tail=100
 ## 🔗 참고 자료
 
 - **개발 가이드**: [CLAUDE.md](./CLAUDE.md)
-- **배포 가이드**: [EC2_DEPLOY.md](./EC2_DEPLOY.md)
+- **배포 가이드**: [docs/EC2_DEPLOY_GUIDE.md](./docs/EC2_DEPLOY_GUIDE.md)
 - **API 문서**: http://localhost:8000/docs (서버 실행 후)
 - **끄투 원본**: https://github.com/JJoriping/KKuTu
 
