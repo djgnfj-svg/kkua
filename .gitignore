@@ -326,4 +326,4 @@ scripts/korean-words-*.txt
 scripts/kkutu_words.json
 *.sql
 korean-words*.txt
-kkutu_words.json
+kkutu_words.json.mcp.json
