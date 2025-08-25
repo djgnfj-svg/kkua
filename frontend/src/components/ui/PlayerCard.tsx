@@ -26,7 +26,7 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
       return 'bg-gradient-to-br from-green-500/30 to-emerald-600/30 border-green-400/50 shadow-lg shadow-green-400/20 animate-pulse-slow';
     }
     if (isReady) {
-      return 'bg-gradient-to-br from-blue-500/20 to-purple-600/20 border-blue-400/30 shadow-lg shadow-blue-400/10';
+      return 'bg-gradient-to-br from-green-500/20 to-emerald-600/20 border-green-400/30 shadow-lg shadow-green-400/10';
     }
     if (isMe) {
       return 'bg-gradient-to-br from-purple-500/20 to-pink-600/20 border-purple-400/30';
@@ -37,6 +37,7 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
   const getAvatarBg = () => {
     if (isCurrentTurn) return 'from-green-400 to-emerald-500';
     if (isHost) return 'from-yellow-400 to-orange-500';
+    if (isReady) return 'from-green-400 to-emerald-500';
     if (isMe) return 'from-purple-400 to-pink-500';
     return 'from-blue-400 to-indigo-500';
   };

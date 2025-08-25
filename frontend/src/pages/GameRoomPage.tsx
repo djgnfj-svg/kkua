@@ -135,6 +135,15 @@ const GameRoomPage: React.FC = () => {
     wordSubmitEffect: 'none', 
     gameEndCelebration: 'none'
   });
+
+  // 최근 단어 상태 표시
+  const [recentWordDisplay, setRecentWordDisplay] = useState<{
+    word: string;
+    playerName: string;
+    status: 'success' | 'failed';
+    message: string;
+    timestamp: number;
+  } | null>(null);
   
 
   // 타이머 카운트다운 (부드러운 연속 애니메이션) - 모든 플레이어에게 표시
@@ -443,6 +452,25 @@ const GameRoomPage: React.FC = () => {
         wordSubmitEffect: 'success'
       }));
       
+      // 성공한 단어를 시각적으로 표시 (모든 플레이어가 볼 수 있게)
+      const playerName = currentRoom?.players?.find(p => String(p.id) === String(data.user_id))?.nickname || data.nickname || '알 수 없는 플레이어';
+      const wordDefinition = data.word_info?.definition || '';
+      const difficulty = data.word_info?.difficulty || 1;
+      const difficultyText = difficulty === 1 ? '쉬움' : difficulty === 2 ? '보통' : '어려움';
+      
+      setRecentWordDisplay({
+        word: data.word || '',
+        playerName: playerName,
+        status: 'success',
+        message: wordDefinition ? `${wordDefinition} (${difficultyText})` : '성공!',
+        timestamp: Date.now()
+      });
+      
+      // 5초 후 자동으로 업데이트
+      setTimeout(() => {
+        setRecentWordDisplay(null);
+      }, 5000);
+      
       // 성공한 단어 제출
       setGameState(prev => ({
         ...prev,
@@ -463,9 +491,6 @@ const GameRoomPage: React.FC = () => {
       // 단어 정보 표시 (뜻 포함)
       const wordLength = data.word.length;
       const wordScore = data.score_breakdown?.estimated_total || wordLength * 10;
-      const wordDefinition = data.word_info?.definition || '';
-      const difficulty = data.word_info?.difficulty || 1;
-      const difficultyText = difficulty === 1 ? '쉬움' : difficulty === 2 ? '보통' : '어려움';
       
       // 단어 뜻이 있는 경우 포함하여 메시지 생성
       let wordMessage = `📝 ${data.nickname}님이 "${data.word}" 제출! (+${wordScore}점, ${wordLength}글자)`;
@@ -493,10 +518,26 @@ const GameRoomPage: React.FC = () => {
     } else if (data.status === 'pending_validation') {
       addGameMessage(`🔍 ${data.nickname}님이 "${data.word}" 단어를 검증 중...`);
     }
-  }, []);
+  }, [currentRoom, addGameMessage]);
   
   const handleWordSubmissionFailed = useCallback((data: any) => {
-    addSystemMessage(`❌ 단어 제출 실패: ${data.reason || '알 수 없는 오류'}`);
+    // 실패한 단어를 시각적으로 표시 (모든 플레이어가 볼 수 있게)
+    const playerName = currentRoom?.players?.find(p => String(p.id) === String(data.user_id))?.nickname || '알 수 없는 플레이어';
+    setRecentWordDisplay({
+      word: data.word || '',
+      playerName: playerName,
+      status: 'failed',
+      message: data.reason || '알 수 없는 오류',
+      timestamp: Date.now()
+    });
+    
+    // 5초 후 자동으로 사라지게
+    setTimeout(() => {
+      setRecentWordDisplay(null);
+    }, 5000);
+    
+    // 채팅에도 메시지 표시
+    addSystemMessage(`❌ ${playerName}: "${data.word}" - ${data.reason || '알 수 없는 오류'}`);
     
     // 에러 시각 효과 및 효과음 추가
     playSound('error');
@@ -504,7 +545,7 @@ const GameRoomPage: React.FC = () => {
     setTimeout(() => {
       setVisualEffects(prev => ({ ...prev, wordSubmitEffect: 'none' }));
     }, 1000);
-  }, [addSystemMessage]);
+  }, [currentRoom, addSystemMessage]);
   
   const handlePlayerReady = useCallback((data: any) => {
     
@@ -1291,17 +1332,33 @@ const GameRoomPage: React.FC = () => {
                       </>
                     )}
                     
+                    {/* Recent word display - 최근 단어 상태 표시 (공간 미리 확보) */}
+                    <div className="mb-3">
+                      <div className={`p-3 rounded-lg shadow-lg h-16 flex items-center justify-center ${
+                        recentWordDisplay ? (
+                          recentWordDisplay.status === 'success'
+                            ? 'bg-gradient-to-br from-green-500/30 to-emerald-600/30 border border-green-400/50'
+                            : 'bg-gradient-to-br from-red-500/30 to-pink-600/30 border border-red-400/50'
+                        ) : 'bg-gradient-to-br from-gray-500/20 to-gray-600/20 border border-gray-400/30'
+                      }`}>
+                        {recentWordDisplay ? (
+                          <div className="text-white font-bold text-xl tracking-wide">
+                            "{recentWordDisplay.word}"
+                          </div>
+                        ) : (
+                          <div className="text-gray-400 text-sm">
+                            최근 단어가 여기에 표시됩니다
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
                     {/* Word chain display with floating cards - Always shown */}
                     <div className="bg-white/5 rounded-lg p-3 border border-white/10">
-                      <div className="flex items-center space-x-2 mb-3">
-                        <span className="text-xl">🔗</span>
-                        <h4 className="font-bold text-white">단어 체인</h4>
-                        <span className="text-white/60 text-sm">({gameState.wordChain.length}개)</span>
-                      </div>
                       
-                      {gameState.wordChain.length > 0 ? (
-                        <div className="h-24 flex space-x-3 overflow-hidden">
-                          {[...gameState.wordChain].reverse().map((word, reverseIndex) => {
+                      <div className="h-24 flex space-x-3 overflow-hidden">
+                        {gameState.wordChain.length > 0 ? (
+                          [...gameState.wordChain].reverse().map((word, reverseIndex) => {
                             const originalIndex = gameState.wordChain.length - 1 - reverseIndex;
                             const wordInfo = gameState.wordChainInfo?.[word];
                             const isLatest = reverseIndex === 0; // 첫 번째(맨 왼쪽)가 최신 단어
@@ -1318,23 +1375,23 @@ const GameRoomPage: React.FC = () => {
                                 />
                               </div>
                             );
-                          })}
-                        </div>
-                      ) : (
-                        <div className="h-24 flex items-center justify-center">
-                          <div className="text-center">
-                            <div className="w-12 h-12 bg-purple-600/20 rounded-full flex items-center justify-center mx-auto mb-2">
-                              <span className="text-2xl">🎯</span>
+                          })
+                        ) : (
+                          <div className="w-full flex items-center justify-center">
+                            <div className="text-center">
+                              <div className="w-12 h-12 bg-purple-600/20 rounded-full flex items-center justify-center mx-auto mb-2">
+                                <span className="text-2xl">🎯</span>
+                              </div>
+                              <p className="text-white/60 text-xs">
+                                {gameState.isPlaying 
+                                  ? '첫 단어를 입력하세요'
+                                  : '단어들이 여기에 표시됩니다'
+                                }
+                              </p>
                             </div>
-                            <p className="text-white/60 text-xs">
-                              {gameState.isPlaying 
-                                ? '첫 단어를 입력하세요'
-                                : '단어들이 여기에 표시됩니다'
-                              }
-                            </p>
                           </div>
-                        </div>
-                      )}
+                        )}
+                      </div>
                       
                       {gameState.currentChar && (
                         <div className="mt-2 p-2 bg-gradient-to-r from-purple-500/15 to-pink-500/15 rounded-md border border-purple-400/20 backdrop-blur-sm">
@@ -1371,14 +1428,6 @@ const GameRoomPage: React.FC = () => {
             <div className="space-y-2">
               {/* Players tab */}
               <div className="bg-purple-800/40 backdrop-blur-lg rounded-lg border border-white/20 overflow-hidden">
-                <div className="bg-purple-700/40 p-2 border-b border-white/20">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-lg">👥</span>
-                    <h3 className="text-white font-bold">
-                      플레이어 ({currentRoom?.currentPlayers || 0}/4)
-                    </h3>
-                  </div>
-                </div>
                 <div className="p-2 relative">
                   <div className="flex space-x-3 overflow-x-auto pb-1 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-transparent hover:scrollbar-thumb-white/20">
                     {currentRoom?.players?.map((player) => {

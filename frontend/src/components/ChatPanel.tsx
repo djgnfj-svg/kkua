@@ -130,10 +130,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   return (
     <div className="bg-purple-800/40 backdrop-blur-lg rounded-xl border border-white/20 overflow-hidden">
       <div className="bg-purple-700/40 p-3 border-b border-white/20">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-white font-korean">
-            {isMyTurn ? '🎯 단어 입력' : '입력'}
-          </h3>
+        <div className="flex items-center justify-end">
           <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-400 shadow-lg shadow-green-400/50' : 'bg-red-400 shadow-lg shadow-red-400/50'} animate-pulse`} />
         </div>
       </div>
