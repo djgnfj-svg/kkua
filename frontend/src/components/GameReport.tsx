@@ -19,7 +19,6 @@ interface GameReportProps {
     gameStart?: string;
     gameEnd?: string;
   };
-  onPlayAgain?: () => void;
   onBackToLobby?: () => void;
 }
 
@@ -28,7 +27,6 @@ export const GameReport: React.FC<GameReportProps> = ({
   currentUserId,
   wordChain: _wordChain,
   gameStats: _gameStats,
-  onPlayAgain,
   onBackToLobby
 }) => {
   const winner = finalRankings[0];
@@ -123,20 +121,12 @@ export const GameReport: React.FC<GameReportProps> = ({
 
         {/* 액션 버튼 */}
         <div className="p-4 border-t border-gray-100">
-          <div className="space-y-2">
-            <Button
-              onClick={onPlayAgain}
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg text-sm font-medium"
-            >
-              🎮 다시 게임하기
-            </Button>
-            <Button
-              onClick={onBackToLobby}
-              className="w-full bg-gray-500 hover:bg-gray-600 text-white py-2 rounded-lg text-sm font-medium"
-            >
-              ✅ 확인
-            </Button>
-          </div>
+          <Button
+            onClick={onBackToLobby}
+            className="w-full bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-lg text-sm font-medium"
+          >
+            ✅ 확인
+          </Button>
         </div>
       </div>
     </div>

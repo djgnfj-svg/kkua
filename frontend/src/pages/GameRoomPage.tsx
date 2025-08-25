@@ -10,6 +10,7 @@ import { useNavigationProtection } from '../hooks/useNavigationProtection';
 import GameReport from '../components/GameReport';
 import ChatPanel from '../components/ChatPanel';
 import DuplicateConnectionModal from '../components/DuplicateConnectionModal';
+import { getDueumDisplayText, checkDueumWordValidity } from '../utils/dueumRules';
 import { getTabCommunicationManager } from '../utils/tabCommunication';
 
 const GameRoomPage: React.FC = () => {
@@ -181,15 +182,18 @@ const GameRoomPage: React.FC = () => {
       setWordValidation(prev => ({ ...prev, isChecking: true }));
       
       try {
-        // 첫 글자 검증
-        const firstChar = currentWord.charAt(0);
-        if (firstChar !== gameState.currentChar) {
-          setWordValidation({
-            isValid: false,
-            message: `"${gameState.currentChar}"로 시작해야 합니다`,
-            isChecking: false
-          });
-          return;
+        // 첫 글자 검증 (두음법칙 적용)
+        if (gameState.currentChar) {
+          const dueumResult = checkDueumWordValidity(currentWord, gameState.currentChar);
+          if (!dueumResult.isValid) {
+            const displayText = getDueumDisplayText(gameState.currentChar);
+            setWordValidation({
+              isValid: false,
+              message: `"${displayText}"로 시작해야 합니다`,
+              isChecking: false
+            });
+            return;
+          }
         }
 
         // 길이 검증
@@ -1412,11 +1416,12 @@ const GameRoomPage: React.FC = () => {
                       </div>
                       
                       {gameState.currentChar && (
-                        <div className="mt-2 p-2 bg-gradient-to-r from-purple-500/15 to-pink-500/15 rounded-md border border-purple-400/20 backdrop-blur-sm">
-                          <div className="flex items-center justify-center space-x-1">
+                        <div className="mt-2 p-3 bg-gradient-to-r from-purple-500/15 to-pink-500/15 rounded-lg border border-purple-400/20 backdrop-blur-sm">
+                          <div className="flex items-center justify-center space-x-2">
                             <span className="text-lg">🎯</span>
-                            <span className="text-purple-200 text-sm">
-                              <strong className="text-purple-300 text-base font-bold">"{gameState.currentChar}"</strong>로 시작
+                            <span className="text-purple-200 text-sm">다음 글자:</span>
+                            <span className="text-purple-300 text-lg font-bold">
+                              {getDueumDisplayText(gameState.currentChar)}
                             </span>
                           </div>
                         </div>
@@ -1550,7 +1555,7 @@ const GameRoomPage: React.FC = () => {
           gameStats={{
             totalRounds: gameState.maxRounds || 5
           }}
-          onPlayAgain={() => {
+          onBackToLobby={() => {
             setGameState(prev => ({ ...prev, showFinalRankings: false }));
             // 게임 상태 초기화
             setGameState({
@@ -1565,13 +1570,6 @@ const GameRoomPage: React.FC = () => {
               showFinalRankings: false,
               finalRankings: []
             });
-            // 모든 플레이어를 준비 상태로 리셋하고 새 게임 요청
-            emit('reset_game_for_restart', { room_id: roomId });
-            addGameMessage('🎮 새 게임을 위해 모든 플레이어가 다시 준비해주세요');
-          }}
-          onBackToLobby={() => {
-            setGameState(prev => ({ ...prev, showFinalRankings: false }));
-            navigateSafely('/lobby');
           }}
         />
         )}

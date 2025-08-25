@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from './ui';
+import { getDueumInputHelp, checkDueumWordValidity } from '../utils/dueumRules';
 
 interface ChatMessage {
   id: string;
@@ -30,43 +31,22 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   onSubmitWord
 }) => {
   const [inputValue, setInputValue] = useState('');
+  const [wordValidation, setWordValidation] = useState<{ isValid: boolean; message?: string }>({ isValid: false });
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // 두음법칙 대체 문자 표시 함수
-  const getDueumAlternative = (char: string): string => {
-    // 두음법칙으로 변환된 글자들 (이미 변환된 글자 → 원래 글자)
-    const dueumMappings: Record<string, string> = {
-      // ㄴ으로 시작 (원래 ㄹ)
-      '나': '라', '낙': '락', '난': '란', '날': '랄', '남': '람',
-      '납': '랍', '낭': '랑', '내': '래', '냉': '랭', '녹': '록',
-      '논': '론', '농': '롱', '뇌': '뢰', '누': '루', '능': '릉',
-      '님': '임', '닙': '입', '노': '로',
-      
-      // ㅇ으로 시작 (원래 ㄹ/ㄴ)
-      '약': '략', '양': '량', '여': '려,녀', '역': '력,녁', '연': '련,년',
-      '열': '렬', '염': '렴,념', '엽': '렵,녑', '영': '령,녕', '예': '례',
-      '요': '료,뇨', '용': '룡', '유': '류,뉴', '육': '륙,뉵', '윤': '륜',
-      '율': '률', '융': '륭', '음': '름', '이': '리,니', '인': '린',
-      '임': '림', '입': '립',
-      
-      // ㄹ로 끝나는 글자 추가
-      '라': '나', '락': '낙', '란': '난', '람': '남', '랑': '낭',
-      '래': '내', '량': '양', '려': '여,녀', '력': '역,녁', '련': '연,년',
-      '렬': '열', '렴': '염,념', '렵': '엽,녑', '령': '영,녕', '례': '예',
-      '로': '노', '록': '녹', '론': '논', '료': '요,뇨', '룡': '용',
-      '루': '누', '류': '유,뉴', '륙': '육,뉵', '륜': '윤', '률': '율',
-      '륭': '융', '름': '음', '릉': '능', '리': '이,니', '린': '인',
-      '림': '임,님', '립': '입,닙',
-    };
-    
-    const alt = dueumMappings[char];
-    if (alt) {
-      const altChar = alt.split(',')[0];
-      return `${char}(${altChar})`;
+  // 실시간 단어 검증
+  useEffect(() => {
+    if (isMyTurn && currentChar && inputValue.trim()) {
+      const result = checkDueumWordValidity(inputValue.trim(), currentChar);
+      setWordValidation({
+        isValid: result.isValid,
+        message: result.message
+      });
+    } else {
+      setWordValidation({ isValid: false });
     }
-    return char;
-  };
+  }, [inputValue, currentChar, isMyTurn]);
 
   // 새 메시지가 올 때마다 스크롤을 맨 아래로 (부드럽게)
   useEffect(() => {
@@ -184,42 +164,49 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         isMyTurn ? 'bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-green-400/30' : 'bg-white/5'
       }`}>
           
+          
           <div className="flex space-x-3">
-            <input
-              ref={inputRef}
-              type="text"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder={
-                isConnected ? 
-                  (isMyTurn ? 
-                    (currentChar ? `${getDueumAlternative(currentChar)}로 시작하는 단어...` : '단어를 입력하세요...') : 
-                    "메시지를 입력하세요..."
-                  ) : 
-                  "연결 끊김"
-              }
-              className={`flex-1 px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:border-transparent text-white placeholder-white/50 text-sm backdrop-blur-sm font-korean ${
-                isMyTurn 
-                  ? 'bg-green-500/20 border-green-400/30 focus:ring-green-400' 
-                  : 'bg-white/10 border-white/20 focus:ring-purple-500'
-              }`}
-              disabled={!isConnected}
-              maxLength={200}
-            />
-            <Button
-              onClick={handleSend}
-              disabled={!isConnected || !inputValue.trim()}
-              size="sm"
-              variant={isMyTurn ? "primary" : "primary"}
-              className={`px-4 py-2 ${
-                isMyTurn 
-                  ? 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700' 
-                  : ''
-              }`}
-            >
-              {isMyTurn ? '🚀 제출' : '전송'}
-            </Button>
+              <input
+                ref={inputRef}
+                type="text"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder={
+                  isConnected ? 
+                    (isMyTurn ? 
+                      (currentChar ? getDueumInputHelp(currentChar) : '단어를 입력하세요...') : 
+                      "메시지를 입력하세요..."
+                    ) : 
+                    "연결 끊김"
+                }
+                className={`flex-1 px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:border-transparent text-white placeholder-white/50 text-sm backdrop-blur-sm font-korean ${
+                  isMyTurn 
+                    ? (wordValidation.isValid 
+                        ? 'bg-green-500/20 border-green-400/30 focus:ring-green-400' 
+                        : inputValue.trim() 
+                          ? 'bg-red-500/20 border-red-400/30 focus:ring-red-400'
+                          : 'bg-blue-500/20 border-blue-400/30 focus:ring-blue-400')
+                    : 'bg-white/10 border-white/20 focus:ring-purple-500'
+                }`}
+                disabled={!isConnected}
+                maxLength={200}
+              />
+              <Button
+                onClick={handleSend}
+                disabled={!isConnected || !inputValue.trim() || (isMyTurn && !wordValidation.isValid)}
+                size="sm"
+                variant={isMyTurn ? "primary" : "primary"}
+                className={`px-4 py-2 ${
+                  isMyTurn 
+                    ? (wordValidation.isValid 
+                        ? 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700' 
+                        : 'bg-gradient-to-r from-gray-500 to-gray-600 cursor-not-allowed')
+                    : ''
+                }`}
+              >
+                {isMyTurn ? '🚀 제출' : '전송'}
+              </Button>
           </div>
           
           {!isConnected && (

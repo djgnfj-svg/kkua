@@ -11,6 +11,7 @@ from enum import Enum
 from database import get_db, get_redis
 from models.dictionary_models import KoreanDictionary
 from redis_models import WordChainState
+from utils.dueum_rules import dueum_rules, check_dueum_word_validity, get_dueum_display_text, get_dueum_input_help
 from sqlalchemy import select
 import redis
 import json
@@ -167,7 +168,7 @@ class WordValidator:
         )
     
     def _validate_chain_rule(self, word: str, word_chain: WordChainState) -> ValidationResponse:
-        """끝말잇기 규칙 검증"""
+        """끝말잇기 규칙 검증 (강화된 두음법칙 적용)"""
         if not word_chain.last_char:
             # 첫 단어인 경우 통과
             return ValidationResponse(
@@ -175,252 +176,37 @@ class WordValidator:
                 message="첫 단어"
             )
         
-        # 두음법칙 검증
-        # 1. 직접 일치 확인
-        if word[0] == word_chain.last_char:
-            return ValidationResponse(
-                result=ValidationResult.VALID,
-                message="끝말잇기 규칙 통과"
-            )
+        # 강화된 두음법칙 검증
+        is_valid, valid_chars = check_dueum_word_validity(word, word_chain.last_char)
         
-        # 2. 두음법칙 적용 확인
-        # 마지막 글자가 두음법칙 적용 가능한 글자인지 확인
-        if self._can_apply_dueum(word_chain.last_char, word[0]):
-            return ValidationResponse(
-                result=ValidationResult.VALID,
-                message="끝말잇기 규칙 통과 (두음법칙)"
-            )
+        if is_valid:
+            if len(valid_chars) > 1:
+                return ValidationResponse(
+                    result=ValidationResult.VALID,
+                    message="끝말잇기 규칙 통과 (두음법칙 적용)"
+                )
+            else:
+                return ValidationResponse(
+                    result=ValidationResult.VALID,
+                    message="끝말잇기 규칙 통과"
+                )
         
+        # 실패 시 두음법칙 힌트 포함한 오류 메시지
+        display_text = get_dueum_display_text(word_chain.last_char)
         return ValidationResponse(
             result=ValidationResult.INVALID_CHAIN,
-            message=f"'{word_chain.last_char}'(으)로 시작하는 단어여야 합니다"
+            message=f"'{display_text}'(으)로 시작하는 단어여야 합니다"
         )
     
-    def _can_apply_dueum(self, last_char: str, first_char: str) -> bool:
-        """두음법칙 적용 가능 여부 확인"""
-        # 두음법칙 매핑 (끝 글자 → 시작 가능한 글자들)
-        dueum_rules = {
-            # ㄴ으로 끝나는 글자는 ㄹ로도 시작 가능
-            '나': ['라', '나'],
-            '낙': ['락', '낙'],
-            '난': ['란', '난'],
-            '날': ['랄', '날'],
-            '남': ['람', '남'],
-            '납': ['랍', '납'],
-            '낭': ['랑', '낭'],
-            '내': ['래', '내'],
-            '냉': ['랭', '냉'],
-            '녀': ['려', '여', '녀'],  # 녀로 끝나면 려, 여로도 시작 가능
-            '녁': ['력', '역', '녁'],
-            '년': ['련', '연', '년'],
-            '녕': ['령', '영', '녕'],
-            '념': ['렴', '염', '념'],
-            '녑': ['렵', '엽', '녑'],
-            '녹': ['록', '녹'],
-            '논': ['론', '논'],
-            '농': ['롱', '농'],
-            '뇌': ['뢰', '뇌'],
-            '뇨': ['료', '요', '뇨'],
-            '누': ['루', '누'],
-            '뉴': ['류', '유', '뉴'],
-            '뉵': ['륙', '육', '뉵'],
-            '늄': ['륨', '늄'],
-            '능': ['릉', '능'],
-            '늬': ['리', '늬'],
-            '니': ['리', '이', '니'],
-            '님': ['림', '임', '님'],
-            '닙': ['립', '입', '닙'],
-            '노': ['로', '노'],
-            
-            # ㅇ으로 끝나는 글자는 ㄹ/ㄴ으로도 시작 가능
-            '양': ['량', '양'],
-            '약': ['략', '약'],
-            '여': ['려', '녀', '여'],
-            '역': ['력', '녁', '역'],
-            '연': ['련', '년', '연'],
-            '열': ['렬', '열'],
-            '염': ['렴', '념', '염'],
-            '엽': ['렵', '녑', '엽'],
-            '영': ['령', '녕', '영'],
-            '예': ['례', '예'],
-            '요': ['료', '뇨', '요'],
-            '용': ['룡', '용'],
-            '유': ['류', '뉴', '유'],
-            '육': ['륙', '뉵', '육'],
-            '윤': ['륜', '윤'],
-            '율': ['률', '율'],
-            '융': ['륭', '융'],
-            '음': ['름', '음'],
-            '이': ['리', '니', '이'],
-            '익': ['릭', '익'],
-            '인': ['린', '인'],
-            '일': ['릴', '일'],
-            '임': ['림', '님', '임'],
-            '입': ['립', '닙', '입'],
-            
-            # ㄹ로 끝나는 글자 (두음법칙 역적용)
-            '라': ['라', '나'],
-            '락': ['락', '낙'],
-            '란': ['란', '난'],
-            '랄': ['랄', '날'],
-            '람': ['람', '남'],
-            '랍': ['랍', '납'],
-            '랑': ['랑', '낭'],
-            '래': ['래', '내'],
-            '랭': ['랭', '냉'],
-            '략': ['략', '약'],
-            '량': ['량', '양'],
-            '려': ['려', '녀', '여'],
-            '력': ['력', '녁', '역'],
-            '련': ['련', '년', '연'],
-            '렬': ['렬', '열'],
-            '렴': ['렴', '념', '염'],
-            '렵': ['렵', '녑', '엽'],
-            '령': ['령', '녕', '영'],
-            '례': ['례', '예'],  # 례로 끝나면 예로도 시작 가능
-            '로': ['로', '노'],
-            '록': ['록', '녹'],
-            '론': ['론', '논'],
-            '롱': ['롱', '농'],
-            '뢰': ['뢰', '뇌'],
-            '료': ['료', '뇨', '요'],
-            '룡': ['룡', '용'],
-            '루': ['루', '누'],
-            '류': ['류', '뉴', '유'],
-            '륙': ['륙', '뉵', '육'],
-            '륜': ['륜', '윤'],
-            '률': ['률', '율'],
-            '륭': ['륭', '융'],
-            '륨': ['륨', '늄'],
-            '르': ['르'],
-            '름': ['름', '음'],
-            '릉': ['릉', '능'],
-            '리': ['리', '니', '이', '늬'],
-            '릭': ['릭', '익'],
-            '린': ['린', '인'],
-            '릴': ['릴', '일'],
-            '림': ['림', '님', '임'],
-            '립': ['립', '닙', '입'],
-        }
-        
-        # 마지막 글자에 대한 두음법칙 허용 글자 확인
-        allowed_chars = dueum_rules.get(last_char, [])
-        return first_char in allowed_chars
-    
     def _normalize_korean_char(self, char: str) -> str:
-        """한국어 문자 정규화 (끝말잇기 특수 규칙)"""
-        # 두음법칙 적용 (한국어 끝말잇기 관례)
-        char_mappings = {
-            # ㄹ → ㅇ/ㄴ
-            '라': '나',  # 나라
-            '락': '낙',  # 낙원
-            '란': '난',  # 난리
-            '랄': '날',  # 날개
-            '람': '남',  # 남자
-            '랍': '납',  # 납품
-            '랑': '낭',  # 낭만
-            '래': '내',  # 내일
-            '랭': '냉',  # 냉장고
-            '략': '약',  # 약속
-            '량': '양',  # 양념
-            '려': '여',  # 여행
-            '력': '역',  # 역사
-            '련': '연',  # 연결
-            '렬': '열',  # 열정
-            '렴': '염',  # 염려
-            '렵': '엽',  # 엽서
-            '령': '영',  # 영화
-            '례': '예',  # 예술
-            '로': '노',  # 노력
-            '록': '녹',  # 녹색
-            '론': '논',  # 논리
-            '롱': '농',  # 농업
-            '뢰': '뇌',  # 뇌물
-            '뢰': '뢰',  # 일부는 유지
-            '료': '요',  # 요리
-            '룡': '용',  # 용기
-            '루': '누',  # 누나
-            '류': '유',  # 유리
-            '륙': '육',  # 육지
-            '륜': '윤',  # 윤리
-            '률': '율',  # 율동
-            '륭': '융',  # 융합
-            '름': '음',  # 음악
-            '릉': '능',  # 능력
-            '리': '이',  # 이야기
-            '린': '인',  # 인간
-            '림': '임',  # 임무
-            '립': '입',  # 입장
-            
-            # ㄴ → ㅇ
-            '녀': '여',  # 여자
-            '녁': '역',  # 역할 (일부)
-            '년': '연',  # 연도
-            '녕': '영',  # 영화
-            '념': '염',  # 염원
-            '녑': '엽',  # (일부)
-            '뇨': '요',  # 요가
-            '뉴': '유',  # 유명
-            '뉵': '육',  # (일부)
-            '니': '이',  # 이름
-        }
-        return char_mappings.get(char, char)
+        """한국어 문자 정규화 (레거시 함수, 새로운 dueum_rules 사용 권장)"""
+        # 두음법칙 대안 글자들 중 첫 번째 반환
+        alternatives = dueum_rules.get_dueum_alternatives(char)
+        return alternatives[0] if alternatives else char
     
     def get_dueum_alternatives(self, char: str) -> str:
-        """두음법칙 대체 문자 표시용"""
-        # 두음법칙으로 변환된 글자들 (이미 변환된 글자 → 원래 글자)
-        dueum_mappings = {
-            # ㄴ으로 시작 (원래 ㄹ)
-            '나': '라',
-            '낙': '락',
-            '난': '란',
-            '날': '랄',
-            '남': '람',
-            '납': '랍',
-            '낭': '랑',
-            '내': '래',
-            '냉': '랭',
-            '녹': '록',
-            '논': '론',
-            '농': '롱',
-            '뇌': '뢰',
-            '누': '루',
-            '능': '릉',
-            '님': '임',  # 님은 임이 변환된 것
-            '닙': '입',  # 닙은 입이 변환된 것
-            '노': '로',
-            
-            # ㅇ으로 시작 (원래 ㄹ/ㄴ)
-            '약': '략',
-            '양': '량',
-            '여': '려,녀',
-            '역': '력,녁',
-            '연': '련,년',
-            '열': '렬',
-            '염': '렴,념',
-            '엽': '렵,녑',
-            '영': '령,녕',
-            '예': '례',
-            '요': '료,뇨',
-            '용': '룡',
-            '유': '류,뉴',
-            '육': '륙,뉵',
-            '윤': '륜',
-            '율': '률',
-            '융': '륭',
-            '음': '름',
-            '이': '리,니',
-            '인': '린',
-            '임': '림',
-            '입': '립',
-        }
-        
-        alt = dueum_mappings.get(char)
-        if alt:
-            # 여러 대체 문자가 있는 경우 첫 번째만 표시
-            alt_char = alt.split(',')[0]
-            return f"{char}({alt_char})"
-        return char
+        """두음법칙 대체 문자 표시용 (통합된 유틸리티 사용)"""
+        return get_dueum_display_text(char)
     
     async def _get_word_info(self, word: str) -> Optional[WordInfo]:
         """단어 정보 조회 (캐시 우선)"""
@@ -541,7 +327,7 @@ class WordValidator:
         }
     
     async def get_word_hints(self, last_char: str, count: int = 3) -> List[str]:
-        """다음에 올 수 있는 단어 힌트"""
+        """다음에 올 수 있는 단어 힌트 (두음법칙 고려)"""
         try:
             # Redis 캐시 확인
             cache_key = f"{self.chain_cache_prefix}{last_char}:{count}"
@@ -550,16 +336,21 @@ class WordValidator:
             if cached_hints:
                 return json.loads(cached_hints)
             
-            # 데이터베이스에서 조회
-            db = next(get_db())
-            result = db.execute(
-                select(KoreanDictionary.word)
-                .where(KoreanDictionary.first_char == last_char)
-                .order_by(KoreanDictionary.frequency_score.desc())
-                .limit(count * 2)  # 여분으로 더 조회
-            )
+            # 두음법칙을 고려한 가능한 시작 글자들 획득
+            possible_starts = dueum_rules.get_all_possible_starts(last_char)
             
-            words = [row[0] for row in result.fetchall()]
+            # 데이터베이스에서 조회 (모든 가능한 시작 글자로)
+            db = next(get_db())
+            words = []
+            
+            for start_char in possible_starts:
+                result = db.execute(
+                    select(KoreanDictionary.word)
+                    .where(KoreanDictionary.first_char == start_char)
+                    .order_by(KoreanDictionary.frequency_score.desc())
+                    .limit(count)  # 각 글자마다 count개씩
+                )
+                words.extend([row[0] for row in result.fetchall()])
             
             # 무작위로 섞어서 힌트 개수만큼 반환
             import random
@@ -580,28 +371,33 @@ class WordValidator:
             return []
     
     async def get_possible_words_count(self, last_char: str) -> int:
-        """해당 글자로 시작하는 가능한 단어 개수"""
+        """해당 글자로 시작하는 가능한 단어 개수 (두음법칙 고려)"""
         try:
             # Redis 캐시 확인
-            cache_key = f"count:{last_char}"
+            cache_key = f"count_dueum:{last_char}"
             cached_count = self.redis_client.get(cache_key)
             
             if cached_count:
                 return int(cached_count)
             
-            # 데이터베이스에서 조회
-            db = next(get_db())
-            result = db.execute(
-                select(KoreanDictionary.word_id)
-                .where(KoreanDictionary.first_char == last_char)
-            )
+            # 두음법칙을 고려한 가능한 시작 글자들 획득
+            possible_starts = dueum_rules.get_all_possible_starts(last_char)
             
-            count = len(result.fetchall())
+            # 데이터베이스에서 조회 (모든 가능한 시작 글자로)
+            db = next(get_db())
+            total_count = 0
+            
+            for start_char in possible_starts:
+                result = db.execute(
+                    select(KoreanDictionary.word_id)
+                    .where(KoreanDictionary.first_char == start_char)
+                )
+                total_count += len(result.fetchall())
             
             # Redis에 캐시 (1시간)
-            self.redis_client.setex(cache_key, 3600, str(count))
+            self.redis_client.setex(cache_key, 3600, str(total_count))
             
-            return count
+            return total_count
             
         except Exception as e:
             logger.error(f"가능한 단어 개수 조회 중 오류: {e}")
