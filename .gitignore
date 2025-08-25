@@ -189,6 +189,11 @@ coverage/
 /backend/uploads/
 /backend/logs/
 
+# MCP and Playwright
+*.mcp.json
+.mcp.json
+.playwright-mcp/
+
 # Secrets
 .env.*
 *.pem
@@ -198,4 +203,15 @@ coverage/
 /frontend/dist/
 /backend/build/
 
-.mcp.json
+# Local configuration files
+local_settings.py
+local_config.py
+config_local.py
+
+# Large data files and imports
+scripts/words_to_import.sql
+scripts/korean-words-*.txt
+scripts/kkutu_words.json
+*.sql
+korean-words*.txt
+kkutu_words.json
