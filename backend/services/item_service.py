@@ -40,6 +40,13 @@ class ItemEffectType(str, Enum):
     WORD_STEAL = "word_steal"         # 단어 훔치기
     COMBO_BOOST = "combo_boost"       # 콤보 증가
     REVIVAL = "revival"               # 부활
+    
+    # 새로운 방해 아이템들
+    CAT_DISTRACTION = "cat_distraction"    # 고양이 방해
+    SCREEN_SHAKE = "screen_shake"          # 화면 흔들기
+    BLUR_SCREEN = "blur_screen"            # 화면 흐림
+    FALLING_OBJECTS = "falling_objects"    # 떨어지는 오브젝트
+    COLOR_INVERT = "color_invert"          # 색상 반전
 
 
 @dataclass
@@ -122,6 +129,13 @@ class ItemService:
             ItemEffectType.WORD_STEAL: self._handle_word_steal,
             ItemEffectType.COMBO_BOOST: self._handle_combo_boost,
             ItemEffectType.REVIVAL: self._handle_revival,
+            
+            # 새로운 방해 아이템 핸들러들
+            ItemEffectType.CAT_DISTRACTION: self._handle_cat_distraction,
+            ItemEffectType.SCREEN_SHAKE: self._handle_screen_shake,
+            ItemEffectType.BLUR_SCREEN: self._handle_blur_screen,
+            ItemEffectType.FALLING_OBJECTS: self._handle_falling_objects,
+            ItemEffectType.COLOR_INVERT: self._handle_color_invert,
         }
     
     async def use_item(self, room_id: str, user_id: int, item_id: int, 
@@ -489,6 +503,156 @@ class ItemService:
         return ItemUseResult(
             success=True,
             message="부활했습니다!",
+            effect=effect
+        )
+    
+    # 새로운 방해 아이템 핸들러들
+    async def _handle_cat_distraction(self, room_id: str, user_id: int, effect: ItemEffect, 
+                                    target_user_id: Optional[int] = None) -> ItemUseResult:
+        """고양이 방해 효과"""
+        duration = effect.value.get("duration", 5)
+        cat_count = effect.value.get("cat_count", 3)
+        
+        # 모든 상대방에게 적용
+        from services.game_engine import get_game_engine
+        game_engine = get_game_engine()
+        game_state = await game_engine.get_game_state(room_id)
+        
+        if not game_state:
+            return ItemUseResult(
+                success=False,
+                message="게임 상태를 찾을 수 없습니다"
+            )
+        
+        # 사용자를 제외한 모든 플레이어에게 효과 적용
+        targets_applied = 0
+        for player_id in game_state.players.keys():
+            if int(player_id) != user_id:
+                await self._add_active_effect(room_id, int(player_id), effect)
+                targets_applied += 1
+        
+        return ItemUseResult(
+            success=True,
+            message=f"고양이 {cat_count}마리가 {duration}초간 상대방을 방해합니다 😸",
+            effect=effect,
+            targets_affected=targets_applied
+        )
+    
+    async def _handle_screen_shake(self, room_id: str, user_id: int, effect: ItemEffect, 
+                                 target_user_id: Optional[int] = None) -> ItemUseResult:
+        """화면 흔들기 효과"""
+        duration = effect.value.get("duration", 3)
+        intensity = effect.value.get("intensity", "medium")
+        
+        # 대상 선정 (지정되지 않으면 현재 턴 플레이어)
+        if not target_user_id:
+            from services.game_engine import get_game_engine
+            game_engine = get_game_engine()
+            game_state = await game_engine.get_game_state(room_id)
+            if game_state:
+                target_user_id = game_state.current_turn
+        
+        if not target_user_id or target_user_id == user_id:
+            return ItemUseResult(
+                success=False,
+                message="방해할 대상이 없습니다"
+            )
+        
+        await self._add_active_effect(room_id, target_user_id, effect)
+        
+        return ItemUseResult(
+            success=True,
+            message=f"상대방의 화면이 {duration}초간 흔들립니다 📳",
+            effect=effect
+        )
+    
+    async def _handle_blur_screen(self, room_id: str, user_id: int, effect: ItemEffect, 
+                                target_user_id: Optional[int] = None) -> ItemUseResult:
+        """화면 흐림 효과"""
+        duration = effect.value.get("duration", 4)
+        blur_level = effect.value.get("blur_level", 3)
+        
+        if not target_user_id:
+            from services.game_engine import get_game_engine
+            game_engine = get_game_engine()
+            game_state = await game_engine.get_game_state(room_id)
+            if game_state:
+                target_user_id = game_state.current_turn
+        
+        if not target_user_id or target_user_id == user_id:
+            return ItemUseResult(
+                success=False,
+                message="방해할 대상이 없습니다"
+            )
+        
+        await self._add_active_effect(room_id, target_user_id, effect)
+        
+        return ItemUseResult(
+            success=True,
+            message=f"상대방의 화면이 {duration}초간 흐려집니다 😵‍💫",
+            effect=effect
+        )
+    
+    async def _handle_falling_objects(self, room_id: str, user_id: int, effect: ItemEffect, 
+                                    target_user_id: Optional[int] = None) -> ItemUseResult:
+        """떨어지는 오브젝트 효과"""
+        duration = effect.value.get("duration", 6)
+        object_type = effect.value.get("object_type", "leaves")
+        
+        # 모든 상대방에게 적용
+        from services.game_engine import get_game_engine
+        game_engine = get_game_engine()
+        game_state = await game_engine.get_game_state(room_id)
+        
+        if not game_state:
+            return ItemUseResult(
+                success=False,
+                message="게임 상태를 찾을 수 없습니다"
+            )
+        
+        targets_applied = 0
+        for player_id in game_state.players.keys():
+            if int(player_id) != user_id:
+                await self._add_active_effect(room_id, int(player_id), effect)
+                targets_applied += 1
+        
+        object_emoji = {
+            "leaves": "🍃",
+            "hearts": "💕",
+            "stars": "⭐",
+            "snow": "❄️"
+        }.get(object_type, "🍃")
+        
+        return ItemUseResult(
+            success=True,
+            message=f"{object_emoji} {duration}초간 하늘에서 떨어집니다",
+            effect=effect,
+            targets_affected=targets_applied
+        )
+    
+    async def _handle_color_invert(self, room_id: str, user_id: int, effect: ItemEffect, 
+                                 target_user_id: Optional[int] = None) -> ItemUseResult:
+        """색상 반전 효과"""
+        duration = effect.value.get("duration", 5)
+        
+        if not target_user_id:
+            from services.game_engine import get_game_engine
+            game_engine = get_game_engine()
+            game_state = await game_engine.get_game_state(room_id)
+            if game_state:
+                target_user_id = game_state.current_turn
+        
+        if not target_user_id or target_user_id == user_id:
+            return ItemUseResult(
+                success=False,
+                message="방해할 대상이 없습니다"
+            )
+        
+        await self._add_active_effect(room_id, target_user_id, effect)
+        
+        return ItemUseResult(
+            success=True,
+            message=f"상대방의 화면 색상이 {duration}초간 반전됩니다 🎨",
             effect=effect
         )
     

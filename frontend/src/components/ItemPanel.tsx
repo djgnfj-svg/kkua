@@ -42,6 +42,31 @@ const rarityIcons = {
   legendary: '🟡'
 };
 
+const getItemIcon = (effectType: string): string => {
+  const iconMap = {
+    // 기존 아이템들
+    time_extend: '⏰',
+    score_multiply: '💎',
+    word_hint: '💡',
+    time_attack: '⚡',
+    shield: '🛡️',
+    freeze: '❄️',
+    double_turn: '🔄',
+    word_steal: '🎯',
+    combo_boost: '🚀',
+    revival: '💖',
+    
+    // 새로운 방해 아이템들
+    cat_distraction: '😸',
+    screen_shake: '📳',
+    blur_screen: '😵‍💫',
+    falling_objects: '🍃',
+    color_invert: '🎨'
+  };
+  
+  return iconMap[effectType] || '❓';
+};
+
 export const ItemPanel: React.FC<ItemPanelProps> = ({
   userId,
   // roomId, // 사용하지 않음
@@ -119,27 +144,49 @@ export const ItemPanel: React.FC<ItemPanelProps> = ({
   }, [isGameActive, isMyTurn, onItemUse]);
 
   const getItemEffectDescription = (item: InventoryItem): string => {
+    const icon = getItemIcon(item.effect_type);
+    
     switch (item.effect_type) {
       case 'time_extend':
-        return `⏰ 시간 ${item.effect_value?.seconds || 10}초 연장`;
+        return `${icon} 시간 ${item.effect_value?.seconds || 10}초 연장`;
       case 'score_multiplier':
-        return `⚡ 다음 단어 점수 ${item.effect_value?.multiplier || 2}배`;
+        return `${icon} 다음 단어 점수 ${item.effect_value?.multiplier || 2}배`;
       case 'word_hint':
-        return `💡 다음 글자 힌트 ${item.effect_value?.hint_count || 3}개`;
+        return `${icon} 다음 글자 힌트 ${item.effect_value?.hint_count || 3}개`;
       case 'freeze_opponent':
-        return `❄️ 상대방 시간 ${item.effect_value?.seconds || 5}초 단축`;
+        return `${icon} 상대방 시간 ${item.effect_value?.seconds || 5}초 단축`;
       case 'shield':
-        return `🛡️ 한 턴 동안 공격 무효화`;
+        return `${icon} 한 턴 동안 공격 무효화`;
       case 'combo_boost':
-        return `🔥 콤보 ${item.effect_value?.boost || 3} 추가`;
+        return `${icon} 콤보 ${item.effect_value?.boost || 3} 추가`;
       case 'extra_turn':
-        return `🔄 추가 턴 획득`;
+        return `${icon} 추가 턴 획득`;
       case 'steal_word':
-        return `🎯 상대방 단어 1개 무효화`;
+        return `${icon} 상대방 단어 1개 무효화`;
       case 'revive':
-        return `💖 한 번 더 기회`;
+        return `${icon} 한 번 더 기회`;
+        
+      // 새로운 방해 아이템들
+      case 'cat_distraction':
+        return `${icon} 고양이 ${item.effect_value?.cat_count || 3}마리가 ${item.effect_value?.duration || 5}초간 방해`;
+      case 'screen_shake':
+        return `${icon} 화면 흔들기 ${item.effect_value?.duration || 3}초`;
+      case 'blur_screen':
+        return `${icon} 화면 흐림 ${item.effect_value?.duration || 4}초`;
+      case 'falling_objects':
+        const objectType = item.effect_value?.object_type || 'leaves';
+        const objectName = {
+          leaves: '잎사귀',
+          hearts: '하트',
+          stars: '별',
+          snow: '눈송이'
+        }[objectType] || '오브젝트';
+        return `${icon} ${objectName} 비 ${item.effect_value?.duration || 6}초`;
+      case 'color_invert':
+        return `${icon} 색상 반전 ${item.effect_value?.duration || 5}초`;
+        
       default:
-        return item.description;
+        return item.description || `${icon} 특별한 효과`;
     }
   };
 

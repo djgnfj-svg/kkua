@@ -10,6 +10,8 @@ import { useNavigationProtection } from '../hooks/useNavigationProtection';
 import GameReport from '../components/GameReport';
 import ChatPanel from '../components/ChatPanel';
 import DuplicateConnectionModal from '../components/DuplicateConnectionModal';
+import ItemPanel from '../components/ItemPanel';
+import { DistractionEffects } from '../components/ui/DistractionEffects';
 import { getDueumDisplayText, checkDueumWordValidity } from '../utils/dueumRules';
 import { getTabCommunicationManager } from '../utils/tabCommunication';
 
@@ -147,6 +149,14 @@ const GameRoomPage: React.FC = () => {
     message: string;
     timestamp: number;
   } | null>(null);
+
+  // 방해 효과 상태
+  const [distractionEffects, setDistractionEffects] = useState<Array<{
+    id: string;
+    type: 'cat_distraction' | 'screen_shake' | 'blur_screen' | 'falling_objects' | 'color_invert';
+    duration: number;
+    value?: any;
+  }>>([]);
   
 
   // 타이머 카운트다운 (부드러운 연속 애니메이션) - 모든 플레이어에게 표시
@@ -861,6 +871,33 @@ const GameRoomPage: React.FC = () => {
     navigateSafely('/lobby');
   }, [navigate, addSystemMessage]);
 
+  // 아이템 사용 이벤트 핸들러
+  const handleItemUsed = useCallback((data: any) => {
+    const { item, effect_result } = data;
+    
+    // 방해 아이템인 경우 효과 활성화
+    if (['cat_distraction', 'screen_shake', 'blur_screen', 'falling_objects', 'color_invert'].includes(item.effect_type)) {
+      const effectId = `${item.effect_type}-${Date.now()}`;
+      const newEffect = {
+        id: effectId,
+        type: item.effect_type as 'cat_distraction' | 'screen_shake' | 'blur_screen' | 'falling_objects' | 'color_invert',
+        duration: item.effect_value?.duration || 5,
+        value: item.effect_value
+      };
+      
+      setDistractionEffects(prev => [...prev, newEffect]);
+      
+      // 일정 시간 후 효과 제거
+      setTimeout(() => {
+        setDistractionEffects(prev => prev.filter(effect => effect.id !== effectId));
+      }, newEffect.duration * 1000 + 1000); // 여유시간 추가
+    }
+    
+    // 채팅 메시지 표시
+    const userName = currentRoom?.players?.find(p => String(p.id) === String(data.user_id))?.nickname || '플레이어';
+    addGameMessage(`🎮 ${userName}님이 "${item.name}" 아이템을 사용했습니다!`);
+  }, [currentRoom, addGameMessage]);
+
   useEffect(() => {
     if (!isConnected || !roomId) return;
 
@@ -892,6 +929,7 @@ const GameRoomPage: React.FC = () => {
     on('connection_replaced', handleConnectionReplaced);
     on('round_starting_countdown', handleRoundStartingCountdown);
     on('round_transition', handleRoundTransition);
+    on('item_used', handleItemUsed);
     on('error', handleError);
     on('success', handleSuccess);
     on('pong', () => {});
@@ -945,11 +983,12 @@ const GameRoomPage: React.FC = () => {
       off('connection_replaced', handleConnectionReplaced);
       off('round_starting_countdown', handleRoundStartingCountdown);
       off('round_transition', handleRoundTransition);
+      off('item_used', handleItemUsed);
       off('error', handleError);
       off('success', handleSuccess);
       off('pong');
     };
-  }, [isConnected, roomId, user?.id, emit, on, off, handleRoomJoined, handlePlayerJoined, handlePlayerLeft, handleChatMessage, handleGameStarted, handleWordSubmitted, handleWordSubmissionFailed, handleTurnTimerStarted, handleTurnTimeout, handlePlayerReady, handleGameStateUpdate, handleHostLeftGame, handleHostChanged, handleOpponentLeftVictory, handlePlayerLeftDuringTurn, handlePlayerLeftGame, handlePlayerLeftRoom, handleRoomDisbanded, handleGameEnded, handleRoundCompleted, handleNextRoundStarting, handleGameCompleted, handleGameStartingCountdown, handleGameStartFailed, handleConnectionReplaced, handleRoundStartingCountdown, handleRoundTransition, handleError, handleSuccess, addGameMessage, addSystemMessage]);
+  }, [isConnected, roomId, user?.id, emit, on, off, handleRoomJoined, handlePlayerJoined, handlePlayerLeft, handleChatMessage, handleGameStarted, handleWordSubmitted, handleWordSubmissionFailed, handleTurnTimerStarted, handleTurnTimeout, handlePlayerReady, handleGameStateUpdate, handleHostLeftGame, handleHostChanged, handleOpponentLeftVictory, handlePlayerLeftDuringTurn, handlePlayerLeftGame, handlePlayerLeftRoom, handleRoomDisbanded, handleGameEnded, handleRoundCompleted, handleNextRoundStarting, handleGameCompleted, handleGameStartingCountdown, handleGameStartFailed, handleConnectionReplaced, handleRoundStartingCountdown, handleRoundTransition, handleItemUsed, handleError, handleSuccess, addGameMessage, addSystemMessage]);
 
   // 브라우저 내비게이션 보호 (뒤로가기, 새로고침, 탭 닫기 방지)
   const shouldProtectNavigation = () => {
@@ -1542,6 +1581,25 @@ const GameRoomPage: React.FC = () => {
                 currentChar={gameState.currentChar}
                 onSubmitWord={handleSubmitWord}
               />
+              
+              {/* Item Panel */}
+              {user?.id && (
+                <ItemPanel
+                  userId={Number(user.id)}
+                  roomId={roomId}
+                  isGameActive={gameState.isPlaying}
+                  isMyTurn={gameState.currentTurnUserId === String(user.id)}
+                  onItemUse={(itemId, targetUserId) => {
+                    if (isConnected) {
+                      emit('use_item', { 
+                        room_id: roomId, 
+                        item_id: itemId, 
+                        target_user_id: targetUserId 
+                      });
+                    }
+                  }}
+                />
+              )}
             </div>
           </div>
         )}
@@ -1582,6 +1640,12 @@ const GameRoomPage: React.FC = () => {
           onCancel={handleDuplicateConnectionCancel}
         />
       </main>
+      
+      {/* 방해 효과 컴포넌트 - 전체 화면에 오버레이 */}
+      <DistractionEffects 
+        effects={distractionEffects}
+        className="fixed inset-0 pointer-events-none z-50"
+      />
     </div>
   );
 };

@@ -50,8 +50,8 @@ COPY --chown=kkua:kkua websocket/ ./websocket/
 # 로그 디렉토리 생성
 RUN mkdir -p /app/logs && chown -R kkua:kkua /app/logs
 
-# 헬스체크 스크립트 추가
-COPY --chown=kkua:kkua scripts/healthcheck.py ./scripts/
+# 스크립트 파일들 추가
+COPY --chown=kkua:kkua scripts/ ./scripts/
 RUN chmod +x ./scripts/healthcheck.py
 
 # 사용자 전환
