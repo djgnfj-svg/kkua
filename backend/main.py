@@ -63,7 +63,7 @@ app = FastAPI(
 )
 
 # CORS 설정
-cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
+cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000").split(",")
 # credentials=True일 때는 wildcard "*" 사용 불가 (CORS 정책)
 # 개발 모드에서도 구체적인 도메인만 사용
 
@@ -237,6 +237,41 @@ temporary_rooms = []
 # 방 비밀번호 임시 저장소 (실제 운영에서는 Redis나 DB에 해시로 저장)
 room_passwords = {}
 
+# 빈 방 정리 함수
+def cleanup_empty_rooms():
+    """5분 이상 비어있는 방들을 정리"""
+    from datetime import datetime, timedelta
+    current_time = datetime.now()
+    rooms_to_remove = []
+    
+    for room in temporary_rooms:
+        if room["currentPlayers"] == 0 and "emptyAt" in room:
+            empty_time = datetime.fromisoformat(room["emptyAt"])
+            if current_time - empty_time > timedelta(minutes=5):
+                rooms_to_remove.append(room)
+    
+    for room in rooms_to_remove:
+        temporary_rooms.remove(room)
+        logger.info(f"[CLEANUP] 빈 방 자동 삭제: {room['id']}")
+    
+    return len(rooms_to_remove)
+
+import threading
+import time
+
+def room_cleanup_worker():
+    """백그라운드에서 주기적으로 빈 방 정리"""
+    while True:
+        try:
+            time.sleep(60)  # 1분마다 실행
+            cleanup_empty_rooms()
+        except Exception as e:
+            logger.error(f"방 정리 중 오류: {e}")
+
+# 백그라운드 정리 스레드 시작
+cleanup_thread = threading.Thread(target=room_cleanup_worker, daemon=True)
+cleanup_thread.start()
+
 class CreateRoomRequest(BaseModel):
     name: str
     max_players: int = 4
@@ -283,16 +318,19 @@ async def create_gameroom(request: CreateRoomRequest):
             "id": room_id,
             "name": request.name.strip(),
             "maxPlayers": request.max_players,
-            "currentPlayers": 1,  # 방을 만든 사람
+            "currentPlayers": 0,  # 방 생성만, 아직 입장하지 않음
             "status": "waiting",
             "createdAt": datetime.now().isoformat(),
             "players": [],
             "isPrivate": is_private,
-            "hasPassword": request.password is not None
+            "hasPassword": request.password is not None,
+            "createdBy": None,  # 방 생성자 정보 (선택적)
+            "lastActivity": datetime.now().isoformat()  # 마지막 활동 시간
             # 실제 password는 보안상 저장하지 않고, 필요시에만 검증
         }
         
         temporary_rooms.append(new_room)
+        logger.info(f"[CREATE] 방 생성됨 - ID: {room_id}, 현재 방 개수: {len(temporary_rooms)}")
         
         # 비밀번호가 있는 경우 별도 저장
         if request.password:
@@ -340,7 +378,7 @@ async def join_gameroom(room_id: str, request: JoinRoomRequest = None):
                     )
             
             if room["currentPlayers"] < room["maxPlayers"]:
-                room["currentPlayers"] += 1
+                # 플레이어 수는 WebSocket 연결 시에 증가시킴
                 return {"message": f"{room['name']} 방에 참가했습니다", "room": room}
             else:
                 raise HTTPException(status_code=400, detail="방이 가득 찼습니다")
@@ -350,23 +388,37 @@ async def join_gameroom(room_id: str, request: JoinRoomRequest = None):
 @app.post("/gamerooms/{room_id}/leave")
 async def leave_gameroom(room_id: str):
     """게임룸 나가기"""
+    import traceback
+    logger.info(f"[LEAVE] 방 나가기 요청 - ID: {room_id}")
+    logger.info(f"[LEAVE] 호출 스택:\n{''.join(traceback.format_stack())}")
+    
     # 임시 구현
     for room in temporary_rooms:
         if room["id"] == room_id:
             room["currentPlayers"] = max(0, room["currentPlayers"] - 1)
+            logger.info(f"[LEAVE] 방 {room_id} - 현재 플레이어: {room['currentPlayers']}")
+            
             if room["currentPlayers"] == 0:
-                temporary_rooms.remove(room)
+                # 빈 방은 즉시 삭제하지 않고 5분 후 삭제하도록 마킹
+                from datetime import datetime
+                room["lastActivity"] = datetime.now().isoformat()
+                room["emptyAt"] = datetime.now().isoformat()
+                logger.info(f"[LEAVE] 방 {room_id}이 비었음 - 5분 후 자동 삭제 예정")
             return {"message": "방에서 나갔습니다"}
     
+    logger.warning(f"[LEAVE] 방 {room_id}을 찾을 수 없음")
     raise HTTPException(status_code=404, detail="방을 찾을 수 없습니다")
 
 @app.get("/gamerooms/{room_id}")
 async def get_gameroom(room_id: str):
     """게임룸 정보 조회"""
+    logger.info(f"[GET] 방 정보 조회 - ID: {room_id}, 전체 방 개수: {len(temporary_rooms)}")
+    
     try:
         # 메모리에서 방 정보 찾기
         for room in temporary_rooms:
             if room["id"] == room_id:
+                logger.info(f"[GET] 방 {room_id} 찾음")
                 # Redis에서 현재 플레이어 정보도 가져오기
                 try:
                     from redis_models import RedisGameManager

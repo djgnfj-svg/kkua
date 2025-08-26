@@ -172,10 +172,29 @@ class WebSocketManager:
             if not connection:
                 return
             
-            # 룸에서 제거
-            if user_id in self.user_rooms:
-                room_id = self.user_rooms[user_id]
-                await self._leave_room(user_id, room_id)
+            # 명시적인 "방 나가기" 버튼을 눌렀을 때만 즉시 룸에서 제거
+            if reason in ["명시적 방 나가기", "사용자 요청"]:
+                if user_id in self.user_rooms:
+                    room_id = self.user_rooms[user_id]
+                    await self._leave_room(user_id, room_id)
+            else:
+                # 연결 끊김이나 기타 이유로는 30초 유예 기간
+                if user_id in self.user_rooms:
+                    room_id = self.user_rooms[user_id]
+                    logger.info(f"WebSocket 연결 끊김: user_id={user_id}, room_id={room_id}, 30초 후 자동 퇴장")
+                    
+                    # 30초 후 자동 퇴장 스케줄링
+                    import asyncio
+                    async def delayed_leave():
+                        await asyncio.sleep(30)
+                        # 30초 후에도 연결이 복구되지 않았다면 방에서 나가기
+                        if user_id not in self.active_connections:
+                            logger.info(f"30초 후 자동 퇴장 실행: user_id={user_id}, room_id={room_id}")
+                            if user_id in self.user_rooms and self.user_rooms[user_id] == room_id:
+                                await self._leave_room(user_id, room_id)
+                    
+                    # 백그라운드로 실행
+                    asyncio.create_task(delayed_leave())
             
             # 연결 종료
             if connection.is_active:
@@ -212,6 +231,21 @@ class WebSocketManager:
             
             # Redis에 참가 정보 업데이트
             await self.redis_manager.add_player_to_game(room_id, user_id, connection.nickname)
+            
+            # temporary_rooms의 플레이어 수 증가
+            try:
+                from datetime import datetime
+                import main
+                for room in main.temporary_rooms:
+                    if room["id"] == room_id:
+                        room["currentPlayers"] = min(room["maxPlayers"], room["currentPlayers"] + 1)
+                        room["lastActivity"] = datetime.now().isoformat()
+                        # 빈 방 마킹 제거 (플레이어가 들어왔으므로)
+                        room.pop("emptyAt", None)
+                        logger.info(f"WebSocket 방 참가: {room_id} - 현재 인원: {room['currentPlayers']}")
+                        break
+            except Exception as e:
+                logger.warning(f"temporary_rooms 플레이어 수 업데이트 실패: {e}")
             
             logger.info(f"룸 참가: user_id={user_id}, room_id={room_id}")
             
@@ -264,6 +298,25 @@ class WebSocketManager:
             
             if connection:
                 connection.room_id = None
+            
+            # temporary_rooms 동기화 (HTTP API와 WebSocket 상태 동기화) - early return 전에 수행
+            try:
+                import main
+                for room in main.temporary_rooms:
+                    if room["id"] == room_id:
+                        room["currentPlayers"] = max(0, room["currentPlayers"] - 1)
+                        current_count = room["currentPlayers"]
+                        logger.info(f"temporary_rooms 동기화: {room_id} - 현재 인원: {current_count}")
+                        
+                        # 빈 방은 즉시 삭제하지 않고 마킹만
+                        if room["currentPlayers"] == 0:
+                            from datetime import datetime
+                            room["lastActivity"] = datetime.now().isoformat()
+                            room["emptyAt"] = datetime.now().isoformat()
+                            logger.info(f"WebSocket 방 {room_id}이 비었음 - 자동 삭제 마킹")
+                        break
+            except Exception as e:
+                logger.warning(f"temporary_rooms 동기화 실패: {e}")
             
             if not should_continue:
                 # 방이 이미 삭제되었거나 특별 처리됨

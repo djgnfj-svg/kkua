@@ -33,11 +33,16 @@ const GameRoomList: React.FC<GameRoomListProps> = ({ onJoinRoom, onCreateRoom })
       setRefreshing(!showLoading);
       
       const response = await apiEndpoints.gameRooms.list();
-      console.log('방 목록 업데이트:', response.data?.length, '개 방');
-      if (response.data?.length > 0) {
-        console.log('방 목록 상세:', response.data.map((room: any) => `${room.name}: ${room.currentPlayers}/${room.maxPlayers}`));
+      console.log('API 응답 전체:', response);
+      console.log('방 목록 데이터:', response.data);
+      
+      // axios는 response.data에 실제 데이터를 담아서 반환
+      const roomData = response.data || [];
+      console.log('방 목록 업데이트:', roomData.length, '개 방');
+      if (roomData.length > 0) {
+        console.log('방 목록 상세:', roomData.map((room: any) => `${room.name}: ${room.currentPlayers}/${room.maxPlayers}`));
       }
-      setRooms(response.data || []);
+      setRooms(roomData);
       setError(null);
     } catch (error: any) {
       const errorMessage = '방 목록을 불러오지 못했습니다';
