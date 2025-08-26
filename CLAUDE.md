@@ -4,214 +4,223 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**끄아 (KKUA) V2**는 실시간 멀티플레이어 한국어 끝말잇기 게임입니다. Pure WebSocket 아키텍처로 설계되어 실시간 통신, 아이템 시스템, 단어 검증, 게임 리포트 기능을 포함합니다.
+**끄아 (KKUA) V2** is a real-time multiplayer Korean word-chain game. Built with Pure WebSocket architecture for real-time communication, featuring item systems, word validation, and game reporting.
 
-## 기술 스택
+## Tech Stack
 
-### 백엔드
-- **Python 3.11 + FastAPI** - 웹 프레임워크
-- **WebSocket** - 실시간 통신
-- **Redis** - 실시간 상태 관리 (게임 세션, 캐시)
-- **PostgreSQL** - 영구 데이터 저장
+### Backend
+- **Python 3.11 + FastAPI** - Web framework
+- **WebSocket** - Real-time communication
+- **Redis** - Real-time state management (game sessions, cache)
+- **PostgreSQL** - Persistent data storage
 - **SQLAlchemy** - ORM
-- **JWT + bcrypt** - 인증/보안
-- **pytest** - 테스트 프레임워크
+- **JWT + bcrypt** - Authentication/security
+- **pytest** - Testing framework
 
-### 프론트엔드
-- **React 19** - UI 프레임워크
-- **TypeScript** - 타입 안전성
-- **Vite** - 빌드 도구
-- **Zustand** - 상태 관리
-- **TailwindCSS** - 스타일링
-- **Native WebSocket** - 실시간 통신
-- **Vitest** - 테스트 프레임워크
+### Frontend
+- **React 19** - UI framework
+- **TypeScript** - Type safety
+- **Vite** - Build tool
+- **Zustand** - State management
+- **TailwindCSS** - Styling
+- **Native WebSocket** - Real-time communication
+- **Vitest** - Testing framework
 
-### 배포
-- **Docker Compose** - 컨테이너 오케스트레이션
+### Deployment
+- **Docker Compose** - Container orchestration
 
-## 아키텍처 개요
+## Architecture Overview
 
-### WebSocket 통신 아키텍처
-- **JWT 인증**: WebSocket 연결 시 헤더에서 토큰 추출
-- **연결 관리**: `connection_manager.py`에서 사용자별/룸별 연결 관리
-- **메시지 라우팅**: `message_router.py`에서 메시지 타입별 핸들러 분기
-- **게임 상태**: Redis를 통한 실시간 게임 상태 동기화
+### WebSocket Communication Architecture
+- **JWT Authentication**: Token extraction from headers on WebSocket connection
+- **Connection Management**: User/room connection management via `connection_manager.py`
+- **Message Routing**: Message type-specific handler branching in `message_router.py`
+- **Game State**: Real-time game state synchronization through Redis
 
-### 상태 관리 계층
-1. **React Zustand Stores**: 클라이언트 UI 상태
-2. **Redis Cache**: 실시간 게임 상태 (24시간 TTL)
-3. **PostgreSQL**: 영구 데이터 (사용자, 게임 기록)
+### State Management Layers
+1. **React Zustand Stores**: Client UI state
+2. **Redis Cache**: Real-time game state (24-hour TTL)
+3. **PostgreSQL**: Persistent data (users, game history)
 
-### 핵심 서비스 모듈
-- **game_engine.py**: 게임 로직, 턴 관리, 승리 조건
-- **word_validator.py**: 한국어 단어 검증 (10,794개 끄투 DB)
-- **item_service.py**: 아이템 시스템 (5가지 희귀도)
-- **score_calculator.py**: 점수 계산 알고리즘
-- **timer_service.py**: 턴 제한 타이머 관리
+### Core Service Modules
+- **game_engine.py**: Game logic, turn management, victory conditions
+- **word_validator.py**: Korean word validation (10,794 KKuTu DB words)
+- **item_service.py**: Item system (5 rarity levels)
+- **score_calculator.py**: Score calculation algorithms
+- **timer_service.py**: Turn limit timer management
 
-## 개발 환경 실행
+## Development Commands
 
-**Docker 개발 환경 (권장)**
+### Docker Development (Recommended)
 ```bash
-# 전체 서비스 시작
+# Start all services
 docker-compose up -d --build
 
-# 특정 서비스만 시작
+# Start specific services only
 docker-compose up -d db redis backend
 docker-compose up -d frontend
 
-# 로그 확인
+# View logs
 docker-compose logs -f backend
 docker-compose logs -f frontend
 
-# 서비스 중지
+# Stop services
 docker-compose down
 ```
 
-**로컬 개발 환경**
+### Local Development
 ```bash
-# 데이터베이스만 Docker로
+# Database only in Docker
 docker-compose up -d db redis
 
-# 백엔드 개발 서버
+# Backend dev server
 cd backend
 python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
-# 프론트엔드 개발 서버 
+# Frontend dev server
 cd frontend
 npm install
 npm run dev
 ```
 
-### 접속 정보
-- **프론트엔드**: http://localhost:5173
-- **백엔드 API**: http://localhost:8000
-- **API 문서**: http://localhost:8000/docs
+### Access Points
+- **Frontend**: http://localhost:5173
+- **Backend API**: http://localhost:8000
+- **API Docs**: http://localhost:8000/docs
 - **WebSocket**: ws://localhost:8000
 - **PostgreSQL**: localhost:5432 (postgres/password/kkua_db)
 - **Redis**: localhost:6379
 
-## 테스트 및 빌드 명령어
+## Testing & Build Commands
 
-### 프론트엔드
+### Frontend
 ```bash
-# 린트 검사
+# Lint check
 npm run lint
-# 또는 Docker에서
+# Or in Docker
 docker-compose exec frontend npm run lint
 
-# 타입 체크
-npx tsc -b  
-# 또는 Docker에서
+# Type check
+npx tsc -b
+# Or in Docker
 docker-compose exec frontend npx tsc -b
 
-# 테스트 실행
+# Run tests
 npm run test
-# 또는 Docker에서
+# Or in Docker
 docker-compose exec frontend npm run test
 
-# 프로덕션 빌드
+# Production build
 npm run build
-# 또는 Docker에서
+# Or in Docker
 docker-compose exec frontend npm run build
 ```
 
-### 백엔드
+### Backend
 ```bash
-# 테스트 실행
+# Run tests
 python -m pytest tests/ -v
-# 또는 Docker에서
+# Or in Docker
 docker exec kkua-backend-1 python -m pytest tests/ -v
 
-# 테스트 커버리지
+# Test coverage
 python -m pytest tests/ --cov=. --cov-report=term-missing
+
+# Run specific test
+python -m pytest tests/test_game_engine.py -v
+python -m pytest tests/test_word_validator.py -v
+python -m pytest tests/test_dueum_rules.py -v
 ```
 
-## 디버깅
+## Debugging
 
-### 로그 확인
+### Log Monitoring
 ```bash
-# 실시간 로그 모니터링
+# Real-time log monitoring
 docker-compose logs -f
 docker-compose logs -f backend
 docker-compose logs -f frontend
 
-# Redis 모니터링
+# Redis monitoring
 docker exec kkua-redis-1 redis-cli monitor
 
-# 서비스 상태 확인
+# Service status check
 docker-compose ps
 ```
 
-### 데이터베이스 접속
+### Database Access
 ```bash
-# PostgreSQL 접속
+# PostgreSQL access
 docker exec -it kkua-db-1 psql -U postgres -d kkua_db
 
-# Redis 접속
+# Redis access
 docker exec -it kkua-redis-1 redis-cli
 
-# Redis 캐시 초기화
+# Clear Redis cache
 docker exec kkua-redis-1 redis-cli FLUSHDB
 
-# 단어 데이터 import
+# Import word data
 docker exec kkua-backend-1 python scripts/simple_kkutu_import.py
 ```
 
-## 코딩 규칙
+## Coding Conventions
 
-### 공통 규칙
-- **타입 안전성**: TypeScript 엄격 모드, Python 타입 힌팅 필수
-- **비동기 처리**: async/await 패턴 일관성 있게 사용
-- **에러 처리**: 모든 예외 상황 적절히 처리
-- **보안**: 사용자 입력 검증, JWT 토큰 검증, SQL injection 방지
-- **성능**: 불필요한 리렌더링/DB 쿼리 방지
+### Common Rules
+- **Type Safety**: TypeScript strict mode, Python type hints required
+- **Async Handling**: Consistent async/await patterns
+- **Error Handling**: Handle all exceptions appropriately
+- **Security**: User input validation, JWT token validation, SQL injection prevention
+- **Performance**: Avoid unnecessary re-renders/DB queries
 
-### 프론트엔드 (React + TypeScript)
-- **함수형 컴포넌트**: React hooks 활용
-- **상태 관리**: Zustand 스토어 패턴 (`stores/useGameStore.ts`, `stores/useUserStore.ts`)
-- **스타일링**: TailwindCSS 유틸리티 클래스
-- **WebSocket**: 커스텀 훅 `useWebSocket.ts` 활용
-- **에러 처리**: ErrorBoundary 컴포넌트 사용
+### Frontend (React + TypeScript)
+- **Functional Components**: Use React hooks
+- **State Management**: Zustand store patterns (`stores/useGameStore.ts`, `stores/useUserStore.ts`)
+- **Styling**: TailwindCSS utility classes
+- **WebSocket**: Custom hook `useWebSocket.ts`
+- **Error Handling**: ErrorBoundary components
 
-### 백엔드 (Python)
-- **타입 힌팅**: 모든 함수에 타입 힌트 작성
-- **로깅**: structlog를 통한 구조화된 로그
-- **WebSocket**: `connection_manager.py`를 통한 연결 관리
-- **게임 로직**: `services/` 모듈별로 책임 분리
-- **데이터 모델**: SQLAlchemy ORM, Pydantic 검증
+### Backend (Python)
+- **Type Hints**: Type hints for all functions
+- **Logging**: Structured logging via structlog
+- **WebSocket**: Connection management through `connection_manager.py`
+- **Game Logic**: Module separation in `services/`
+- **Data Models**: SQLAlchemy ORM, Pydantic validation
 
-## 주요 파일 구조
+## Key File Structure
 
-### 백엔드 핵심 파일
-- `main.py`: FastAPI 앱 진입점, CORS/인증 미들웨어
-- `websocket/connection_manager.py`: WebSocket 연결 관리
-- `websocket/message_router.py`: 메시지 타입별 라우팅
-- `services/game_engine.py`: 게임 엔진 (턴 관리, 승리 조건)
-- `redis_models.py`: Redis 게임 상태 모델
+### Backend Core Files
+- `main.py`: FastAPI app entry point, CORS/auth middleware
+- `websocket/connection_manager.py`: WebSocket connection management
+- `websocket/message_router.py`: Message type-based routing
+- `services/game_engine.py`: Game engine (turn management, victory conditions)
+- `redis_models.py`: Redis game state models
 
-### 프론트엔드 핵심 파일  
-- `src/stores/useGameStore.ts`: 게임 상태 관리
-- `src/hooks/useWebSocket.ts`: WebSocket 연결 훅
-- `src/components/ui/`: 재사용 UI 컴포넌트
-- `src/pages/GameRoomPage.tsx`: 메인 게임 화면
+### Frontend Core Files
+- `src/stores/useGameStore.ts`: Game state management
+- `src/hooks/useWebSocket.ts`: WebSocket connection hook
+- `src/components/ui/`: Reusable UI components
+- `src/pages/GameRoomPage.tsx`: Main game screen
 
-## 현재 상태
+## Current Status
 
-**끄아(KKUA) V2 프로젝트 완성** ✅
+**KKUA V2 Project Complete** ✅
 
-### 완성된 기능
-- ✅ 실시간 멀티플레이어 끝말잇기 게임
-- ✅ JWT 인증 기반 WebSocket 통신
-- ✅ 단어 카드 시스템 (난이도별 색상, 애니메이션)
-- ✅ 플레이어 카드 UI (상태 표시, 점수 관리)
-- ✅ 아이템 시스템 (5가지 희귀도)
-- ✅ 게임 리포트 및 순위 시스템
-- ✅ 반응형 모바일 디자인
-- ✅ 자동 재연결 로직
-- ✅ Docker 컨테이너 환경
-* **실시간 게임 서버 구현** - WebSocket + asyncio로 6명 동시 플레이, 50ms 미만 응답으로 실시간성 확보
-* **데이터베이스 성능 개선** - Redis 캐싱 도입으로 단어 검증 80% 빨라짐, DB 쿼리 85% 감소 달성
-* **사용자 인증 구현** - JWT 기반 WebSocket 보안 연결, 토큰 자동 갱신으로 끊김 없는 플레이 지원
-* **안정성 강화** - Rate Limiting(분당 60회)과 자동 재연결로 100명 동시 접속 안정적 처리
-* **배포 자동화 구축** - Docker + GitHub Actions CI/CD로 수동 배포 제로화, 배포 시간 10분 → 3분 단축
+### Completed Features
+- ✅ Real-time multiplayer word-chain game
+- ✅ JWT auth-based WebSocket communication
+- ✅ Word card system (difficulty-based colors, animations)
+- ✅ Player card UI (status display, score management)
+- ✅ Item system (5 rarity levels)
+- ✅ Game report and ranking system
+- ✅ Responsive mobile design
+- ✅ Auto-reconnect logic
+- ✅ Docker container environment
+
+### Production Deployment
+```bash
+# Quick local deployment
+./quick-deploy.sh
+
+# EC2 deployment
+curl -o ec2-install.sh https://raw.githubusercontent.com/djgnfj-svg/kkua/develop/ec2-install.sh && chmod +x ec2-install.sh && ./ec2-install.sh
+```
