@@ -9,7 +9,7 @@ sudo curl -L "https://github.com/docker/compose/releases/download/v2.20.0/docker
 ```
 
 ```bash
-git clone https://github.com/djgnfj-svg/kkua.git && cd kkua && chmod +x *.sh
+rm -rf kkua && git clone https://github.com/djgnfj-svg/kkua.git && cd kkua && chmod +x *.sh
 ```
 
 ```bash
@@ -19,7 +19,7 @@ sed -i 's/JWT_SECRET=your-jwt-secret-key-change-this-in-production/JWT_SECRET=1d
 ```
 
 ```bash
-./prod.sh
+bash prod.sh
 ```
 
 **접속:** http://54.180.88.143:80
