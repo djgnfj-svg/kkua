@@ -53,10 +53,8 @@ const CreateRoomModal: React.FC<CreateRoomModalProps> = memo(({
       // 방 생성자 자동 입장
       try {
         await apiEndpoints.gameRooms.join(roomId, password.trim() || undefined);
-        showToast.success(`${roomName} 방이 생성되고 입장했습니다! 🎉`);
       } catch (joinError) {
         console.warn('자동 입장 실패:', joinError);
-        showToast.success(`${roomName} 방이 생성되었습니다! 🎉`);
       }
       
       onSuccess(roomId);

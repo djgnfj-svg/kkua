@@ -188,6 +188,24 @@ class MessageRouter:
             game_state = await redis_manager.get_game_state(room_id)
             
             if game_state:
+                # player_joined 메시지 직접 전송
+                current_player = None
+                for player in game_state.players:
+                    if player.user_id == connection.user_id:
+                        current_player = player
+                        break
+                
+                if current_player:
+                    await self.websocket_manager.broadcast_to_room(room_id, {
+                        "type": "player_joined",
+                        "data": {
+                            "user_id": connection.user_id,
+                            "nickname": connection.nickname,
+                            "is_host": current_player.is_host,
+                            "message": f"{connection.nickname}님이 입장했습니다"
+                        }
+                    })
+                
                 await game_handler._broadcast_redis_game_state(room_id, game_state)
             
             # 입장 성공 알림

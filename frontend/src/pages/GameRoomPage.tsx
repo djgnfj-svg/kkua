@@ -10,7 +10,6 @@ import { useNavigationProtection } from '../hooks/useNavigationProtection';
 import GameReport from '../components/GameReport';
 import ChatPanel from '../components/ChatPanel';
 import DuplicateConnectionModal from '../components/DuplicateConnectionModal';
-import ItemPanel from '../components/ItemPanel';
 import { DistractionEffects } from '../components/ui/DistractionEffects';
 import { getDueumDisplayText, checkDueumWordValidity } from '../utils/dueumRules';
 import { getTabCommunicationManager } from '../utils/tabCommunication';
@@ -819,12 +818,15 @@ const GameRoomPage: React.FC = () => {
   const handleHostChanged = useCallback((data: any) => {
     addGameMessage(`👑 ${data.message}`);
     
-    // 새로운 방장 정보로 플레이어 목록 업데이트
+    // 나간 플레이어 제거 및 새로운 방장 정보로 플레이어 목록 업데이트
     if (roomId && currentRoomRef.current?.players) {
-      const updatedPlayers = currentRoomRef.current.players.map(player => ({
-        ...player,
-        isHost: String(player.id) === String(data.new_host_user_id)
-      }));
+      // 나간 플레이어를 제거하고 새로운 방장으로 업데이트
+      const updatedPlayers = currentRoomRef.current.players
+        .filter(player => player.nickname !== data.old_host_nickname) // 나간 방장 제거
+        .map(player => ({
+          ...player,
+          isHost: String(player.id) === String(data.new_host_user_id)
+        }));
       
       updateRoom(roomId, {
         players: updatedPlayers
@@ -861,7 +863,17 @@ const GameRoomPage: React.FC = () => {
 
   const handlePlayerLeftRoom = useCallback((data: any) => {
     addGameMessage(`🚪 ${data.message}`);
-  }, [addGameMessage]);
+    
+    // 나간 플레이어를 목록에서 제거
+    if (roomId && currentRoomRef.current?.players && data.left_user_id) {
+      const updatedPlayers = currentRoomRef.current.players
+        .filter(player => String(player.id) !== String(data.left_user_id));
+      
+      updateRoom(roomId, {
+        players: updatedPlayers
+      });
+    }
+  }, [roomId, updateRoom, addGameMessage]);
 
   const handleRoomDisbanded = useCallback((data: any) => {
     addSystemMessage(`💥 ${data.message}`);
@@ -1104,7 +1116,7 @@ const GameRoomPage: React.FC = () => {
       };
       
       setCurrentRoom(room);
-      addGameMessage(`🏠 "${room.name}" 방에 입장했습니다`);
+      // addGameMessage(`🏠 "${room.name}" 방에 입장했습니다`);
     } catch (error: any) {
       console.error('방 정보 로드 실패:', error);
       
@@ -1571,7 +1583,7 @@ const GameRoomPage: React.FC = () => {
                 </div>
               </div>
               
-              {/* Chat Panel */}
+              {/* Chat Panel with Items */}
               <ChatPanel
                 messages={chatMessages}
                 isConnected={isConnected}
@@ -1580,26 +1592,18 @@ const GameRoomPage: React.FC = () => {
                 isMyTurn={gameState.currentTurnUserId === String(user?.id)}
                 currentChar={gameState.currentChar}
                 onSubmitWord={handleSubmitWord}
+                roomId={roomId}
+                isGameActive={gameState.isPlaying}
+                onItemUse={(itemId, targetUserId) => {
+                  if (isConnected) {
+                    emit('use_item', { 
+                      room_id: roomId, 
+                      item_id: itemId, 
+                      target_user_id: targetUserId 
+                    });
+                  }
+                }}
               />
-              
-              {/* Item Panel */}
-              {user?.id && (
-                <ItemPanel
-                  userId={Number(user.id)}
-                  roomId={roomId}
-                  isGameActive={gameState.isPlaying}
-                  isMyTurn={gameState.currentTurnUserId === String(user.id)}
-                  onItemUse={(itemId, targetUserId) => {
-                    if (isConnected) {
-                      emit('use_item', { 
-                        room_id: roomId, 
-                        item_id: itemId, 
-                        target_user_id: targetUserId 
-                      });
-                    }
-                  }}
-                />
-              )}
             </div>
           </div>
         )}

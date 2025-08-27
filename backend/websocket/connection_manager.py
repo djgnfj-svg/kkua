@@ -219,10 +219,10 @@ class WebSocketManager:
                 logger.warning(f"활성 연결이 없는 사용자의 룸 참가 시도: user_id={user_id}")
                 return False
             
-            # 기존 룸에서 나가기
+            # 기존 룸에서 조용히 나가기 (다른 방 이동시에는 메시지 없이)
             if user_id in self.user_rooms:
                 old_room_id = self.user_rooms[user_id]
-                await self._leave_room(user_id, old_room_id)
+                await self._silent_leave_room(user_id, old_room_id)
             
             # 새 룸 참가
             self.room_connections[room_id].add(user_id)
@@ -273,6 +273,44 @@ class WebSocketManager:
         room_id = self.user_rooms[user_id]
         return await self._leave_room(user_id, room_id)
     
+    async def _silent_leave_room(self, user_id: int, room_id: str) -> bool:
+        """룸 조용히 나가기 (메시지 없이 - 방 이동시 사용)"""
+        try:
+            # Redis에서만 플레이어 제거 (메시지 없이)
+            await self.redis_manager.remove_player_from_game(room_id, user_id)
+            
+            # 연결 정리
+            if user_id in self.user_rooms and self.user_rooms[user_id] == room_id:
+                del self.user_rooms[user_id]
+            
+            if user_id in self.room_connections[room_id]:
+                self.room_connections[room_id].remove(user_id)
+                
+                # 빈 룸 정리
+                if not self.room_connections[room_id]:
+                    del self.room_connections[room_id]
+            
+            connection = self.active_connections.get(user_id)
+            if connection:
+                connection.room_id = None
+            
+            # temporary_rooms 업데이트
+            try:
+                import main
+                for room in main.temporary_rooms:
+                    if room["id"] == room_id:
+                        room["currentPlayers"] = max(0, room["currentPlayers"] - 1)
+                        break
+            except Exception as e:
+                logger.warning(f"temporary_rooms 플레이어 수 업데이트 실패: {e}")
+            
+            logger.info(f"조용한 룸 나가기: user_id={user_id}, room_id={room_id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"조용한 룸 나가기 중 오류 (user_id={user_id}, room_id={room_id}): {e}")
+            return False
+
     async def _leave_room(self, user_id: int, room_id: str) -> bool:
         """룸 나가기 (내부 메서드)"""
         try:

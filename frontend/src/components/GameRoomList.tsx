@@ -84,7 +84,6 @@ const GameRoomList: React.FC<GameRoomListProps> = ({ onJoinRoom, onCreateRoom })
     try {
       await apiEndpoints.gameRooms.join(roomId, password);
       onJoinRoom(roomId);
-      showToast.success(`${roomName} 방에 입장했습니다`);
       
       // 비밀번호 모달 닫기
       setShowPasswordModal({ isOpen: false, roomId: '', roomName: '' });

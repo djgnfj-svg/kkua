@@ -190,96 +190,83 @@ export const ItemPanel: React.FC<ItemPanelProps> = ({
     }
   };
 
+  // 최대 5개 아이템만 표시
+  const displayItems = inventory.slice(0, 5);
+  
+  // 빈 슬롯을 만들어 총 5개 슬롯 보장
+  const slots = [...displayItems];
+  while (slots.length < 5) {
+    slots.push(null);
+  }
+
   return (
-    <div className="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 shadow-xl overflow-hidden">
-      <div className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 p-4 border-b border-white/20">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <span className="text-2xl">🎒</span>
-            <h3 className="text-lg font-bold text-white font-korean">아이템</h3>
-          </div>
-          <Button
-            variant="glass"
-            size="sm"
-            onClick={loadInventory}
-            disabled={loading}
-            className="text-white border-white/30 hover:bg-white/20"
+    <div className="flex items-center space-x-2">
+      {/* 아이템 슬롯들 */}
+      <div className="flex space-x-1">
+        {slots.map((item, index) => (
+          <div
+            key={index}
+            className={`
+              w-12 h-12 rounded-lg border-2 flex items-center justify-center
+              transition-all duration-300 relative group cursor-pointer
+              ${item 
+                ? `${rarityColors[item.rarity as keyof typeof rarityColors] || 'bg-gray-500/20 border-gray-400/30'} hover:scale-110` 
+                : 'bg-white/5 border-white/20 border-dashed'
+              }
+            `}
+            onClick={() => item && handleItemUse(item)}
+            title={item ? `${item.name} (${item.quantity}개)` : '빈 슬롯'}
           >
-            {loading ? <span className="animate-spin">⟳</span> : '🔄'}
-          </Button>
-        </div>
-      </div>
-      
-      <div className="p-4">
-        {loading ? (
-          <div className="text-center py-8">
-            <div className="animate-spin w-8 h-8 border-2 border-white/20 border-t-white rounded-full mx-auto mb-3"></div>
-            <p className="text-white/60 text-sm font-korean">아이템 로딩 중...</p>
-          </div>
-        ) : inventory.length === 0 ? (
-          <div className="text-center py-8">
-            <span className="text-4xl mb-4 block">📦</span>
-            <p className="text-white/60 text-sm font-korean">보유한 아이템이 없습니다</p>
-          </div>
-        ) : (
-          <div className="space-y-3 max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
-            {inventory.map((item) => (
-              <div
-                key={item.id}
-                className={`border rounded-xl p-4 transition-all duration-300 hover:scale-105 ${
-                  rarityColors[item.rarity as keyof typeof rarityColors] || 'bg-gray-500/20 border-gray-400/30 text-gray-300'
-                } backdrop-blur-sm`}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center space-x-3">
-                    <span className="text-lg">{rarityIcons[item.rarity as keyof typeof rarityIcons] || '⚫'}</span>
-                    <div className="flex-1">
-                      <span className="font-bold text-sm truncate block font-korean">{item.name}</span>
-                      <span className="text-xs px-2 py-1 bg-white/20 rounded-full font-medium">
-                        x{item.quantity}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  {item.quantity > 0 && (
-                    <Button
-                      size="sm"
-                      variant={item.cooldown_remaining && item.cooldown_remaining > 0 ? 'secondary' : 'primary'}
-                      onClick={() => handleItemUse(item)}
-                      disabled={
-                        !isGameActive || 
-                        (item.cooldown_remaining && item.cooldown_remaining > 0) ||
-                        (!isMyTurn && item.effect_type !== 'freeze_opponent')
-                      }
-                      className="px-3 py-1 text-xs font-bold"
-                    >
-                      {item.cooldown_remaining && item.cooldown_remaining > 0 
-                        ? `${item.cooldown_remaining}s` 
-                        : '🚀 사용'
-                      }
-                    </Button>
+            {item ? (
+              <>
+                <span className="text-lg">{getItemIcon(item.effect_type)}</span>
+                {/* 아이템 개수 표시 */}
+                {item.quantity > 1 && (
+                  <span className="absolute -top-1 -right-1 bg-purple-600 text-white text-xs w-4 h-4 rounded-full flex items-center justify-center font-bold">
+                    {item.quantity > 9 ? '9+' : item.quantity}
+                  </span>
+                )}
+                {/* 쿨다운 표시 */}
+                {item.cooldown_remaining && item.cooldown_remaining > 0 && (
+                  <span className="absolute -bottom-1 -right-1 bg-red-600 text-white text-xs px-1 rounded-full">
+                    {item.cooldown_remaining}s
+                  </span>
+                )}
+                {/* 호버 시 툴팁 */}
+                <div className="absolute bottom-14 left-1/2 transform -translate-x-1/2 bg-black/90 text-white text-xs px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                  <div className="font-bold">{item.name}</div>
+                  <div className="text-gray-300">{getItemEffectDescription(item).replace(/[🎯⏰💎💡⚡🛡️❄️🔄🎯🚀💖😸📳😵‍💫🍃🎨❓]/g, '').trim()}</div>
+                  {item.cooldown_remaining && item.cooldown_remaining > 0 ? (
+                    <div className="text-red-300">쿨다운: {item.cooldown_remaining}초</div>
+                  ) : !isGameActive ? (
+                    <div className="text-yellow-300">게임 중에만 사용 가능</div>
+                  ) : !isMyTurn && item.effect_type !== 'freeze_opponent' ? (
+                    <div className="text-yellow-300">내 턴에만 사용 가능</div>
+                  ) : (
+                    <div className="text-green-300">클릭하여 사용</div>
                   )}
                 </div>
-                
-                <div className="text-xs mb-2 font-korean opacity-90">
-                  {getItemEffectDescription(item)}
-                </div>
-                
-                <div className="text-xs opacity-70 font-korean">
-                  쿨다운: {item.cooldown_seconds}초
-                </div>
-              </div>
-            ))}
+              </>
+            ) : (
+              <span className="text-white/30">+</span>
+            )}
           </div>
-        )}
-
-        {!isGameActive && inventory.length > 0 && (
-          <div className="mt-4 text-xs text-center text-yellow-300 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 backdrop-blur-sm p-3 rounded-xl border border-yellow-400/30">
-            <span className="text-lg mr-2">💡</span>
-            <span className="font-korean">게임 중에만 아이템을 사용할 수 있습니다</span>
-          </div>
-        )}
+        ))}
       </div>
+      
+      {/* 새로고침 버튼 */}
+      <button
+        onClick={loadInventory}
+        disabled={loading}
+        className="w-8 h-8 rounded-lg bg-white/10 border border-white/20 flex items-center justify-center hover:bg-white/20 transition-colors"
+        title="아이템 새로고침"
+      >
+        {loading ? (
+          <span className="animate-spin text-sm">⟳</span>
+        ) : (
+          <span className="text-sm">🔄</span>
+        )}
+      </button>
     </div>
   );
 };

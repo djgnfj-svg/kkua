@@ -281,7 +281,31 @@ class CreateRoomRequest(BaseModel):
 @app.get("/gamerooms")
 async def list_gamerooms():
     """게임룸 목록 조회"""
-    return temporary_rooms
+    from redis_models import RedisGameManager
+    from database import get_redis
+    
+    redis_manager = RedisGameManager(get_redis())
+    
+    # Redis에서 각 방의 실제 플레이어 수 업데이트
+    updated_rooms = []
+    for room in temporary_rooms:
+        room_copy = room.copy()
+        try:
+            # Redis에서 게임 상태 가져오기
+            game_state = await redis_manager.get_game_state(room["id"])
+            if game_state and game_state.players:
+                # 실제 플레이어 수로 업데이트
+                room_copy["currentPlayers"] = len(game_state.players)
+            else:
+                # Redis에 정보가 없으면 0
+                room_copy["currentPlayers"] = 0
+        except Exception as e:
+            logger.warning(f"방 {room['id']} 정보 조회 실패: {e}")
+            room_copy["currentPlayers"] = 0
+        
+        updated_rooms.append(room_copy)
+    
+    return updated_rooms
 
 @app.post("/gamerooms")
 async def create_gameroom(request: CreateRoomRequest):

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from './ui';
 import { getDueumInputHelp, checkDueumWordValidity } from '../utils/dueumRules';
+import ItemPanel from './ItemPanel';
 
 interface ChatMessage {
   id: string;
@@ -19,6 +20,10 @@ interface ChatPanelProps {
   isMyTurn?: boolean;
   currentChar?: string;
   onSubmitWord?: (word: string) => void;
+  // 아이템 관련 props
+  roomId?: string;
+  isGameActive?: boolean;
+  onItemUse?: (itemId: number, targetUserId?: number) => void;
 }
 
 export const ChatPanel: React.FC<ChatPanelProps> = ({
@@ -28,7 +33,11 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   onSendMessage,
   isMyTurn = false,
   currentChar = '',
-  onSubmitWord
+  onSubmitWord,
+  // 아이템 관련 props
+  roomId,
+  isGameActive = false,
+  onItemUse
 }) => {
   const [inputValue, setInputValue] = useState('');
   const [wordValidation, setWordValidation] = useState<{ isValid: boolean; message?: string }>({ isValid: false });
@@ -158,6 +167,22 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
           )}
           <div ref={messagesEndRef} />
         </div>
+
+      {/* 아이템 슬롯 영역 */}
+      {currentUserId && (
+        <div className="p-2 border-t border-white/10 bg-white/5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-white/70 font-korean">아이템</span>
+            <ItemPanel
+              userId={currentUserId}
+              roomId={roomId}
+              isGameActive={isGameActive}
+              isMyTurn={isMyTurn}
+              onItemUse={onItemUse}
+            />
+          </div>
+        </div>
+      )}
 
       {/* 입력 영역 */}
       <div className={`p-3 border-t border-white/20 backdrop-blur-sm ${
