@@ -16,4 +16,4 @@ rm -rf kkua && git clone https://github.com/djgnfj-svg/kkua.git && cd kkua && ch
 docker system prune -af && bash prod.sh
 ```
 
-**접속:** http://54.180.88.143:80
+**접속:** http://43.200.171.149
