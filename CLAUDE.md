@@ -44,17 +44,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Core Service Modules
 - **game_engine.py**: Game logic, turn management, victory conditions
-- **word_validator.py**: Korean word validation (10,794 KKuTu DB words)
-- **item_service.py**: Item system (5 rarity levels)
-- **score_calculator.py**: Score calculation algorithms
-- **timer_service.py**: Turn limit timer management
+- **word_validator.py**: Korean word validation (10,794 KKuTu DB words) with 두음법칙 support
+- **item_service.py**: Item system with distraction effects
+- **redis_models.py**: Real-time game state models with JSON serialization
 
 ## Development Commands
 
 ### Docker Development (Recommended)
 ```bash
 # Quick start (개발 환경)
-./scripts/dev-start.sh
+./dev.sh
 
 # Or manually
 docker-compose up -d --build
@@ -163,7 +162,7 @@ docker exec -it kkua-redis-1 redis-cli
 docker exec kkua-redis-1 redis-cli FLUSHDB
 
 # Import word data
-docker exec kkua-backend-1 python scripts/simple_kkutu_import.py
+docker exec kkua-backend-1 python scripts/init_data.py
 ```
 
 ## Coding Conventions
@@ -179,7 +178,7 @@ docker exec kkua-backend-1 python scripts/simple_kkutu_import.py
 - **Functional Components**: Use React hooks
 - **State Management**: Zustand store patterns (`stores/useGameStore.ts`, `stores/useUserStore.ts`)
 - **Styling**: TailwindCSS utility classes
-- **WebSocket**: Custom hook `useWebSocket.ts`
+- **WebSocket**: Custom hooks (`useWebSocket.ts`, `useNativeWebSocket.ts`)
 - **Error Handling**: ErrorBoundary components
 
 ### Backend (Python)
@@ -222,8 +221,5 @@ docker exec kkua-backend-1 python scripts/simple_kkutu_import.py
 ### Production Deployment
 ```bash
 # Quick local deployment
-./quick-deploy.sh
-
-# EC2 deployment
-curl -o ec2-install.sh https://raw.githubusercontent.com/djgnfj-svg/kkua/develop/ec2-install.sh && chmod +x ec2-install.sh && ./ec2-install.sh
+./deploy.sh
 ```

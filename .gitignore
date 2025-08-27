@@ -195,7 +195,8 @@ coverage/
 .playwright-mcp/
 
 # Secrets
-.env.*
+.env
+.env.local
 *.pem
 *.key
 
