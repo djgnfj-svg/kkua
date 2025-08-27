@@ -85,7 +85,7 @@ def init_database():
         create_tables()
         
         # 기본 데이터 삽입 (아이템, 한국어 단어 등)
-        from scripts.init_data import insert_initial_data
+        from scripts.init_data import main as insert_initial_data
         insert_initial_data()
         
         logger.info("데이터베이스 초기화 완료")

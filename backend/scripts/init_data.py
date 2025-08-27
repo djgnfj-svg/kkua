@@ -93,183 +93,116 @@ def insert_items(db: Session):
 
 
 def insert_korean_words(db: Session):
-    """한국어 단어 데이터 삽입"""
+    """한국어 단어 데이터 삽입 (CSV 파일에서만 로드)"""
     import csv
     import os
     
-    # 기본 단어 데이터
-    words_data = [
-        # 일반 단어들 (난이도 1)
-        {"word": "사과", "definition": "빨갛고 둥근 과일", "difficulty_level": 1, "frequency_score": 100, "word_type": "명사"},
-        {"word": "과일", "definition": "나무나 풀에서 나는 먹을 수 있는 열매", "difficulty_level": 1, "frequency_score": 90, "word_type": "명사"},
-        {"word": "일요일", "definition": "한 주의 첫째 날", "difficulty_level": 1, "frequency_score": 80, "word_type": "명사"},
-        {"word": "일반적", "definition": "보통이고 특별하지 않은", "difficulty_level": 2, "frequency_score": 70, "word_type": "형용사"},
-        {"word": "적극적", "definition": "매우 활발하고 열성적인", "difficulty_level": 2, "frequency_score": 60, "word_type": "형용사"},
-        {"word": "적응", "definition": "환경이나 조건에 맞추어 나가는 것", "difficulty_level": 2, "frequency_score": 65, "word_type": "명사"},
-        {"word": "응답", "definition": "질문이나 요청에 대한 대답", "difficulty_level": 2, "frequency_score": 75, "word_type": "명사"},
-        {"word": "답변", "definition": "질문에 대한 대답", "difficulty_level": 1, "frequency_score": 85, "word_type": "명사"},
-        {"word": "변화", "definition": "달라지는 것", "difficulty_level": 2, "frequency_score": 70, "word_type": "명사"},
-        {"word": "화면", "definition": "텔레비전이나 컴퓨터의 보이는 부분", "difficulty_level": 1, "frequency_score": 80, "word_type": "명사"},
-        
-        # 동물 관련
-        {"word": "고양이", "definition": "집에서 기르는 작은 동물", "difficulty_level": 1, "frequency_score": 95, "word_type": "명사"},
-        {"word": "이상하다", "definition": "보통과 다르다", "difficulty_level": 2, "frequency_score": 60, "word_type": "형용사"},
-        {"word": "다람쥐", "definition": "나무에 사는 작은 동물", "difficulty_level": 1, "frequency_score": 50, "word_type": "명사"},
-        {"word": "쥐", "definition": "작고 회색인 동물", "difficulty_level": 1, "frequency_score": 70, "word_type": "명사"},
-        {"word": "강아지", "definition": "개의 새끼", "difficulty_level": 1, "frequency_score": 95, "word_type": "명사"},
-        {"word": "지렁이", "definition": "땅속에 사는 긴 벌레", "difficulty_level": 1, "frequency_score": 40, "word_type": "명사"},
-        
-        # 음식 관련
-        {"word": "김치", "definition": "한국의 전통 발효 음식", "difficulty_level": 1, "frequency_score": 90, "word_type": "명사"},
-        {"word": "치킨", "definition": "닭고기 요리", "difficulty_level": 1, "frequency_score": 85, "word_type": "명사"},
-        {"word": "킨더", "definition": "독일의 초콜릿 브랜드", "difficulty_level": 2, "frequency_score": 30, "word_type": "명사"},
-        {"word": "더위", "definition": "뜨거운 날씨", "difficulty_level": 1, "frequency_score": 60, "word_type": "명사"},
-        {"word": "위험", "definition": "해가 될 수 있는 상황", "difficulty_level": 2, "frequency_score": 80, "word_type": "명사"},
-        {"word": "험난", "definition": "어렵고 위험함", "difficulty_level": 3, "frequency_score": 30, "word_type": "형용사"},
-        
-        # 학교 관련
-        {"word": "학교", "definition": "공부하는 곳", "difficulty_level": 1, "frequency_score": 95, "word_type": "명사"},
-        {"word": "교실", "definition": "수업하는 방", "difficulty_level": 1, "frequency_score": 85, "word_type": "명사"},
-        {"word": "실습", "definition": "직접 해보며 배우는 것", "difficulty_level": 2, "frequency_score": 55, "word_type": "명사"},
-        {"word": "습관", "definition": "자주 반복해서 하는 행동", "difficulty_level": 2, "frequency_score": 70, "word_type": "명사"},
-        {"word": "관심", "definition": "마음을 쏟아 살피는 것", "difficulty_level": 2, "frequency_score": 75, "word_type": "명사"},
-        
-        # 기술 관련
-        {"word": "컴퓨터", "definition": "계산하고 정보를 처리하는 기계", "difficulty_level": 1, "frequency_score": 90, "word_type": "명사"},
-        {"word": "터미널", "definition": "컴퓨터 명령어를 입력하는 프로그램", "difficulty_level": 3, "frequency_score": 40, "word_type": "명사"},
-        {"word": "널리", "definition": "넓게 퍼져서", "difficulty_level": 2, "frequency_score": 45, "word_type": "부사"},
-        {"word": "리모컨", "definition": "멀리서 조종하는 기계", "difficulty_level": 1, "frequency_score": 70, "word_type": "명사"},
-        {"word": "컨트롤", "definition": "조절하거나 통제하는 것", "difficulty_level": 2, "frequency_score": 60, "word_type": "명사"},
-        
-        # 감정 관련
-        {"word": "행복", "definition": "기쁘고 만족한 마음", "difficulty_level": 1, "frequency_score": 85, "word_type": "명사"},
-        {"word": "복잡", "definition": "얽혀서 어수선한 상태", "difficulty_level": 2, "frequency_score": 70, "word_type": "형용사"},
-        {"word": "잡다", "definition": "손으로 붙들다", "difficulty_level": 1, "frequency_score": 75, "word_type": "동사"},
-        {"word": "다정", "definition": "상냥하고 친근한", "difficulty_level": 2, "frequency_score": 50, "word_type": "형용사"},
-        {"word": "정말", "definition": "참으로, 진짜로", "difficulty_level": 1, "frequency_score": 95, "word_type": "부사"},
-        
-        # 자연 관련
-        {"word": "바다", "definition": "넓고 깊은 물", "difficulty_level": 1, "frequency_score": 85, "word_type": "명사"},
-        {"word": "다리", "definition": "몸을 지탱하는 부분 또는 강을 건너는 구조물", "difficulty_level": 1, "frequency_score": 80, "word_type": "명사"},
-        {"word": "리더", "definition": "이끄는 사람", "difficulty_level": 2, "frequency_score": 65, "word_type": "명사"},
-        {"word": "더불어", "definition": "함께", "difficulty_level": 2, "frequency_score": 55, "word_type": "부사"},
-        {"word": "어머니", "definition": "엄마", "difficulty_level": 1, "frequency_score": 90, "word_type": "명사"},
-        
-        # 시간 관련
-        {"word": "니들", "definition": "너희들", "difficulty_level": 1, "frequency_score": 60, "word_type": "대명사"},
-        {"word": "들판", "definition": "넓은 밭", "difficulty_level": 2, "frequency_score": 40, "word_type": "명사"},
-        {"word": "판단", "definition": "옳고 그름을 결정하는 것", "difficulty_level": 2, "frequency_score": 70, "word_type": "명사"},
-        {"word": "단어", "definition": "말의 최소 단위", "difficulty_level": 2, "frequency_score": 85, "word_type": "명사"},
-        {"word": "어린이", "definition": "나이가 적은 사람", "difficulty_level": 1, "frequency_score": 80, "word_type": "명사"},
-        
-        # 계절 관련
-        {"word": "이번", "definition": "지금 이때의", "difficulty_level": 1, "frequency_score": 90, "word_type": "관형사"},
-        {"word": "번호", "definition": "순서를 나타내는 숫자", "difficulty_level": 1, "frequency_score": 85, "word_type": "명사"},
-        {"word": "호수", "definition": "둘러싸인 큰 물", "difficulty_level": 2, "frequency_score": 50, "word_type": "명사"},
-        {"word": "수업", "definition": "가르치고 배우는 일", "difficulty_level": 1, "frequency_score": 85, "word_type": "명사"},
-        {"word": "업무", "definition": "해야 할 일", "difficulty_level": 2, "frequency_score": 75, "word_type": "명사"},
-        
-        # 색깔 관련
-        {"word": "무지개", "definition": "비 온 뒤 하늘에 나타나는 색띠", "difficulty_level": 1, "frequency_score": 60, "word_type": "명사"},
-        {"word": "개나리", "definition": "노란 꽃이 피는 나무", "difficulty_level": 2, "frequency_score": 45, "word_type": "명사"},
-        {"word": "리본", "definition": "장식용 끈", "difficulty_level": 1, "frequency_score": 50, "word_type": "명사"},
-        {"word": "본능", "definition": "타고난 능력", "difficulty_level": 3, "frequency_score": 40, "word_type": "명사"},
-        {"word": "능력", "definition": "어떤 일을 할 수 있는 힘", "difficulty_level": 2, "frequency_score": 80, "word_type": "명사"},
-        
-        # 추가 단어들
-        {"word": "력사", "definition": "역사의 다른 말", "difficulty_level": 2, "frequency_score": 30, "word_type": "명사"},
-        {"word": "사랑", "definition": "좋아하는 마음", "difficulty_level": 1, "frequency_score": 95, "word_type": "명사"},
-        {"word": "랑데부", "definition": "만남의 약속", "difficulty_level": 3, "frequency_score": 20, "word_type": "명사"},
-        {"word": "부모", "definition": "아버지와 어머니", "difficulty_level": 1, "frequency_score": 90, "word_type": "명사"},
-        {"word": "모든", "definition": "전부의", "difficulty_level": 1, "frequency_score": 85, "word_type": "관형사"},
-        {"word": "든든", "definition": "믿음직한", "difficulty_level": 2, "frequency_score": 60, "word_type": "형용사"},
-        
-        # 게임 관련 추가 단어들
-        {"word": "게임", "definition": "재미를 위한 놀이", "difficulty_level": 1, "frequency_score": 90, "word_type": "명사"},
-        {"word": "임무", "definition": "맡은 일이나 책임", "difficulty_level": 2, "frequency_score": 65, "word_type": "명사"},
-        {"word": "무기", "definition": "싸울 때 쓰는 도구", "difficulty_level": 1, "frequency_score": 70, "word_type": "명사"},
-        {"word": "기회", "definition": "좋은 때나 경우", "difficulty_level": 2, "frequency_score": 80, "word_type": "명사"},
-        {"word": "회전", "definition": "둥글게 돌리는 것", "difficulty_level": 2, "frequency_score": 60, "word_type": "명사"},
-        {"word": "전투", "definition": "싸우는 것", "difficulty_level": 2, "frequency_score": 55, "word_type": "명사"},
-        {"word": "투표", "definition": "의견을 나타내기 위해 표를 던지는 것", "difficulty_level": 2, "frequency_score": 70, "word_type": "명사"},
-        {"word": "표현", "definition": "생각이나 느낌을 나타내는 것", "difficulty_level": 2, "frequency_score": 75, "word_type": "명사"},
-        {"word": "현실", "definition": "실제로 존재하는 것", "difficulty_level": 2, "frequency_score": 80, "word_type": "명사"},
-        {"word": "실제", "definition": "정말로 있는", "difficulty_level": 2, "frequency_score": 75, "word_type": "형용사"}
-    ]
+    logger = logging.getLogger(__name__)
+    
+    # CSV 파일에서만 단어 로드
+    words_data = []
     
     # CSV 파일에서 확장 단어 데이터 읽기
-    csv_file_path = os.path.join(os.path.dirname(__file__), 'korean_words.csv')
+    csv_file_path = os.path.join(os.path.dirname(__file__), '..', 'database', 'data', 'korean_words.csv')
     
     if os.path.exists(csv_file_path):
         try:
             with open(csv_file_path, 'r', encoding='utf-8') as csvfile:
-                reader = csv.DictReader(csvfile)
-                for row in reader:
-                    # CSV 파일의 컬럼명에 맞게 매핑
-                    word_entry = {
-                        "word": row.get('word', '').strip(),
-                        "definition": row.get('definition', '').strip(),
-                        "difficulty_level": int(row.get('difficulty', 1)),
-                        "frequency_score": int(row.get('frequency', 50)),
-                        "word_type": row.get('type', '명사').strip()
-                    }
-                    
-                    # 필수 필드가 있는 경우만 추가
-                    if word_entry["word"]:
-                        words_data.append(word_entry)
+                reader = csv.reader(csvfile)
+                for row_num, row in enumerate(reader, 1):
+                    if len(row) >= 5:  # 최소 5개 컬럼 필요
+                        # CSV 형식: 단어,설명,난이도,빈도,품사,첫글자,마지막글자,길이
+                        word_entry = {
+                            "word": row[0].strip(),
+                            "definition": row[1].strip(),
+                            "difficulty_level": int(row[2]) if row[2].isdigit() else 1,
+                            "frequency_score": int(row[3]) if row[3].isdigit() else 50,
+                            "word_type": row[4].strip() if len(row) > 4 else '명사'
+                        }
+                        
+                        # 필수 필드가 있고 유효한 단어인 경우만 추가
+                        if word_entry["word"] and len(word_entry["word"]) > 0:
+                            words_data.append(word_entry)
             
-            logger.info(f"CSV에서 {len(words_data) - len([w for w in words_data if 'word' in w])} 개의 확장 단어를 추가로 로드했습니다")
+            csv_words_count = len(words_data)  # CSV에서만 로드
+            logger.info(f"CSV에서 {csv_words_count} 개의 단어를 로드했습니다")
         except Exception as e:
-            logger.warning(f"CSV 파일 읽기 실패, 기본 단어만 사용: {e}")
+            logger.warning(f"CSV 파일 읽기 실패: {e}")
     else:
-        logger.info("CSV 파일이 없어 기본 단어만 사용합니다")
+        logger.warning("CSV 파일이 없습니다")
     
     # 중복 제거를 위한 단어 집합
     unique_words = {}
-    
-    # 첫 글자, 마지막 글자, 단어 길이 자동 계산 및 중복 제거
     for word_data in words_data:
         word = word_data["word"]
+        # 첫 번째 등장한 단어만 유지
         if word not in unique_words:
-            word_data["first_char"] = word[0]
-            word_data["last_char"] = word[-1]
-            word_data["word_length"] = len(word)
             unique_words[word] = word_data
     
     logger.info(f"총 {len(unique_words)}개의 고유 단어를 처리합니다.")
     
-    # 배치로 삽입 (성능 향상)
+    # 데이터베이스에 삽입 (배치 처리)
+    batch_size = 1000
     words_to_insert = []
-    for word, word_data in unique_words.items():
-        # 데이터베이스 중복 확인
-        existing_word = db.query(KoreanDictionary).filter(KoreanDictionary.word == word).first()
+    
+    for word_data in unique_words.values():
+        # 중복 확인
+        existing_word = db.query(KoreanDictionary).filter(KoreanDictionary.word == word_data["word"]).first()
         if not existing_word:
-            words_to_insert.append(KoreanDictionary(**word_data))
+            # 첫 글자와 마지막 글자 계산
+            word = word_data["word"]
+            first_char = word[0] if word else ''
+            last_char = word[-1] if word else ''
             
+            korean_word = KoreanDictionary(
+                word=word_data["word"],
+                definition=word_data["definition"],
+                difficulty_level=word_data["difficulty_level"],
+                frequency_score=word_data["frequency_score"],
+                word_type=word_data["word_type"],
+                first_char=first_char,
+                last_char=last_char,
+                word_length=len(word)
+            )
+            
+            words_to_insert.append(korean_word)
+            
+            # 배치 크기에 도달하면 삽입
+            if len(words_to_insert) >= batch_size:
+                db.add_all(words_to_insert)
+                db.commit()
+                words_to_insert = []
+    
+    # 남은 단어들 삽입
     if words_to_insert:
         db.add_all(words_to_insert)
-        logger.info(f"{len(words_to_insert)}개 단어를 데이터베이스에 추가합니다.")
+        db.commit()
     
-    db.commit()
     logger.info("한국어 단어 데이터 삽입 완료")
 
 
-def insert_initial_data():
-    """모든 초기 데이터 삽입"""
+def main():
+    """메인 실행 함수"""
+    # 모든 테이블 생성
+    from models import Base
+    Base.metadata.create_all(bind=engine)
+    
+    # 데이터베이스 세션 생성
     db = SessionLocal()
+    
     try:
-        logger.info("기본 데이터 삽입 시작")
+        logger.info("초기 데이터 삽입 시작")
         
-        # 아이템 데이터 삽입
+        # 아이템 삽입
         insert_items(db)
         
-        # 한국어 단어 데이터 삽입
+        # 한국어 단어 삽입
         insert_korean_words(db)
         
-        logger.info("모든 기본 데이터 삽입 완료")
+        logger.info("모든 초기 데이터 삽입 완료")
         
     except Exception as e:
-        logger.error(f"기본 데이터 삽입 중 오류 발생: {e}")
+        logger.error(f"데이터 삽입 중 오류 발생: {e}")
         db.rollback()
         raise
     finally:
@@ -277,5 +210,5 @@ def insert_initial_data():
 
 
 if __name__ == "__main__":
-    # 직접 실행시 데이터 삽입
-    insert_initial_data()
+    logging.basicConfig(level=logging.INFO)
+    main()
