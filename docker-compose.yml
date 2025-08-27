@@ -55,8 +55,8 @@ services:
     build: 
       context: ./frontend
       dockerfile: ${ENVIRONMENT:-development}.Dockerfile
-    ports:
-      - "80:${FRONTEND_PORT}"
+    expose:
+      - "${FRONTEND_PORT}"
     environment:
       - VITE_API_URL=${VITE_API_URL}
       - VITE_WS_URL=${VITE_WS_URL}
