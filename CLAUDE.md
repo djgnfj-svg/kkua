@@ -53,7 +53,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Docker Development (Recommended)
 ```bash
-# Start all services
+# Quick start (개발 환경)
+./scripts/dev-start.sh
+
+# Or manually
 docker-compose up -d --build
 
 # Start specific services only

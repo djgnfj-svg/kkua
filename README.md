@@ -20,14 +20,19 @@ Pure WebSocket 아키텍처로 재설계된 차세대 끝말잇기 게임입니�
 
 ## 🚀 빠른 배포
 
-**로컬 배포 (권장)**
+**로컬/서버 배포**
 ```bash
-./quick-deploy.sh
+./scripts/quick-deploy.sh
+```
+
+**개발 환경 시작**
+```bash
+./scripts/dev-start.sh
 ```
 
 **AWS EC2 원클릭 배포**
 ```bash
-curl -o ec2-install.sh https://raw.githubusercontent.com/djgnfj-svg/kkua/develop/ec2-install.sh && chmod +x ec2-install.sh && ./ec2-install.sh
+curl -o ec2-install.sh https://raw.githubusercontent.com/djgnfj-svg/kkua/main/scripts/ec2-install.sh && chmod +x ec2-install.sh && ./ec2-install.sh
 ```
 
 **자동으로 처리되는 것들:**
@@ -53,7 +58,10 @@ curl -o ec2-install.sh https://raw.githubusercontent.com/djgnfj-svg/kkua/develop
 git clone https://github.com/djgnfj-svg/kkua.git
 cd kkua
 
-# Docker Compose로 전체 서비스 시작
+# 빠른 개발 환경 시작
+./scripts/dev-start.sh
+
+# 또는 수동으로
 docker-compose up -d --build
 
 # 또는 개발 환경 (데이터베이스만 Docker)

@@ -94,7 +94,7 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ./config/nginx.prod.conf:/etc/nginx/nginx.conf:ro
       - ./ssl:/etc/nginx/ssl:ro
       - nginx_cache:/var/cache/nginx
     depends_on:
