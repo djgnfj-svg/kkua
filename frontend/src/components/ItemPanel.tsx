@@ -175,12 +175,13 @@ export const ItemPanel: React.FC<ItemPanelProps> = ({
         return `${icon} 화면 흐림 ${item.effect_value?.duration || 4}초`;
       case 'falling_objects':
         const objectType = item.effect_value?.object_type || 'leaves';
-        const objectName = {
+        const objectNameMap: Record<string, string> = {
           leaves: '잎사귀',
           hearts: '하트',
           stars: '별',
           snow: '눈송이'
-        }[objectType as keyof typeof objectName] || '오브젝트';
+        };
+        const objectName = objectNameMap[objectType] || '오브젝트';
         return `${icon} ${objectName} 비 ${item.effect_value?.duration || 6}초`;
       case 'color_invert':
         return `${icon} 색상 반전 ${item.effect_value?.duration || 5}초`;
