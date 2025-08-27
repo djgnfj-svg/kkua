@@ -64,7 +64,7 @@ const getItemIcon = (effectType: string): string => {
     color_invert: '🎨'
   };
   
-  return iconMap[effectType] || '❓';
+  return iconMap[effectType as keyof typeof iconMap] || '❓';
 };
 
 export const ItemPanel: React.FC<ItemPanelProps> = ({
@@ -180,7 +180,7 @@ export const ItemPanel: React.FC<ItemPanelProps> = ({
           hearts: '하트',
           stars: '별',
           snow: '눈송이'
-        }[objectType] || '오브젝트';
+        }[objectType as keyof typeof objectName] || '오브젝트';
         return `${icon} ${objectName} 비 ${item.effect_value?.duration || 6}초`;
       case 'color_invert':
         return `${icon} 색상 반전 ${item.effect_value?.duration || 5}초`;
@@ -196,7 +196,7 @@ export const ItemPanel: React.FC<ItemPanelProps> = ({
   // 빈 슬롯을 만들어 총 5개 슬롯 보장
   const slots = [...displayItems];
   while (slots.length < 5) {
-    slots.push(null);
+    slots.push(null as any);
   }
 
   return (
