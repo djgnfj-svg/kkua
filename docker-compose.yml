@@ -1,5 +1,5 @@
-# KKUA V2 - 개발 환경 Docker Compose
-# 프로덕션 배포시에는 config/docker-compose.prod.yml 사용
+# KKUA V2 - 통합 Docker Compose
+# 환경변수로 개발/프로덕션 모드 전환
 
 version: '3.8'
 
@@ -7,78 +7,150 @@ services:
   # PostgreSQL 데이터베이스
   db:
     image: postgres:15
-    container_name: kkua-db-1
+    container_name: ${COMPOSE_PROJECT_NAME:-kkua}-db
     environment:
-      POSTGRES_DB: kkua_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
+      POSTGRES_DB: ${POSTGRES_DB:-kkua_db}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - kkua-network
+    restart: ${RESTART_POLICY:-no}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: ${HEALTH_INTERVAL:-5s}
       timeout: 5s
       retries: 5
 
   # Redis 캐시
   redis:
     image: redis:7-alpine
-    container_name: kkua-redis-1
+    container_name: ${COMPOSE_PROJECT_NAME:-kkua}-redis
+    command: redis-server ${REDIS_CONFIG:---maxmemory 128mb --maxmemory-policy allkeys-lru}
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
+    networks:
+      - kkua-network
+    restart: ${RESTART_POLICY:-no}
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
+      interval: ${HEALTH_INTERVAL:-5s}
       timeout: 5s
       retries: 5
 
   # FastAPI 백엔드
   backend:
-    build: ./backend
-    container_name: kkua-backend-1
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        ENVIRONMENT: ${ENVIRONMENT:-development}
+    container_name: ${COMPOSE_PROJECT_NAME:-kkua}-backend
     ports:
-      - "8000:8000"
+      - "${API_PORT:-8000}:8000"
     environment:
-      - DATABASE_URL=postgresql://postgres:password@db:5432/kkua_db
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-kkua_db}
       - REDIS_URL=redis://redis:6379/0
-      - SECRET_KEY=your-secret-key-change-in-production
-      - JWT_SECRET=your-jwt-secret-change-in-production
-      - ENVIRONMENT=development
-      - DEBUG=true
-      - CORS_ORIGINS=http://localhost:3000,http://localhost:5173
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-change-in-production}
+      - JWT_SECRET=${JWT_SECRET:-your-jwt-secret-change-in-production}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - DEBUG=${DEBUG:-true}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://localhost:5173}
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
     volumes:
-      - ./backend:/app
-      - ./database:/database
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+      # 개발 모드에서만 볼륨 마운트
+      - ${DEV_BACKEND_VOLUME:-./backend}:/app
+      - ${DEV_DATABASE_VOLUME:-./database}:/database
+    command: >
+      sh -c "
+        if [ \"$$ENVIRONMENT\" = \"production\" ]; then
+          uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4
+        else
+          uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+        fi
+      "
+    networks:
+      - kkua-network
+    restart: ${RESTART_POLICY:-no}
+    healthcheck:
+      test: ["CMD", "python", "scripts/healthcheck.py"]
+      interval: ${HEALTH_INTERVAL:-30s}
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
-  # React 프론트엔드 (개발용)
+  # React 프론트엔드
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile.dev
-    container_name: kkua-frontend-1
+      dockerfile: ${FRONTEND_DOCKERFILE:-Dockerfile.dev}
+      args:
+        NODE_ENV: ${NODE_ENV:-development}
+    container_name: ${COMPOSE_PROJECT_NAME:-kkua}-frontend
     ports:
-      - "5173:5173"
+      - "${FRONTEND_PORT:-5173}:${FRONTEND_INTERNAL_PORT:-5173}"
     environment:
-      - VITE_API_URL=http://localhost:8000
-      - VITE_WS_URL=ws://localhost:8000
-      - VITE_DEBUG=true
-      - CHOKIDAR_USEPOLLING=true
+      - NODE_ENV=${NODE_ENV:-development}
+      - VITE_API_URL=${VITE_API_URL:-http://localhost:8000}
+      - VITE_WS_URL=${VITE_WS_URL:-ws://localhost:8000}
+      - VITE_DEBUG=${VITE_DEBUG:-true}
+      - CHOKIDAR_USEPOLLING=${CHOKIDAR_USEPOLLING:-true}
     volumes:
-      - ./frontend:/app
-      - frontend_node_modules:/app/node_modules
-    command: npm run dev -- --host 0.0.0.0
+      # 개발 모드에서만 볼륨 마운트
+      - ${DEV_FRONTEND_VOLUME:-./frontend}:/app
+      - ${DEV_NODE_MODULES:-frontend_node_modules}:/app/node_modules
+    command: >
+      sh -c "
+        if [ \"$$NODE_ENV\" = \"production\" ]; then
+          nginx -g 'daemon off;'
+        else
+          npm run dev -- --host 0.0.0.0
+        fi
+      "
+    networks:
+      - kkua-network
+    restart: ${RESTART_POLICY:-no}
+
+  # Nginx 리버스 프록시 (프로덕션에서만)
+  nginx:
+    image: nginx:alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-kkua}-nginx
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./config/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ${SSL_CERT_PATH:-./ssl}:/etc/nginx/ssl:ro
+      - nginx_cache:/var/cache/nginx
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - kkua-network
+    restart: ${RESTART_POLICY:-no}
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    profiles:
+      - production  # 프로덕션 모드에서만 실행
+
+networks:
+  kkua-network:
+    driver: bridge
 
 volumes:
   postgres_data:
   redis_data:
   frontend_node_modules:
+  nginx_cache:

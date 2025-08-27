@@ -20,14 +20,18 @@ Pure WebSocket 아키텍처로 재설계된 차세대 끝말잇기 게임입니�
 
 ## 🚀 빠른 배포
 
-**로컬/서버 배포**
-```bash
-./scripts/quick-deploy.sh
-```
-
 **개발 환경 시작**
 ```bash
 ./scripts/dev-start.sh
+# 또는
+docker-compose --env-file .env.dev up -d
+```
+
+**프로덕션 배포**
+```bash
+./scripts/quick-deploy.sh
+# 또는
+docker-compose --profile production up -d
 ```
 
 **AWS EC2 원클릭 배포**
@@ -62,7 +66,7 @@ cd kkua
 ./scripts/dev-start.sh
 
 # 또는 수동으로
-docker-compose up -d --build
+docker-compose --env-file .env.dev up -d --build
 
 # 또는 개발 환경 (데이터베이스만 Docker)
 docker-compose up -d db redis

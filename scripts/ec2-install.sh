@@ -172,10 +172,10 @@ fi
 
 echo -e "${BLUE}🚀 서비스 배포 중...${NC}"
 # Docker 권한 문제 해결을 위해 sudo 사용
-sudo docker-compose -f config/docker-compose.prod.yml down --volumes --remove-orphans 2>/dev/null || true
+sudo docker-compose --profile production down --volumes --remove-orphans 2>/dev/null || true
 sudo docker system prune -af --volumes 2>/dev/null || true
-sudo docker-compose -f config/docker-compose.prod.yml build --no-cache
-sudo docker-compose -f config/docker-compose.prod.yml up -d
+sudo docker-compose --profile production build --no-cache
+sudo docker-compose --profile production up -d
 
 # 서비스 시작 대기
 echo -e "${BLUE}⏳ 서비스 시작 대기 중 (30초)...${NC}"
@@ -183,7 +183,7 @@ sleep 30
 
 # 헬스 체크
 echo -e "${BLUE}🔍 서비스 상태 확인 중...${NC}"
-if sudo docker-compose -f config/docker-compose.prod.yml ps | grep -q "Up"; then
+if sudo docker-compose --profile production ps | grep -q "Up"; then
     echo -e "${GREEN}✅ 설치 완료!${NC}"
     echo
     echo -e "${GREEN}🎮 게임: http://${PUBLIC_IP}${NC}"
@@ -191,14 +191,14 @@ if sudo docker-compose -f config/docker-compose.prod.yml ps | grep -q "Up"; then
     echo -e "${GREEN}❤️  헬스체크: http://${PUBLIC_IP}/health${NC}"
     echo
     echo -e "${YELLOW}📋 서비스 상태 확인:${NC}"
-    echo "   sudo docker-compose -f config/docker-compose.prod.yml ps"
+    echo "   sudo docker-compose --profile production ps"
     echo
     echo -e "${YELLOW}📋 로그 확인:${NC}"
-    echo "   sudo docker-compose -f config/docker-compose.prod.yml logs -f"
+    echo "   sudo docker-compose --profile production logs -f"
     echo
     echo -e "${YELLOW}🔐 환경변수는 .env 파일에 저장되었습니다${NC}"
 else
     echo -e "${RED}❌ 배포 실패. 로그를 확인하세요:${NC}"
-    sudo docker-compose -f config/docker-compose.prod.yml logs --tail=50
+    sudo docker-compose --profile production logs --tail=50
     exit 1
 fi

@@ -5,8 +5,6 @@
 ```
 kkua/
 ├── 🔧 config/                    # 설정 파일들
-│   ├── docker-compose.dev.yml    # 개발 환경 Docker 설정
-│   ├── docker-compose.prod.yml   # 프로덕션 환경 Docker 설정
 │   └── nginx.prod.conf           # Nginx 리버스 프록시 설정
 │
 ├── 📜 scripts/                   # 배포 및 유틸리티 스크립트
@@ -39,7 +37,9 @@ kkua/
 │   └── data/
 │       └── korean_words.csv    # 한국어 단어 데이터 (35만+ 단어)
 │
-├── docker-compose.yml          # 기본 개발 환경 Docker 설정
+├── docker-compose.yml          # 통합 Docker Compose 설정 (환경변수로 모드 전환)
+├── .env.dev                  # 개발 환경 변수
+├── .env.prod                 # 프로덕션 환경 변수  
 ├── .env.example               # 환경변수 예제 파일
 ├── CLAUDE.md                 # Claude Code 개발 가이드
 ├── README.md                 # 프로젝트 개요 및 사용법
@@ -49,9 +49,9 @@ kkua/
 ## 🎯 파일별 용도
 
 ### Docker 환경 설정
-- `docker-compose.yml` - **기본 개발 환경** (개발자가 주로 사용)
-- `config/docker-compose.dev.yml` - 상세 개발 설정 (docker-compose.yml과 동일)
-- `config/docker-compose.prod.yml` - **프로덕션 환경** (Nginx 포함, 멀티워커)
+- `docker-compose.yml` - **통합 설정** (환경변수로 개발/프로덕션 모드 전환)
+- `.env.dev` - 개발 환경 변수 (볼륨 마운트, 개발 모드)
+- `.env.prod` - 프로덕션 환경 변수 (Nginx 포함, 멀티워커, 재시작 정책)
 
 ### 배포 스크립트
 - `scripts/dev-start.sh` - 개발 환경 빠른 시작
@@ -68,13 +68,14 @@ kkua/
 ```bash
 ./scripts/dev-start.sh
 # 또는
-docker-compose up -d
+docker-compose --env-file .env.dev up -d
 ```
 
 ### 배포할 때  
 ```bash
 ./scripts/quick-deploy.sh
-# 내부적으로 config/docker-compose.prod.yml 사용
+# 또는  
+docker-compose --profile production up -d
 ```
 
 ### EC2에 배포할 때
@@ -82,4 +83,11 @@ docker-compose up -d
 curl -o ec2-install.sh https://raw.githubusercontent.com/djgnfj-svg/kkua/main/scripts/ec2-install.sh && chmod +x ec2-install.sh && ./ec2-install.sh
 ```
 
-이 구조로 개발과 배포를 명확하게 분리하고, 설정 파일들을 체계적으로 관리할 수 있습니다.
+이 **단일 docker-compose.yml** 구조로 개발과 배포를 환경변수로 간단하게 전환할 수 있고, 설정 파일들을 체계적으로 관리할 수 있습니다.
+
+## ✨ 통합 Docker Compose의 장점
+
+1. **파일 개수 감소**: 3개 → 1개로 간소화
+2. **일관된 설정**: 하나의 파일에서 모든 환경 관리  
+3. **환경 전환 용이**: `.env.dev` ↔ `.env.prod` 전환으로 모드 변경
+4. **유지보수 간편**: 설정 변경시 한 곳에서만 수정
