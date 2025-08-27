@@ -18,25 +18,16 @@ Pure WebSocket 아키텍처로 재설계된 차세대 끝말잇기 게임입니�
 - 💬 **실시간 채팅** - 게임 중 소통 기능
 - 📱 **모바일 반응형** - 모든 디바이스에서 최적화된 경험
 
-## 🚀 빠른 배포
+## 🚀 빠른 실행
 
-**개발 환경 시작**
+**개발 환경**
 ```bash
-./scripts/dev-start.sh
-# 또는
-docker-compose --env-file .env.dev up -d
+./dev.sh
 ```
 
 **프로덕션 배포**
 ```bash
-./scripts/quick-deploy.sh
-# 또는
-docker-compose --profile production up -d
-```
-
-**AWS EC2 원클릭 배포**
-```bash
-curl -o ec2-install.sh https://raw.githubusercontent.com/djgnfj-svg/kkua/main/scripts/ec2-install.sh && chmod +x ec2-install.sh && ./ec2-install.sh
+./deploy.sh
 ```
 
 **자동으로 처리되는 것들:**
@@ -63,13 +54,10 @@ git clone https://github.com/djgnfj-svg/kkua.git
 cd kkua
 
 # 빠른 개발 환경 시작
-./scripts/dev-start.sh
+./dev.sh
 
 # 또는 수동으로
-docker-compose --env-file .env.dev up -d --build
-
-# 또는 개발 환경 (데이터베이스만 Docker)
-docker-compose up -d db redis
+docker-compose --env-file .env.dev up -d
 
 # 백엔드 개발 서버 (터미널 1)
 cd backend
