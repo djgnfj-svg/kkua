@@ -1,55 +1,42 @@
 #!/usr/bin/env python3
 """
-Docker 헬스체크 스크립트
+Docker 헬스체크 스크립트 (간단한 버전)
 애플리케이션 상태를 확인하고 건강성을 판단
 """
 import sys
-import asyncio
-import aiohttp
+import urllib.request
+import urllib.error
 import json
 from pathlib import Path
 
-# 부모 디렉토리를 Python path에 추가
-sys.path.append(str(Path(__file__).parent.parent))
-
-async def check_health():
+def check_health():
     """헬스체크 실행"""
     try:
-        timeout = aiohttp.ClientTimeout(total=5)
+        # HTTP 헬스체크 엔드포인트 확인
+        req = urllib.request.Request('http://localhost:8000/health')
+        req.add_header('User-Agent', 'HealthCheck/1.0')
         
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            # 1. 기본 헬스체크 엔드포인트 확인
-            async with session.get('http://localhost:8000/health') as response:
-                if response.status != 200:
-                    print(f"Health endpoint returned status: {response.status}")
-                    return False
-                
-                health_data = await response.json()
-                print(f"Health check response: {health_data}")
-                
-                # 2. 필수 서비스 상태 확인
-                if not health_data.get('database', False):
-                    print("Database connection failed")
-                    return False
-                
-                if not health_data.get('redis', False):
-                    print("Redis connection failed") 
-                    return False
+        with urllib.request.urlopen(req, timeout=5) as response:
+            if response.status != 200:
+                print(f"Health endpoint returned status: {response.status}")
+                return False
             
-            # 3. WebSocket 엔드포인트 확인 (간단한 연결 테스트)
-            try:
-                import websockets
-                uri = "ws://localhost:8000/ws/test"
-                async with websockets.connect(uri, timeout=3) as websocket:
-                    await websocket.send(json.dumps({"type": "ping"}))
-                    response = await websocket.recv()
-                    print("WebSocket connection test passed")
-            except Exception as e:
-                print(f"WebSocket test failed: {e}")
-                # WebSocket 실패는 critical하지 않음 (선택적 체크)
+            health_data = json.loads(response.read().decode())
+            print(f"Health check response: {health_data}")
+            
+            # 서비스 상태 확인
+            if health_data.get('status') != 'healthy':
+                print(f"Service status: {health_data.get('status')}")
+                return False
         
         return True
         
+    except urllib.error.HTTPError as e:
+        print(f"HTTP error: {e.code} - {e.reason}")
+        return False
+    except urllib.error.URLError as e:
+        print(f"URL error: {e.reason}")
+        return False
     except Exception as e:
         print(f"Health check failed: {e}")
         return False
@@ -57,7 +44,7 @@ async def check_health():
 def main():
     """메인 함수"""
     try:
-        result = asyncio.run(check_health())
+        result = check_health()
         if result:
             print("✓ Health check passed")
             sys.exit(0)

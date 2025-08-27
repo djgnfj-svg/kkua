@@ -11,8 +11,6 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./backend/scripts/init_data.py:/docker-entrypoint-initdb.d/init_data.py
-      - ./backend/scripts/kkutu_words.json:/docker-entrypoint-initdb.d/kkutu_words.json
     networks:
       - kkua-network
     restart: unless-stopped
