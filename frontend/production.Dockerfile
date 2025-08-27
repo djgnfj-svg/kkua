@@ -12,7 +12,17 @@ COPY . .
 
 # 프로덕션 빌드
 ARG NODE_ENV=production
+ARG VITE_API_URL
+ARG VITE_WS_URL
+ARG VITE_NODE_ENV=production
+ARG VITE_DEBUG=false
+
 ENV NODE_ENV=${NODE_ENV}
+ENV VITE_API_URL=${VITE_API_URL}
+ENV VITE_WS_URL=${VITE_WS_URL}
+ENV VITE_NODE_ENV=${VITE_NODE_ENV}
+ENV VITE_DEBUG=${VITE_DEBUG}
+
 RUN npm run build
 
 # Production stage with nginx
