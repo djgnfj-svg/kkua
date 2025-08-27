@@ -9,7 +9,7 @@ sudo curl -L "https://github.com/docker/compose/releases/download/v2.20.0/docker
 ```
 
 ```bash
-git clone https://github.com/djgnfj-svg/kkua.git && cd kkua
+git clone https://github.com/djgnfj-svg/kkua.git && cd kkua && chmod +x *.sh
 ```
 
 ```bash
