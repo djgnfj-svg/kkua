@@ -48,10 +48,6 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 # nginx 설정 파일 복사
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# nginx가 non-root 사용자로 실행되도록 설정
-RUN addgroup -g 1001 -S nginx && \
-    adduser -S -D -H -u 1001 -h /var/cache/nginx -s /sbin/nologin -G nginx -g nginx nginx
-
 # 포트 노출
 EXPOSE 5173
 
