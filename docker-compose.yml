@@ -38,13 +38,13 @@ services:
       - CORS_ORIGINS=${CORS_ORIGINS}
       - SECRET_KEY=${SECRET_KEY}
       - JWT_SECRET=${JWT_SECRET}
+      - DEBUG=${DEBUG}
+      - LOG_LEVEL=${LOG_LEVEL}
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
-      frontend:
-        condition: service_started
     volumes:
       - ./backend:/app
       - ./database:/database
@@ -63,6 +63,9 @@ services:
         - VITE_WS_URL=${VITE_WS_URL}
         - VITE_NODE_ENV=${VITE_NODE_ENV}
         - VITE_DEBUG=${VITE_DEBUG}
+        - VITE_GAME_TIMER_DURATION=${VITE_GAME_TIMER_DURATION}
+        - VITE_RECONNECT_INTERVAL=${VITE_RECONNECT_INTERVAL}
+        - VITE_MAX_RECONNECT_ATTEMPTS=${VITE_MAX_RECONNECT_ATTEMPTS}
     expose:
       - "${FRONTEND_PORT}"
     environment:
