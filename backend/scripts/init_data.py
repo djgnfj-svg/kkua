@@ -3,6 +3,10 @@
 아이템, 한국어 단어 등의 초기 데이터를 데이터베이스에 삽입
 """
 
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from sqlalchemy.orm import Session
 from database import SessionLocal, engine
 from models import Item, KoreanDictionary
@@ -141,14 +145,22 @@ def insert_korean_words(db: Session):
     
     logger.info(f"총 {len(unique_words)}개의 고유 단어를 처리합니다.")
     
-    # 데이터베이스에 삽입 (배치 처리)
-    batch_size = 1000
+    # 기존 단어들을 한번에 조회하여 중복 확인 최적화
+    existing_words_query = db.query(KoreanDictionary.word).all()
+    existing_words_set = {row.word for row in existing_words_query}
+    logger.info(f"기존 DB에 {len(existing_words_set)}개의 단어가 있습니다.")
+    
+    # 데이터베이스에 삽입할 단어들만 필터링
     words_to_insert = []
+    processed_count = 0
     
     for word_data in unique_words.values():
-        # 중복 확인
-        existing_word = db.query(KoreanDictionary).filter(KoreanDictionary.word == word_data["word"]).first()
-        if not existing_word:
+        processed_count += 1
+        if processed_count % 10000 == 0:
+            logger.info(f"처리 진행률: {processed_count}/{len(unique_words)} ({processed_count/len(unique_words)*100:.1f}%)")
+        
+        # 중복 확인 (메모리 내에서 빠르게 처리)
+        if word_data["word"] not in existing_words_set:
             # 첫 글자와 마지막 글자 계산
             word = word_data["word"]
             first_char = word[0] if word else ''
@@ -166,17 +178,43 @@ def insert_korean_words(db: Session):
             )
             
             words_to_insert.append(korean_word)
-            
-            # 배치 크기에 도달하면 삽입
-            if len(words_to_insert) >= batch_size:
-                db.add_all(words_to_insert)
-                db.commit()
-                words_to_insert = []
     
-    # 남은 단어들 삽입
+    logger.info(f"삽입할 새로운 단어: {len(words_to_insert)}개")
+    
+    # 초고속 배치 삽입 (bulk_insert_mappings 사용)
     if words_to_insert:
-        db.add_all(words_to_insert)
-        db.commit()
+        # 객체를 딕셔너리로 변환 (bulk_insert_mappings용)
+        words_dict_list = []
+        for word_obj in words_to_insert:
+            words_dict_list.append({
+                'word': word_obj.word,
+                'definition': word_obj.definition,
+                'difficulty_level': word_obj.difficulty_level,
+                'frequency_score': word_obj.frequency_score,
+                'word_type': word_obj.word_type,
+                'first_char': word_obj.first_char,
+                'last_char': word_obj.last_char,
+                'word_length': word_obj.word_length
+            })
+        
+        batch_size = 10000  # 더 큰 배치 크기
+        total_batches = (len(words_dict_list) + batch_size - 1) // batch_size
+        
+        logger.info(f"초고속 bulk insert 시작: {total_batches}개 배치로 처리")
+        
+        for i in range(0, len(words_dict_list), batch_size):
+            batch = words_dict_list[i:i + batch_size]
+            batch_num = (i // batch_size) + 1
+            
+            logger.info(f"배치 {batch_num}/{total_batches} 삽입 중... ({len(batch)}개 단어)")
+            
+            # SQLAlchemy의 bulk_insert_mappings 사용 (매우 빠름)
+            db.bulk_insert_mappings(KoreanDictionary, batch)
+            db.commit()
+            
+            logger.info(f"배치 {batch_num} 완료")
+        
+        logger.info(f"총 {len(words_to_insert)}개의 새로운 단어 삽입 완료")
     
     logger.info("한국어 단어 데이터 삽입 완료")
 

@@ -20,9 +20,11 @@ RUN pip install --upgrade pip && \
 # Production stage
 FROM python:3.11-slim
 
-# 런타임 의존성만 설치
+# 런타임 의존성만 설치 (PostgreSQL 클라이언트와 Redis 클라이언트 추가)
 RUN apt-get update && apt-get install -y \
     libpq5 \
+    postgresql-client \
+    redis-tools \
     curl \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
@@ -46,13 +48,15 @@ COPY --chown=kkua:kkua database_schema.sql .
 COPY --chown=kkua:kkua models/ ./models/
 COPY --chown=kkua:kkua services/ ./services/
 COPY --chown=kkua:kkua websocket/ ./websocket/
+COPY --chown=kkua:kkua utils/ ./utils/
 
 # 로그 디렉토리 생성
 RUN mkdir -p /app/logs && chown -R kkua:kkua /app/logs
 
 # 스크립트 파일들 추가
 COPY --chown=kkua:kkua scripts/ ./scripts/
-RUN chmod +x ./scripts/healthcheck.py
+RUN chmod +x ./scripts/healthcheck.py && \
+    chmod +x ./scripts/wait-for-db.sh
 
 # 사용자 전환
 USER kkua
@@ -67,6 +71,9 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 # 환경별 실행 명령
 ARG ENVIRONMENT=development
 ENV ENVIRONMENT=${ENVIRONMENT}
+
+# DB와 Redis가 준비될 때까지 대기 후 실행
+ENTRYPOINT ["/bin/sh", "./scripts/wait-for-db.sh"]
 
 # Production에서는 multi-worker, development에서는 reload
 CMD if [ "$ENVIRONMENT" = "production" ]; then \
