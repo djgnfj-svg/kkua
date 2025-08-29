@@ -24,6 +24,7 @@ interface ChatPanelProps {
   roomId?: string;
   isGameActive?: boolean;
   onItemUse?: (itemId: number, targetUserId?: number) => void;
+  onItemRefreshRef?: (refreshFn: () => void) => void;
 }
 
 export const ChatPanel: React.FC<ChatPanelProps> = ({
@@ -37,7 +38,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   // 아이템 관련 props
   roomId,
   isGameActive = false,
-  onItemUse
+  onItemUse,
+  onItemRefreshRef
 }) => {
   const [inputValue, setInputValue] = useState('');
   const [wordValidation, setWordValidation] = useState<{ isValid: boolean; message?: string }>({ isValid: false });
@@ -179,6 +181,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
               isGameActive={isGameActive}
               isMyTurn={isMyTurn}
               onItemUse={onItemUse}
+              onRefreshRef={onItemRefreshRef}
             />
           </div>
         </div>

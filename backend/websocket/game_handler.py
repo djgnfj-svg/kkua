@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 # 서비스에서 필요한 설정값들
 class GameConfig:
     """게임 설정"""
-    MIN_PLAYERS = 2
+    MIN_PLAYERS = 1
     MAX_PLAYERS = 8
     TURN_TIMEOUT = 30
     MIN_WORD_LENGTH = 2
@@ -1258,6 +1258,20 @@ class GameEventHandler:
                 })
                 await asyncio.sleep(1)
             
+            logger.info(f"카운트다운 완료, 아이템 지급 단계 시작: room_id={room_id}")
+            
+            # 게임 시작 시 모든 플레이어에게 아이템 지급
+            logger.info(f"아이템 지급 시작: room_id={room_id}, players={len(game_state.players)}")
+            startup_items = {}
+            for player in game_state.players:
+                logger.info(f"플레이어 {player.user_id}({player.nickname})에게 아이템 지급 시도")
+                startup_item = await self.item_service.give_startup_item(player.user_id)
+                if startup_item:
+                    startup_items[player.user_id] = startup_item.to_dict()
+                    logger.info(f"아이템 지급 성공: user_id={player.user_id}, item={startup_item.name}")
+                else:
+                    logger.warning(f"아이템 지급 실패: user_id={player.user_id}")
+            
             # 카운트다운 완료 후 게임 실제 시작
             current_player = game_state.get_current_player()
             await self.websocket_manager.broadcast_to_room(room_id, {
@@ -1274,8 +1288,21 @@ class GameEventHandler:
                     "players": [{"user_id": p.user_id, "nickname": p.nickname, "score": p.score} for p in game_state.players],
                     "scores": {p.user_id: p.score for p in game_state.players},  # 점수 추가
                     "message": "🎮 게임 시작! 첫 번째 단어를 입력하세요.",
+                    "startup_items": startup_items  # 시작 아이템 정보 추가
                 }
             })
+            
+            # 개별 아이템 지급 알림 전송
+            for user_id, item_info in startup_items.items():
+                await self.websocket_manager.send_to_user(user_id, {
+                    "type": "startup_item_received",
+                    "data": {
+                        "item": item_info,
+                        "message": f"🎁 게임 시작 아이템을 받았습니다: {item_info['name']}"
+                    }
+                })
+            
+            logger.info(f"게임 시작 아이템 지급 완료: room_id={room_id}, items={len(startup_items)}")
             
             # 첫 번째 턴 타이머 시작
             if current_player:

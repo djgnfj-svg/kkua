@@ -156,6 +156,9 @@ const GameRoomPage: React.FC = () => {
     duration: number;
     value?: any;
   }>>([]);
+
+  // 아이템 패널 새로고침 함수 참조
+  const itemPanelRefreshRef = useRef<(() => void) | null>(null);
   
 
   // 타이머 카운트다운 (부드러운 연속 애니메이션) - 모든 플레이어에게 표시
@@ -421,6 +424,26 @@ const GameRoomPage: React.FC = () => {
       timestamp: new Date().toISOString(),
       type: 'user' as const
     }]);
+  }, []);
+
+  // 게임 시작 아이템 수령 이벤트
+  const handleStartupItemReceived = useCallback((data: any) => {
+    console.log('🎁 게임 시작 아이템 수령:', data);
+    
+    // 아이템 수령 메시지를 채팅에 추가
+    setChatMessages(prev => [...prev, {
+      id: `item-${Date.now()}-${Math.random()}`,
+      userId: 0,
+      nickname: '시스템',
+      message: data.message || '🎁 게임 시작 아이템을 받았습니다!',
+      timestamp: new Date().toISOString(),
+      type: 'system' as const
+    }]);
+
+    // ItemPanel 새로고침 호출
+    if (itemPanelRefreshRef.current) {
+      itemPanelRefreshRef.current();
+    }
   }, []);
 
   // const addSystemMessage = useCallback((message: string) => {
@@ -918,6 +941,7 @@ const GameRoomPage: React.FC = () => {
     on('player_joined', handlePlayerJoined);
     on('player_left', handlePlayerLeft);
     on('chat_message', handleChatMessage);
+    on('startup_item_received', handleStartupItemReceived);
     on('game_started', handleGameStarted);
     on('word_submitted', handleWordSubmitted);
     on('word_submission_failed', handleWordSubmissionFailed);
@@ -1487,8 +1511,8 @@ const GameRoomPage: React.FC = () => {
                       </div>
                       <h3 className="text-white text-xl font-bold mb-2">끝말잇기 게임</h3>
                       <p className="text-purple-200 text-sm">
-                        {(currentRoom?.players?.length || 0) < 2 
-                          ? `게임 시작을 위해 최소 2명의 플레이어가 필요합니다`
+                        {(currentRoom?.players?.length || 0) < 1 
+                          ? `게임 시작을 위해 최소 1명의 플레이어가 필요합니다`
                           : '모든 플레이어가 준비되면 게임을 시작할 수 있습니다'
                         }
                       </p>
@@ -1564,7 +1588,7 @@ const GameRoomPage: React.FC = () => {
                             disabled={
                               !isConnected || 
                               !currentRoom?.players?.every(p => p.isReady || p.isHost) ||
-                              (currentRoom?.players?.length || 0) < 2
+                              (currentRoom?.players?.length || 0) < 1
                             }
                             className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
                           >
@@ -1572,9 +1596,9 @@ const GameRoomPage: React.FC = () => {
                           </Button>
                         )}
                         
-                        {(currentRoom?.players?.length || 0) < 2 && (
+                        {(currentRoom?.players?.length || 0) < 1 && (
                           <p className="text-center text-purple-200 text-xs">
-                            최소 2명이 필요합니다 (현재 {currentRoom?.players?.length || 0}명)
+                            최소 1명이 필요합니다 (현재 {currentRoom?.players?.length || 0}명)
                           </p>
                         )}
                       </div>
@@ -1602,6 +1626,9 @@ const GameRoomPage: React.FC = () => {
                       target_user_id: targetUserId 
                     });
                   }
+                }}
+                onItemRefreshRef={(refreshFn) => {
+                  itemPanelRefreshRef.current = refreshFn;
                 }}
               />
             </div>

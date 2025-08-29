@@ -24,6 +24,7 @@ interface ItemPanelProps {
   isGameActive: boolean;
   isMyTurn: boolean;
   onItemUse?: (itemId: number, targetUserId?: number) => void;
+  onRefreshRef?: (refreshFn: () => void) => void;
 }
 
 const rarityColors = {
@@ -72,7 +73,8 @@ export const ItemPanel: React.FC<ItemPanelProps> = ({
   // roomId, // 사용하지 않음
   isGameActive,
   isMyTurn,
-  onItemUse
+  onItemUse,
+  onRefreshRef
 }) => {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -85,8 +87,33 @@ export const ItemPanel: React.FC<ItemPanelProps> = ({
       setLoading(true);
       const response = await apiEndpoints.items.inventory(userId);
       
+      console.log('🎒 인벤토리 API 응답:', response.data);
+      
       if (response.data.success) {
-        setInventory(response.data.inventory || []);
+        // API 응답의 중첩된 구조를 평탄한 구조로 변환
+        const flattenedInventory = (response.data.inventory || []).map((inventoryItem: any) => {
+          console.log('📦 원본 inventoryItem:', inventoryItem);
+          
+          // 안전한 변환: inventoryItem.item이 존재하지 않는 경우 대비
+          let itemData = inventoryItem.item || inventoryItem;
+          
+          const flattened = {
+            id: itemData.id,
+            name: itemData.name || '알 수 없는 아이템',
+            description: itemData.description || '설명 없음',
+            rarity: itemData.rarity || 'common',
+            effect_type: itemData.effect_type || 'unknown',
+            effect_value: itemData.effect_value || {},
+            cooldown_seconds: itemData.cooldown_seconds || 0,
+            quantity: inventoryItem.quantity || 1,
+            cooldown_remaining: inventoryItem.cooldown_remaining || 0
+          };
+          console.log('📋 변환된 flattened:', flattened);
+          return flattened;
+        });
+        
+        console.log('🎯 최종 flattenedInventory:', flattenedInventory);
+        setInventory(flattenedInventory);
       }
     } catch (error) {
       console.error('인벤토리 로딩 실패:', error);
@@ -99,6 +126,13 @@ export const ItemPanel: React.FC<ItemPanelProps> = ({
   useEffect(() => {
     loadInventory();
   }, [loadInventory]);
+
+  // 새로고침 함수를 부모로 전달
+  useEffect(() => {
+    if (onRefreshRef) {
+      onRefreshRef(loadInventory);
+    }
+  }, [onRefreshRef, loadInventory]);
 
   const handleItemUse = useCallback((item: InventoryItem) => {
     if (!isGameActive) {

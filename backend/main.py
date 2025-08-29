@@ -195,9 +195,33 @@ async def guest_login(request: GuestLoginRequest):
         
         nickname = request.nickname.strip()
         
-        # 간단한 사용자 ID 생성 (실제로는 DB에서 관리해야 함)
-        import time
-        user_id = int(time.time() * 1000) % 1000000  # 임시 ID 생성
+        # 데이터베이스에 사용자 생성
+        from database import get_db
+        from models.user_models import User
+        from sqlalchemy import select
+        
+        db = next(get_db())
+        
+        # 닉네임으로 기존 사용자 확인
+        result = db.execute(select(User).where(User.nickname == nickname))
+        existing_user = result.scalars().first()
+        
+        if existing_user:
+            # 기존 사용자 로그인
+            user_id = existing_user.id
+            logger.info(f"기존 사용자 로그인: {nickname} (ID: {user_id})")
+        else:
+            # 새 사용자 생성 (DB가 자동으로 id 생성)
+            new_user = User(
+                nickname=nickname,
+                email=f"guest_{nickname}@temp.com",  # 임시 이메일
+                is_active=True
+            )
+            db.add(new_user)
+            db.commit()
+            db.refresh(new_user)  # DB에서 생성된 id 가져오기
+            user_id = new_user.id
+            logger.info(f"새 게스트 사용자 생성: {nickname} (ID: {user_id})")
         
         # JWT 토큰 생성
         token = auth_service.create_guest_token(user_id, nickname)

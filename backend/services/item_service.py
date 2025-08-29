@@ -892,6 +892,73 @@ class ItemService:
             logger.error(f"인벤토리 조회 중 오류: {e}")
             return []
 
+    async def get_all_items(self) -> List[Dict[str, Any]]:
+        """모든 활성 아이템 목록 조회"""
+        try:
+            db = next(get_db())
+            
+            result = db.execute(
+                select(Item)
+                .where(Item.is_active == True)
+                .order_by(Item.rarity, Item.name)
+            )
+            
+            items = []
+            for row in result.fetchall():
+                item = row[0]  # Row 객체에서 Item 인스턴스 추출
+                items.append(item.to_dict())
+            
+            return items
+            
+        except Exception as e:
+            logger.error(f"아이템 목록 조회 중 오류: {e}")
+            return []
+    
+    async def give_startup_item(self, user_id: int) -> Optional[Item]:
+        """게임 시작 시 플레이어에게 랜덤 아이템 1개 지급"""
+        try:
+            db = next(get_db())
+            
+            # 모든 활성 아이템 조회
+            result = db.execute(select(Item).where(Item.is_active == True))
+            available_items = result.scalars().all()
+            
+            if not available_items:
+                logger.warning("지급 가능한 아이템이 없습니다")
+                return None
+            
+            # 희귀도별 가중치 설정 (일반 아이템이 더 많이 나오도록)
+            weighted_items = []
+            for item in available_items:
+                # 희귀도가 낮을수록 더 많은 가중치
+                if item.rarity == "common":
+                    weight = 50
+                elif item.rarity == "uncommon":
+                    weight = 25
+                elif item.rarity == "rare":
+                    weight = 15
+                elif item.rarity == "epic":
+                    weight = 8
+                elif item.rarity == "legendary":
+                    weight = 2
+                else:
+                    weight = 10  # 기본값
+                
+                weighted_items.extend([item] * weight)
+            
+            # 랜덤 선택
+            selected_item = random.choice(weighted_items)
+            
+            # 인벤토리에 추가
+            await self._add_item_to_inventory(user_id, selected_item.id, 1)
+            
+            logger.info(f"게임 시작 아이템 지급: user_id={user_id}, item={selected_item.name}")
+            return selected_item
+            
+        except Exception as e:
+            logger.error(f"게임 시작 아이템 지급 중 오류: {e}")
+            return None
+
 
 # 전역 아이템 서비스 인스턴스
 item_service = ItemService()
