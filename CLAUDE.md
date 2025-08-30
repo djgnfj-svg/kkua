@@ -50,46 +50,52 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Development Commands
 
-### Docker Development (Recommended)
+### Development Environment
 ```bash
-# Quick start (개발 환경)
+# 개발 환경 시작
 ./dev.sh
 
-# Or manually
-docker-compose up -d --build
+# 수동 시작
+docker-compose --env-file .env.dev up -d --build
 
-# Start specific services only
-docker-compose up -d db redis backend
-docker-compose up -d frontend
+# 로그 확인
+docker-compose --env-file .env.dev logs -f
 
-# View logs
-docker-compose logs -f backend
-docker-compose logs -f frontend
-
-# Stop services
-docker-compose down
+# 서비스 중지
+docker-compose --env-file .env.dev down
 ```
 
-### Local Development
+### Production Environment
 ```bash
-# Database only in Docker
-docker-compose up -d db redis
+# 프로덕션 배포 (도메인 설정 필요)
+./prod.sh
 
-# Backend dev server
-cd backend
-python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
+# 수동 시작
+docker-compose --env-file .env.prod up -d --build
 
-# Frontend dev server
-cd frontend
-npm install
-npm run dev
+# 로그 확인
+docker-compose --env-file .env.prod logs -f
+
+# 서비스 중지
+docker-compose --env-file .env.prod down
 ```
 
-### Access Points
+### Environment Configuration
+
+#### Development (.env.dev)
 - **Frontend**: http://localhost:5173
-- **Backend API**: http://localhost:8000
-- **API Docs**: http://localhost:8000/docs
-- **WebSocket**: ws://localhost:8000
+- **Backend API**: http://localhost:8000  
+- **API Docs**: http://localhost/docs
+- **WebSocket**: ws://localhost
+- **Database**: Simple password for dev
+
+#### Production (.env.prod)
+- **도메인 설정 필요**: `your-domain.com`을 실제 도메인으로 변경
+- **HTTPS/WSS**: 보안 연결 사용
+- **보안 키**: 강력한 패스워드 설정 필요
+- **모니터링**: 활성화됨
+
+### Database Access
 - **PostgreSQL**: localhost:5432 (postgres/password/kkua_db)
 - **Redis**: localhost:6379
 
