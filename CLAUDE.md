@@ -143,12 +143,24 @@ docker-compose logs -f
 docker-compose logs -f backend
 docker-compose logs -f frontend
 
+# 파일 로그 확인 (권장)
+tail -f logs/kkua.log
+cat logs/kkua.log | grep ERROR
+cat logs/kkua.log | grep -E "(게스트 로그인|게임룸 생성|아이템 사용)"
+
 # Redis monitoring
 docker exec kkua-redis-1 redis-cli monitor
 
 # Service status check
 docker-compose ps
 ```
+
+### Log Files
+- **위치**: `./logs/kkua.log`
+- **로테이션**: 50MB 단위로 3개 파일까지 보관
+- **포맷**: `YYYY-MM-DD HH:MM:SS [레벨] 모듈명: 메시지`
+- **레벨**: DEBUG, INFO, WARNING, ERROR
+- **설정**: `LOG_LEVEL` 환경변수로 제어
 
 ### Database Access
 ```bash
@@ -212,11 +224,13 @@ docker exec kkua-backend-1 python scripts/init_data.py
 - ✅ JWT auth-based WebSocket communication
 - ✅ Word card system (difficulty-based colors, animations)
 - ✅ Player card UI (status display, score management)
-- ✅ Item system (5 rarity levels)
+- ✅ Item system (5 rarity levels + 방해 아이템)
+- ✅ Visual distraction effects (고양이, 화면흔들기, 흐림, 낙하물, 색상반전)
 - ✅ Game report and ranking system
 - ✅ Responsive mobile design
 - ✅ Auto-reconnect logic
 - ✅ Docker container environment
+- ✅ File logging system (개발/프로덕션)
 
 ### Production Deployment
 ```bash

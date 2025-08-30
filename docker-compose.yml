@@ -53,6 +53,7 @@ services:
     volumes:
       - ./backend:/app
       - ./database:/database
+      - ./logs:/app/logs
     healthcheck:
       test: ["CMD", "python", "scripts/healthcheck.py"]
       interval: 30s

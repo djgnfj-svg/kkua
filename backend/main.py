@@ -15,9 +15,34 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # 로깅 설정
+from logging.handlers import RotatingFileHandler
+
+# 로그 디렉토리 생성
+os.makedirs("/app/logs", exist_ok=True)
+
+# 핸들러 설정
+handlers = [logging.StreamHandler()]  # 콘솔 출력
+
+# 파일 로깅 추가 (개발환경 포함 모든 환경)
+try:
+    file_handler = RotatingFileHandler(
+        '/app/logs/kkua.log',
+        maxBytes=50*1024*1024,  # 50MB
+        backupCount=3,
+        encoding='utf-8'
+    )
+    file_handler.setFormatter(logging.Formatter(
+        "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    ))
+    handlers.append(file_handler)
+    print("파일 로깅 활성화: /app/logs/kkua.log")
+except Exception as e:
+    print(f"파일 로깅 설정 실패: {e}")
+
 logging.basicConfig(
     level=getattr(logging, os.getenv("LOG_LEVEL", "INFO")),
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=handlers
 )
 logger = logging.getLogger(__name__)
 
