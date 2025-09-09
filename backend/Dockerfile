@@ -44,7 +44,6 @@ COPY --chown=kkua:kkua main.py .
 COPY --chown=kkua:kkua auth.py .
 COPY --chown=kkua:kkua database.py .
 COPY --chown=kkua:kkua redis_models.py .
-COPY --chown=kkua:kkua database_schema.sql .
 COPY --chown=kkua:kkua models/ ./models/
 COPY --chown=kkua:kkua services/ ./services/
 COPY --chown=kkua:kkua websocket/ ./websocket/

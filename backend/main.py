@@ -1,5 +1,5 @@
 """
-끄아(KKUA) V2 - FastAPI 메인 애플리케이션
+끄아(KKUA) - FastAPI 메인 애플리케이션
 Pure WebSocket 아키텍처 기반 실시간 멀티플레이어 한국어 끝말잇기 게임
 """
 
@@ -54,7 +54,7 @@ from database import init_database, test_connections
 async def lifespan(app: FastAPI):
     """애플리케이션 생명주기 관리"""
     # 시작 시
-    logger.info("끄아(KKUA) V2 서버 시작 중...")
+    logger.info("끄아(KKUA) 서버 시작 중...")
     
     try:
         # 데이터베이스 연결 테스트
@@ -67,7 +67,7 @@ async def lifespan(app: FastAPI):
         if os.getenv("INIT_DB", "true").lower() == "true":
             init_database()
         
-        logger.info("끄아(KKUA) V2 서버 시작 완료")
+        logger.info("끄아(KKUA) 서버 시작 완료")
         
         yield
         
@@ -76,12 +76,12 @@ async def lifespan(app: FastAPI):
         raise
     
     # 종료 시
-    logger.info("끄아(KKUA) V2 서버 종료 중...")
+    logger.info("끄아(KKUA) 서버 종료 중...")
 
 
 # FastAPI 앱 생성
 app = FastAPI(
-    title="끄아(KKUA) V2",
+    title="끄아(KKUA)",
     description="Pure WebSocket 아키텍처 기반 실시간 멀티플레이어 한국어 끝말잇기 게임",
     version="2.0.0",
     lifespan=lifespan
@@ -112,7 +112,7 @@ if os.getenv("ENVIRONMENT") == "production":
 async def root():
     """루트 엔드포인트"""
     return {
-        "message": "끄아(KKUA) V2 - Pure WebSocket 아키텍처 한국어 끝말잇기 게임",
+        "message": "끄아(KKUA) - Pure WebSocket 아키텍처 한국어 끝말잇기 게임",
         "version": "2.0.0",
         "status": "running",
         "features": [

@@ -73,7 +73,7 @@ class TokenManager:
         except jwt.ExpiredSignatureError:
             logger.warning("만료된 JWT 토큰")
             raise AuthenticationError("토큰이 만료되었습니다")
-        except jwt.JWTError as e:
+        except jwt.InvalidTokenError as e:
             logger.error(f"JWT 토큰 검증 실패: {e}")
             raise AuthenticationError("유효하지 않은 토큰입니다")
     
